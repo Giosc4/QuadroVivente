@@ -86,13 +86,12 @@ def draw_sun(surface, t):
         pygame.draw.line(layer, (255, 220, 50, 150), (sx, sy), (ex, ey), 4)
     surface.blit(layer, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
 
-
 def init_leaves(w, h):
     global _LEAVES
     min_y = h * 0.4
     if not _LEAVES or _LEAVES[0].get('w') != w or _LEAVES[0].get('h') != h:
         _LEAVES.clear()
-        for _ in range(15):  # meno foglie
+        for _ in range(10):
             side = random.choice(['left','right'])
             x0 = 0 if side=='left' else w
             y0 = random.uniform(min_y, h)
@@ -103,13 +102,79 @@ def init_leaves(w, h):
             angle_offset = random.uniform(-45,45)
             drift_amp = random.uniform(10,30)
             drift_freq = random.uniform(0.5,1.5)
+            vert_amp = random.uniform(10, 20)          # ampiezza oscillazione verticale
+            vert_freq = random.uniform(0.3, 0.8)       # frequenza oscillazione verticale
+            vert_phase = random.uniform(0, 2*math.pi)  # fase iniziale
             _LEAVES.append({
                 'x0': x0, 'y0': y0,
                 'angle': angle, 'speed': speed,
                 'size': size, 'angle_offset': angle_offset,
                 'drift_amp': drift_amp, 'drift_freq': drift_freq,
+                'vert_amp': vert_amp, 'vert_freq': vert_freq, 'vert_phase': vert_phase,
                 'w': w, 'h': h
             })
+
+def draw_dry(surface, t):
+    w, h = surface.get_size()
+    min_y = h * 0.4
+    init_leaves(w, h)
+    init_twigs(w, h)
+    init_flowers(w, h)
+    layer = pygame.Surface((w, h), pygame.SRCALPHA)
+
+    # Foglie con oscillazione verticale
+    for leaf in _LEAVES:
+        dx = math.cos(leaf['angle'])*leaf['speed']*t
+        dy = math.sin(leaf['angle'])*leaf['speed']*t
+        drift = math.sin(t*leaf['drift_freq'])*leaf['drift_amp']
+        perp_x = -math.sin(leaf['angle'])*drift
+        perp_y =  math.cos(leaf['angle'])*drift
+        vert = math.sin(t*leaf['vert_freq'] + leaf['vert_phase'])*leaf['vert_amp']
+        x = (leaf['x0'] + dx + perp_x) % w
+        y_raw = leaf['y0'] + dy + perp_y + vert
+        y = max(y_raw, min_y)
+        size = int(leaf['size'])
+        surf = pygame.Surface((size*2,size), pygame.SRCALPHA)
+        pygame.draw.ellipse(surf, (139,69,19,200), (0,0,size*2,size))
+        rot = leaf['angle_offset']*math.sin(t)
+        surf = pygame.transform.rotate(surf, rot)
+        lw, lh = surf.get_size()
+        layer.blit(surf, (x-lw/2, y-lh/2))
+
+    # Rametti (stile originale)
+    for twig in _TWIGS:
+        dx = math.cos(twig['angle'])*twig['speed']*t
+        dy = math.sin(twig['angle'])*twig['speed']*t
+        x = (twig['x0']+dx)%w
+        y = max(twig['y0']+dy, min_y)
+        ex = x + math.cos(twig['angle'])*twig['length']
+        ey = y + math.sin(twig['angle'])*twig['length']
+        pygame.draw.line(layer, (101,67,33,220), (x,y), (ex,ey), twig['thickness'])
+        for b in twig['branches']:
+            bx = ex + math.cos(b['angle'])*b['length']
+            by = ey + math.sin(b['angle'])*b['length']
+            pygame.draw.line(layer, (101,67,33,200), (ex,ey), (bx,by), max(1, twig['thickness']//2))
+
+    # Fiori (stile originale)
+    for flower in _FLOWERS:
+        x = (flower['x0'] + math.sin(t*flower['freq']+flower['phase'])*flower['drift'])%w
+        y = max(flower['y0'], min_y)
+        for i in range(flower['petals']):
+            ang = flower['angle'] + i*(2*math.pi/flower['petals']) + t*0.1
+            px = x + math.cos(ang)*flower['radius']
+            py = y + math.sin(ang)*flower['radius']
+            petal = pygame.Surface((flower['petal_w'],flower['petal_h']), pygame.SRCALPHA)
+            pygame.draw.ellipse(petal, (205,133,63,180),
+                                (0,0,flower['petal_w'],flower['petal_h']))
+            petal = pygame.transform.rotate(petal, math.degrees(ang))
+            pw, ph = petal.get_size()
+            layer.blit(petal, (px-pw/2, py-ph/2))
+        pygame.draw.circle(layer, (139,69,19,220),
+                           (int(x), int(y)), flower['center_r'])
+
+    surface.blit(layer, (0, 0))
+
+
 
 def init_twigs(w, h):
     global _TWIGS
@@ -143,7 +208,7 @@ def init_flowers(w, h):
     min_y = h * 0.4
     if not _FLOWERS or _FLOWERS[0].get('w') != w or _FLOWERS[0].get('h') != h:
         _FLOWERS.clear()
-        for _ in range(5):  # meno fiori
+        for _ in range(8):  # meno fiori
             side = random.choice(['left','right'])
             x0 = 0 if side=='left' else w
             y0 = random.uniform(min_y, h)
@@ -163,66 +228,6 @@ def init_flowers(w, h):
                 'freq':freq,'phase':phase,'drift':drift,'angle':angle,
                 'w':w,'h':h
             })
-
-def draw_dry(surface, t):
-    w, h = surface.get_size()
-    min_y = h * 0.4
-    init_leaves(w, h)
-    init_twigs(w, h)
-    init_flowers(w, h)
-    layer = pygame.Surface((w, h), pygame.SRCALPHA)
-
-    # Foglie (stile originale)
-    for leaf in _LEAVES:
-        dx = math.cos(leaf['angle'])*leaf['speed']*t
-        dy = math.sin(leaf['angle'])*leaf['speed']*t
-        drift = math.sin(t*leaf['drift_freq'])*leaf['drift_amp']
-        perp_x = -math.sin(leaf['angle'])*drift
-        perp_y =  math.cos(leaf['angle'])*drift
-        x = (leaf['x0']+dx+perp_x)%w
-        y_raw = leaf['y0']+dy+perp_y
-        y = max(y_raw, min_y)
-        size = int(leaf['size'])
-        surf = pygame.Surface((size*2,size), pygame.SRCALPHA)
-        pygame.draw.ellipse(surf, (139,69,19,200), (0,0,size*2,size))
-        rot = leaf['angle_offset']*math.sin(t)
-        surf = pygame.transform.rotate(surf, rot)
-        lw, lh = surf.get_size()
-        layer.blit(surf, (x-lw/2, y-lh/2))
-
-    # Rametti (stile originale con branch)
-    for twig in _TWIGS:
-        dx = math.cos(twig['angle'])*twig['speed']*t
-        dy = math.sin(twig['angle'])*twig['speed']*t
-        x = (twig['x0']+dx)%w
-        y = max(twig['y0']+dy, min_y)
-        ex = x + math.cos(twig['angle'])*twig['length']
-        ey = y + math.sin(twig['angle'])*twig['length']
-        pygame.draw.line(layer, (101,67,33,220), (x,y), (ex,ey), twig['thickness'])
-        for b in twig['branches']:
-            bx = ex + math.cos(b['angle'])*b['length']
-            by = ey + math.sin(b['angle'])*b['length']
-            pygame.draw.line(layer, (101,67,33,200), (ex,ey), (bx,by), max(1, twig['thickness']//2))
-
-    # Fiori (stile originale)
-    for flower in _FLOWERS:
-        x = (flower['x0'] + math.sin(t*flower['freq']+flower['phase'])*flower['drift'])%w
-        y = max(flower['y0'], min_y)
-        for i in range(flower['petals']):
-            ang = flower['angle'] + i*(2*math.pi/flower['petals']) + t*0.1
-            px = x + math.cos(ang)*flower['radius']
-            py = y + math.sin(ang)*flower['radius']
-            petal = pygame.Surface((flower['petal_w'],flower['petal_h']), pygame.SRCALPHA)
-            pygame.draw.ellipse(petal, (205,133,63,180),
-                                (0,0,flower['petal_w'],flower['petal_h']))
-            petal = pygame.transform.rotate(petal, math.degrees(ang))
-            pw, ph = petal.get_size()
-            layer.blit(petal, (px-pw/2, py-ph/2))
-        pygame.draw.circle(layer, (139,69,19,220),
-                           (int(x), int(y)), flower['center_r'])
-
-    surface.blit(layer, (0,0))
-
 
 
 # Rain overlay
