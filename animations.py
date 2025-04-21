@@ -65,7 +65,6 @@ def draw_clouds(surface, t, dark=False, scale_mult=1.0):
         dynamic_scale = c['base_scale'] + c['amp'] * math.sin(t * c['freq'] + c['phase'])
         r = int(h * 0.05 * dynamic_scale * scale_mult)
         color = (180, 180, 180, 200) if dark else (230, 230, 230, 220)
-        # disegno nuvola
         pygame.draw.circle(layer, color, (int(x), int(y)), r)
         pygame.draw.circle(layer, color, (int(x + r * 0.8), int(y + r * 0.2)), int(r * 1.2))
         pygame.draw.circle(layer, color, (int(x - r * 0.8), int(y + r * 0.2)), int(r * 1.2))
@@ -101,9 +100,7 @@ def draw_dry(surface):
 # Rain overlay reusing and darkening same clouds
 def draw_rain(surface, t):
     """Pioggia realistica: nuvole esistenti scure e leggermente ingrandite"""
-    # darken and enlarge existing clouds by 10%
     draw_clouds(surface, t, dark=True, scale_mult=1.1)
-    # rain drops
     w, h = surface.get_size()
     layer = pygame.Surface((w, h), pygame.SRCALPHA)
     for i in range(150):
@@ -128,8 +125,8 @@ def draw_stars(surface, t):
         _STAR_SIZE = (w, h)
     layer = pygame.Surface((w, h), pygame.SRCALPHA)
     for idx, (x, y) in enumerate(_STAR_POS):
-        brightness = int((0.5 + 0.5 * math.sin(t + idx * 0.1)) * 255)
-        pygame.draw.circle(layer, (255, 255, 255, brightness), (x, y), 2)
+        brightness_val = int((0.5 + 0.5 * math.sin(t + idx * 0.1)) * 255)
+        pygame.draw.circle(layer, (255, 255, 255, brightness_val), (x, y), 2)
     surface.blit(layer, (0, 0))
 
 # Main draw function
@@ -138,15 +135,19 @@ def draw_scene(surface, humidity, temperature, brightness, t):
     Quadro vivente con:
       - temperatura: neve/clouds/caldo
       - umidità: secco/clouds/pioggia
-      - luminosità: stelle o overlay brillante
-      - sfondo notte a basse luminosità
+      - luminosità:
+          * stelle sempre se brightness<170
+          * full night bg se brightness<50 and temp non estremo
+          * slight dark overlay se 50<=brightness<170
+          * overlay bright se brightness>600
     """
     w, h = surface.get_size()
-    # determine background
     ice = (180, 220, 255)
     sun = (255, 220, 100)
     night = (10, 10, 30)
-    if brightness < 170 and 5 < temperature < 30:
+
+    # Background base: full night under 50, except extreme temps
+    if brightness < 50 and 5 < temperature < 30:
         bg = night
     else:
         if temperature <= 14:
@@ -154,15 +155,15 @@ def draw_scene(surface, humidity, temperature, brightness, t):
         elif temperature >= 25:
             bg = sun
         else:
-            ratio = (temperature - 14) / (25 - 14)
+            ratio = (temperature - 14) / 11.0
             bg = tuple(int(ice[i] + (sun[i] - ice[i]) * ratio) for i in range(3))
     surface.fill(bg)
 
-    # Darken background se brightness basso
-    if brightness < 170:
-        dark_alpha = int((1 - brightness / 170) * 200)
+    # Slight dark overlay for 50-169
+    if 50 <= brightness < 170:
+        alpha = int((170 - brightness) / 120 * 150)
         dark_layer = pygame.Surface((w, h), pygame.SRCALPHA)
-        dark_layer.fill((0, 0, 0, dark_alpha))
+        dark_layer.fill((0, 0, 0, alpha))
         surface.blit(dark_layer, (0, 0))
 
     # Temperature overlay
@@ -181,7 +182,7 @@ def draw_scene(surface, humidity, temperature, brightness, t):
     else:
         draw_rain(surface, t)
 
-    # Brightness overlay
+    # Brightness overlay: stars under 170, bright overlay above 600
     if brightness < 170:
         draw_stars(surface, t)
     elif brightness > 600:
