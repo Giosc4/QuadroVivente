@@ -54,8 +54,8 @@ def init_clouds(w, h):
             })
 
 # Clouds overlay with smooth scaling and movement
-def draw_clouds(surface, t):
-    """Nuvole grandi lisce e in movimento con scaling fluido"""
+def draw_clouds(surface, t, dark=False, scale_mult=1.0):
+    """Nuvole grandi lisce e in movimento; dark=True per pioggia; scale_mult per ingrandimento"""
     w, h = surface.get_size()
     init_clouds(w, h)
     layer = pygame.Surface((w, h), pygame.SRCALPHA)
@@ -63,11 +63,12 @@ def draw_clouds(surface, t):
         x = (c['x0'] + c['speed'] * t) % (w + 200) - 100
         y = c['y0'] + math.sin(t * 0.5 + c['phase']) * 10
         dynamic_scale = c['base_scale'] + c['amp'] * math.sin(t * c['freq'] + c['phase'])
-        r = int(h * 0.05 * dynamic_scale)
-        # draw cloud: three overlapping circles
-        pygame.draw.circle(layer, (230, 230, 230, 220), (int(x), int(y)), r)
-        pygame.draw.circle(layer, (230, 230, 230, 220), (int(x + r * 0.8), int(y + r * 0.2)), int(r * 1.2))
-        pygame.draw.circle(layer, (230, 230, 230, 220), (int(x - r * 0.8), int(y + r * 0.2)), int(r * 1.2))
+        r = int(h * 0.05 * dynamic_scale * scale_mult)
+        color = (180, 180, 180, 200) if dark else (230, 230, 230, 220)
+        # disegno nuvola
+        pygame.draw.circle(layer, color, (int(x), int(y)), r)
+        pygame.draw.circle(layer, color, (int(x + r * 0.8), int(y + r * 0.2)), int(r * 1.2))
+        pygame.draw.circle(layer, color, (int(x - r * 0.8), int(y + r * 0.2)), int(r * 1.2))
     surface.blit(layer, (0, 0))
 
 # Heat rays overlay
@@ -97,9 +98,12 @@ def draw_dry(surface):
         pygame.draw.line(layer, (139, 69, 19), (x, y), (x2, y2), 2)
     surface.blit(layer, (0, 0))
 
-# Rain overlay
+# Rain overlay reusing and darkening same clouds
 def draw_rain(surface, t):
-    """Pioggia realistica, gocce oblique e splash"""
+    """Pioggia realistica: nuvole esistenti scure e leggermente ingrandite"""
+    # darken and enlarge existing clouds by 10%
+    draw_clouds(surface, t, dark=True, scale_mult=1.1)
+    # rain drops
     w, h = surface.get_size()
     layer = pygame.Surface((w, h), pygame.SRCALPHA)
     for i in range(150):
@@ -135,19 +139,23 @@ def draw_scene(surface, humidity, temperature, brightness, t):
       - temperatura: neve/clouds/caldo
       - umidità: secco/clouds/pioggia
       - luminosità: stelle o overlay brillante
-      - sfondo che si oscura a basse luminosità
+      - sfondo notte a basse luminosità
     """
     w, h = surface.get_size()
-    # Background da temperatura
+    # determine background
     ice = (180, 220, 255)
     sun = (255, 220, 100)
-    if temperature <= 14:
-        bg = ice
-    elif temperature >= 25:
-        bg = sun
+    night = (10, 10, 30)
+    if brightness < 170 and 5 < temperature < 30:
+        bg = night
     else:
-        ratio = (temperature - 14) / (25 - 14)
-        bg = tuple(int(ice[i] + (sun[i] - ice[i]) * ratio) for i in range(3))
+        if temperature <= 14:
+            bg = ice
+        elif temperature >= 25:
+            bg = sun
+        else:
+            ratio = (temperature - 14) / (25 - 14)
+            bg = tuple(int(ice[i] + (sun[i] - ice[i]) * ratio) for i in range(3))
     surface.fill(bg)
 
     # Darken background se brightness basso
