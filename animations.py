@@ -9,6 +9,9 @@ _CLOUDS = []
 _LEAVES = []
 _TWIGS = []
 _FLOWERS = []
+_AUDIO_BUFFER = []
+_AUDIO_STEP   = 4  
+
 
 
 # Bright overlay for high brightness
@@ -260,43 +263,90 @@ def draw_stars(surface, t):
         pygame.draw.circle(layer, (255,255,255,br), (x,y), 2)
     surface.blit(layer, (0,0))
 
-# Main draw function
-def draw_scene(surface, humidity, temperature, brightness, t):
-    w,h = surface.get_size()
-    ice = (180,220,255)
-    sunbg = (255,220,100)
-    night = (10,10,30)
-    if brightness < 50 and 5<temperature<30:
+def draw_sea_wave(surface, amp, t):
+    global _AUDIO_BUFFER, _AUDIO_STEP
+
+    w, h   = surface.get_size()
+    mid_y  = h * 0.75
+    H      = h * 0.15
+
+    # numero di punti da disegnare
+    n_pts = w // _AUDIO_STEP + 1
+
+    # Inizializza o riallinea buffer se cambia larghezza
+    if len(_AUDIO_BUFFER) != n_pts:
+        _AUDIO_BUFFER = [0.0] * n_pts
+
+    # Inserisci nuovo campione in coda e scarta il più vecchio
+    _AUDIO_BUFFER.append(amp)
+    if len(_AUDIO_BUFFER) > n_pts:
+        _AUDIO_BUFFER.pop(0)
+
+    # Calcola i vertici
+    points = []
+    for i, a in enumerate(_AUDIO_BUFFER):
+        x = i * _AUDIO_STEP
+        y = mid_y - a * H    # inversione: amp positivo = onda verso l’alto
+        points.append((x, y))
+
+    # Disegna il fondo blu sotto l’onda
+    layer = pygame.Surface((w, h), pygame.SRCALPHA)
+    poly = [(0, h)] + points + [(w, h)]
+    pygame.draw.polygon(layer, (30, 144, 255), poly)
+
+    # Disegna la linea dell’onda
+    pygame.draw.lines(layer, (255, 255, 255, 200), False, points, 2)
+
+    surface.blit(layer, (0, 0))
+
+
+def draw_scene(surface, humidity, temperature, brightness, t, amp):
+    w, h = surface.get_size()
+    ice   = (180, 220, 255)
+    sunbg = (255, 220, 100)
+    night = (10,  10,  30)
+
+    # --- background color ---
+    if brightness < 50 and 5 < temperature < 30:
         bg = night
     else:
-        if temperature<=14:
-            bg=ice
-        elif temperature>=25:
-            bg=sunbg
+        if temperature <= 14:
+            bg = ice
+        elif temperature >= 25:
+            bg = sunbg
         else:
-            ratio=(temperature-14)/(25-14)
-            bg=tuple(int(ice[i]+(sunbg[i]-ice[i])*ratio) for i in range(3))
+            ratio = (temperature - 14) / (25 - 14)
+            bg = tuple(int(ice[i] + (sunbg[i] - ice[i]) * ratio) for i in range(3))
     surface.fill(bg)
-    if 50<=brightness<170:
-        alpha=int((170-brightness)/120*150)
-        d=pygame.Surface((w,h),pygame.SRCALPHA)
-        d.fill((0,0,0,alpha))
-        surface.blit(d,(0,0))
-    if temperature<=14:
-        draw_snow(surface,t)
-    elif temperature<=24:
-        draw_clouds(surface,t)
+
+    # --- crepuscolo / oscuramento ---
+    if 50 <= brightness < 170:
+        alpha = int((170 - brightness) / 120 * 150)
+        dark_layer = pygame.Surface((w, h), pygame.SRCALPHA)
+        dark_layer.fill((0, 0, 0, alpha))
+        surface.blit(dark_layer, (0, 0))
+
+    # --- temperatura ---
+    if temperature <= 14:
+        draw_snow(surface, t)
+    elif temperature <= 24:
+        draw_clouds(surface, t)
     else:
-        draw_sun(surface,t)
-    if humidity<35:
-        draw_dry(surface,t)
-    elif humidity<=85:
-        draw_clouds(surface,t)
+        draw_sun(surface, t)
+
+    # --- umidità ---
+    if humidity < 35:
+        draw_dry(surface, t)
+    elif humidity <= 85:
+        draw_clouds(surface, t)
     else:
-        draw_rain(surface,t)
-    if brightness<170:
-        draw_stars(surface,t)
-    elif brightness>600:
+        draw_rain(surface, t)
+
+    # --- stelle / overlay luminoso ---
+    if brightness < 170:
+        draw_stars(surface, t)
+    elif brightness > 600:
         draw_bright_overlay(surface)
 
-# main.py remains unchanged
+    # --- onda sonora basata sul valore di amp passato da main.py ---
+    draw_sea_wave(surface, amp, t)
