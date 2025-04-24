@@ -288,16 +288,17 @@ def draw_stars(surface, t):
         pygame.draw.circle(layer, (255,255,255,br), (x,y), 2)
     surface.blit(layer, (0,0))
 
+
 def draw_sea_wave(surface, amp, t):
     global _AUDIO_BUFFER, _AUDIO_STEP
 
     w, h = surface.get_size()
     sea_color = (30, 144, 255)
-    margin = 40
-    H = h * 0.25
+    margin = 60
+    H = h * 0.35
     mid_y = h - margin - H
 
-    # 1) aggiorna buffer
+    # 2) AGGIORNO IL BUFFER AUDIO (per scorrere i campioni)
     n_pts = w // _AUDIO_STEP + 1
     if len(_AUDIO_BUFFER) != n_pts:
         _AUDIO_BUFFER = [0.0] * n_pts
