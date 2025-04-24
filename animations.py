@@ -11,7 +11,8 @@ _TWIGS = []
 _FLOWERS = []
 _AUDIO_BUFFER = []
 _AUDIO_STEP   = 4  
-
+_BIRDS = []
+_NUM_BIRDS = 12
 
 
 # Bright overlay for high brightness
@@ -21,16 +22,32 @@ def draw_bright_overlay(surface):
     overlay.fill((255, 255, 255, 100))
     surface.blit(overlay, (0, 0))
 
-# Temperature-based overlays
 def draw_snow(surface, t):
-    """Piccole particelle bianche che cadono lentamente"""
+    """Fiocchi di neve esagonali che cadono lentamente."""
     w, h = surface.get_size()
     layer = pygame.Surface((w, h), pygame.SRCALPHA)
-    for i in range(120):
+    flake_count = 500  # numero di fiocchi
+
+    for i in range(flake_count):
+        # posizione animata verso il basso
         x = (i * 30 + t * 50) % (w + 100) - 50
         y = (i * 25 + t * 30) % (h + 100) - 50
-        r = random.randint(1, 4)
-        pygame.draw.circle(layer, (255, 255, 255, 200), (int(x), int(y)), r)
+
+        # dimensione del fiocco
+        size = random.uniform(4, 8)
+        # fase personale per rotazione
+        phase = (i * 0.5 + t) % (2 * math.pi)
+
+        # disegna 6 punte
+        for k in range(6):
+            angle = phase + k * (math.pi / 3)
+            x2 = x + math.cos(angle) * size
+            y2 = y + math.sin(angle) * size
+            pygame.draw.line(layer, (255, 255, 255, 200), (x, y), (x2, y2), 1)
+
+        # piccolo dettaglio centrale (opzionale)
+        pygame.draw.circle(layer, (255, 255, 255, 200), (int(x), int(y)), 1)
+
     surface.blit(layer, (0, 0))
 
 # Initialize clouds
@@ -68,26 +85,33 @@ def draw_clouds(surface, t, dark=False, scale_mult=1.0):
 
 # Sun overlay for high temperature
 def draw_sun(surface, t):
-    '''Sole stilizzato con raggi opachi, posizionato più verso il centro'''
+    '''Sole stilizzato con raggi più piccoli.'''
     w, h = surface.get_size()
     layer = pygame.Surface((w, h), pygame.SRCALPHA)
     radius = min(w, h) // 10
-    # aumentiamo il margine per posizionarlo più lontano dal bordo
+
+    # posiziona il sole
     margin_x = radius * 2
-    margin_y = radius 
+    margin_y = radius
     cx = w - radius - margin_x
     cy = radius + margin_y
-    # disegno il sole
     pygame.draw.circle(layer, (255, 220, 50, 220), (cx, cy), radius)
-    # disegno i raggi opachi
-    for i in range(8):
-        angle = i * (2 * math.pi / 8) + t * 0.2
-        sx = cx + math.cos(angle) * (radius + 5)
-        sy = cy + math.sin(angle) * (radius + 5)
-        ex = cx + math.cos(angle) * (radius + 20)
-        ey = cy + math.sin(angle) * (radius + 20)
-        pygame.draw.line(layer, (255, 220, 50, 150), (sx, sy), (ex, ey), 4)
+
+    # raggi più corti e sottili
+    ray_count = 8
+    inner = radius + 5           # inizio raggio
+    outer = radius + 10          # fine raggio ridotta (prima era +20)
+    ray_width = 2                # spessore dimezzato (prima 4)
+    for i in range(ray_count):
+        angle = i * (2 * math.pi / ray_count) + t * 0.2
+        sx = cx + math.cos(angle) * inner
+        sy = cy + math.sin(angle) * inner
+        ex = cx + math.cos(angle) * outer
+        ey = cy + math.sin(angle) * outer
+        pygame.draw.line(layer, (255, 220, 50, 150), (sx, sy), (ex, ey), ray_width)
+
     surface.blit(layer, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+
 
 def init_leaves(w, h):
     global _LEAVES
@@ -119,7 +143,7 @@ def init_leaves(w, h):
 
 def draw_dry(surface, t):
     w, h = surface.get_size()
-    min_y = h * 0.4
+    min_y = h * 0.3 
     init_leaves(w, h)
     init_twigs(w, h)
     init_flowers(w, h)
@@ -232,10 +256,11 @@ def init_flowers(w, h):
                 'w':w,'h':h
             })
 
-
 # Rain overlay
-def draw_rain(surface, t):
-    draw_clouds(surface, t, dark=True, scale_mult=1.1)
+def draw_rain(surface, t, scale_mult=0.1):
+    # disegna le nuvole scure con la scale_mult passata
+    draw_clouds(surface, t, dark=True, scale_mult=scale_mult)
+
     w, h = surface.get_size()
     layer = pygame.Surface((w, h), pygame.SRCALPHA)
     for i in range(150):
@@ -266,87 +291,177 @@ def draw_stars(surface, t):
 def draw_sea_wave(surface, amp, t):
     global _AUDIO_BUFFER, _AUDIO_STEP
 
-    w, h   = surface.get_size()
-    mid_y  = h * 0.75
-    H      = h * 0.15
+    w, h = surface.get_size()
+    sea_color = (30, 144, 255)
+    margin = 40
+    H = h * 0.25
+    mid_y = h - margin - H
 
-    # numero di punti da disegnare
+    # 1) aggiorna buffer
     n_pts = w // _AUDIO_STEP + 1
-
-    # Inizializza o riallinea buffer se cambia larghezza
     if len(_AUDIO_BUFFER) != n_pts:
         _AUDIO_BUFFER = [0.0] * n_pts
-
-    # Inserisci nuovo campione in coda e scarta il più vecchio
     _AUDIO_BUFFER.append(amp)
     if len(_AUDIO_BUFFER) > n_pts:
         _AUDIO_BUFFER.pop(0)
 
-    # Calcola i vertici
-    points = []
-    for i, a in enumerate(_AUDIO_BUFFER):
-        x = i * _AUDIO_STEP
-        y = mid_y - a * H    # inversione: amp positivo = onda verso l’alto
-        points.append((x, y))
+    # 2) disegna l’onda principale (poligono netto)
+    pts = [(i * _AUDIO_STEP, mid_y - a * H)
+           for i, a in enumerate(_AUDIO_BUFFER)]
+    poly = [(0, h)] + pts + [(w, h)]
+    pygame.draw.polygon(surface, sea_color, poly)
 
-    # Disegna il fondo blu sotto l’onda
-    layer = pygame.Surface((w, h), pygame.SRCALPHA)
-    poly = [(0, h)] + points + [(w, h)]
-    pygame.draw.polygon(layer, (30, 144, 255), poly)
+    # 3) crea un layer per le ripple
+    ripple = pygame.Surface((w, h), pygame.SRCALPHA)
+    num_layers = 25
+    for j in range(num_layers):
+        # y di base scende progressivamente verso il fondo
+        y_base = mid_y + H * (j / num_layers)
+        ripple_amp = H * 0.02  # ampiezza piccole onde
+        phase = j * 0.3        # sfasamento per varietà
 
-    # Disegna la linea dell’onda
-    pygame.draw.lines(layer, (255, 255, 255, 200), False, points, 2)
+        line = []
+        for i, a in enumerate(_AUDIO_BUFFER):
+            x = i * _AUDIO_STEP
+            # base modulata dall’amp audio
+            y0 = y_base - a * H
+            # sovrappongo una sinusoide veloce
+            y = y0 + math.sin((x / w) * 10 * math.pi + t * (1 + j*0.1) + phase) * ripple_amp
+            line.append((x, y))
 
-    surface.blit(layer, (0, 0))
+        # disegno la ripple: azzurro chiaro semi‐trasparente
+        color = (180, 220, 255, 30)
+        pygame.draw.lines(ripple, color, False, line, 1)
 
+    # 4) sovrappongo le ripple al mare
+    surface.blit(ripple, (0, 0))
+
+
+def init_birds(w, h):
+    """Prepara le rondini con posizione iniziale, velocità e scala casuali."""
+    global _BIRDS
+    if not _BIRDS or _BIRDS[0].get('w') != w:
+        _BIRDS.clear()
+        for _ in range(_NUM_BIRDS):
+            # partono sia da sinistra che da destra
+            side = random.choice(['left','right'])
+            x0 = -50 if side == 'left' else w + 50
+            # quota tra 20% e 40% dell'altezza
+            y0 = random.uniform(h * 0.2, h * 0.4)
+            speed = random.uniform(60, 120) * (1 if side=='left' else -1)
+            scale = random.uniform(0.6, 1.0)
+            phase = random.uniform(0, 2*math.pi)
+            _BIRDS.append({'x0': x0, 'y0': y0, 'speed': speed,
+                           'scale': scale, 'phase': phase,
+                           'w': w, 'h': h})
+
+def draw_birds(surface, t):
+    """Disegna le rondini nere: corpo ovale, ali piegate verso l’alto e coda a forcella."""
+    w, h = surface.get_size()
+    init_birds(w, h)
+    black = (0, 0, 0)
+    for b in _BIRDS:
+        # calcola posizione ciclica orizzontale + lieve ondulazione
+        x = (b['x0'] + b['speed'] * t) % (b['w'] + 100) - 50
+        y = b['y0'] + math.sin((x / b['w']) * 2*math.pi + b['phase']) * 8
+
+        s = b['scale'] * 20  # dimensione base
+        body_w, body_h = s * 0.8, s * 0.3
+        wing_w, wing_h = s, s * 0.4
+        tail_h = s * 0.5
+
+        # --- corpo: ovale in primo piano
+        body_rect = pygame.Rect(0,0, int(body_w), int(body_h))
+        body_rect.center = (x, y)
+        pygame.draw.ellipse(surface, black, body_rect)
+
+        # --- ali: due triangoli inclinati verso l’alto
+        # ala sinistra
+        p0 = (x - body_w*0.3, y)
+        p1 = (x - wing_w*0.8, y - wing_h)
+        p2 = (x - wing_w*0.3, y)
+        pygame.draw.polygon(surface, black, [p0, p1, p2])
+        # ala destra
+        p0 = (x + body_w*0.3, y)
+        p1 = (x + wing_w*0.8, y - wing_h)
+        p2 = (x + wing_w*0.3, y)
+        pygame.draw.polygon(surface, black, [p0, p1, p2])
+
+        # --- coda biforcuta: due piccoli triangoli sporgenti
+        tail_base = (x, y + body_h*0.3)
+        left_tail = (x - body_w*0.2, y + tail_h)
+        right_tail = (x + body_w*0.2, y + tail_h)
+        mid_tail = (x, y + tail_h*0.7)
+        pygame.draw.polygon(surface, black, [tail_base, left_tail, mid_tail])
+        pygame.draw.polygon(surface, black, [tail_base, right_tail, mid_tail])
 
 def draw_scene(surface, humidity, temperature, brightness, t, amp):
     w, h = surface.get_size()
-    ice   = (180, 220, 255)
-    sunbg = (255, 220, 100)
-    night = (10,  10,  30)
+    base_sky = (135, 206, 235)
 
-    # --- background color ---
-    if brightness < 50 and 5 < temperature < 30:
-        bg = night
-    else:
-        if temperature <= 14:
-            bg = ice
-        elif temperature >= 25:
-            bg = sunbg
-        else:
-            ratio = (temperature - 14) / (25 - 14)
-            bg = tuple(int(ice[i] + (sunbg[i] - ice[i]) * ratio) for i in range(3))
-    surface.fill(bg)
+    # 1) Sfondo cielo
+    surface.fill(base_sky)
 
-    # --- crepuscolo / oscuramento ---
-    if 50 <= brightness < 170:
-        alpha = int((170 - brightness) / 120 * 150)
-        dark_layer = pygame.Surface((w, h), pygame.SRCALPHA)
-        dark_layer.fill((0, 0, 0, alpha))
-        surface.blit(dark_layer, (0, 0))
-
-    # --- temperatura ---
-    if temperature <= 14:
-        draw_snow(surface, t)
-    elif temperature <= 24:
-        draw_clouds(surface, t)
-    else:
-        draw_sun(surface, t)
-
-    # --- umidità ---
-    if humidity < 35:
-        draw_dry(surface, t)
-    elif humidity <= 85:
-        draw_clouds(surface, t)
-    else:
-        draw_rain(surface, t)
-
-    # --- stelle / overlay luminoso ---
-    if brightness < 170:
-        draw_stars(surface, t)
-    elif brightness > 600:
-        draw_bright_overlay(surface)
-
-    # --- onda sonora basata sul valore di amp passato da main.py ---
+    # 2) Mare (onde sonore) in sottofondo
     draw_sea_wave(surface, amp, t)
+
+    # 3) Overlay luminosità (full-height)
+    if brightness < 170:
+        alpha = int((170 - brightness) / 120 * 150)
+        dark = pygame.Surface((w, h), pygame.SRCALPHA)
+        dark.fill((0, 0, 0, alpha))
+        surface.blit(dark, (0, 0))
+    elif brightness > 600:
+        bright = pygame.Surface((w, h), pygame.SRCALPHA)
+        bright.fill((255, 255, 255, 80))
+        surface.blit(bright, (0, 0))
+
+    # 4) Preparo un layer per tutti gli effetti “sopra” il mare
+    effects = pygame.Surface((w, h), pygame.SRCALPHA)
+
+    #    4a) Neve / Sole / Uccellini
+    if temperature <= 14:
+        draw_snow(effects, t)
+    elif temperature > 25:
+        draw_sun(effects, t)
+    else:
+        draw_birds(effects, t)
+
+    #    4b) Foglie / Nuvole / Pioggia
+    if humidity < 35:
+        draw_dry(effects, t)
+    elif humidity <= 85:
+        scale = humidity / 100.0
+        draw_clouds(effects, t, dark=False, scale_mult=scale)
+    else:
+        draw_rain(effects, t, scale_mult=0.85)
+
+    #    4c) Stelle
+    if brightness < 170:
+        draw_stars(effects, t)
+
+    # 5) Costruisco una maschera che azzera l’alpha **solo** dentro la forma dell’onda
+    mask = pygame.Surface((w, h), pygame.SRCALPHA)
+    mask.fill((255, 255, 255, 255))  # parti fuori onda → alpha=255
+
+    # Recupero i punti dell’onda esattamente come in draw_sea_wave
+    margin = 40
+    H = h * 0.25
+    mid_y = h - margin - H
+
+    # Assicuriamoci che _AUDIO_BUFFER sia già aggiornato da draw_sea_wave():
+    # calcolo i vertici della cresta
+    pts = [(i * _AUDIO_STEP, mid_y - a * H)
+           for i, a in enumerate(_AUDIO_BUFFER)]
+    wave_poly = [(0, h)] + pts + [(w, h)]
+
+    # Nella regione del poligono → alpha = 0 (trasparente)
+    pygame.draw.polygon(mask, (255, 255, 255, 0), wave_poly)
+
+    # 6) Applico la maschera al layer effetti
+    effects.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+
+    # 7) Sovrappongo gli effetti già mascherati
+    surface.blit(effects, (0, 0))
+
+    # Fine. Ora tutto ciò che “cade” sotto la linea dell’onda sparisce. 
