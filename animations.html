@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quadro Vivente</title>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+
+    <!-- Socket.IO -->
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+
+    <script>
+        // Connessione WebSocket a Flask-SocketIO
+        const socket = io();
+        let latest = { humidity: 0, temperature: 0, brightness: 0, amp: 0 };
+        socket.on('sensordata', data => { latest = data; });
+
+        // Sensor getter sovrascrivono i mock
+        function getHumidity() { return latest.humidity; }
+        function getTemperature() { return latest.temperature; }
+        function getBrightness() { return latest.brightness; }
+        function getAudioAmp() { return latest.amp; }
+
+        // Utility
+        function rand(min, max) { return Math.random() * (max - min) + min; }
+        function randInt(min, max) { return Math.floor(rand(min, max)); }
+
+        // Globals
+        const NUM_STARS = 200;
+        const AUDIO_STEP = 4;
+        const NUM_BIRDS = 12;
+        let STAR_POS = [], STAR_SIZE = { w: 0, h: 0 };
+        let CLOUDS = [], LEAVES = [], TWIGS = [], FLOWERS = [], AUDIO_BUFFER = [], BIRDS = [];
+
+        // Canvas setup
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Init functions
+        function initClouds(w, h) {
+            if (CLOUDS.length === 0 || CLOUDS[0].w !== w || CLOUDS[0].h !== h) {
+                CLOUDS = [];
+                for (let i = 0; i < 6; i++) {
+                    CLOUDS.push({
+                        x0: rand(-100, w + 100),
+                        y0: rand(h * 0.1, h * 0.4),
+                        baseScale: rand(1.5, 2.5),
+                        amp: rand(0.2, 0.5),
+                        freq: rand(0.1, 0.3),
+                        phase: rand(0, Math.PI * 2),
+                        speed: rand(10, 30),
+                        w, h
+                    });
+                }
+            }
+        }
+
+        function initLeaves(w, h) {
+            if (LEAVES.length === 0 || LEAVES[0].w !== w) {
+                LEAVES = [];
+                for (let i = 0; i < 10; i++) {
+                    const side = randInt(0, 1) ? 'left' : 'right';
+                    const x0 = side === 'left' ? 0 : w;
+                    const y0 = rand(h * 0.4, h);
+                    const angle = (side === 'left' ? 0 : Math.PI) + rand(-Math.PI / 6, Math.PI / 6);
+                    LEAVES.push({
+                        x0, y0, angle,
+                        speed: rand(50, 100),
+                        size: rand(12, 24),
+                        angleOffset: rand(-45, 45),
+                        driftAmp: rand(10, 30),
+                        driftFreq: rand(0.5, 1.5),
+                        vertAmp: rand(10, 20),
+                        vertFreq: rand(0.3, 0.8),
+                        vertPhase: rand(0, Math.PI * 2),
+                        w, h
+                    });
+                }
+            }
+        }
+
+        function initTwigs(w, h) {
+            if (TWIGS.length === 0 || TWIGS[0].w !== w) {
+                TWIGS = [];
+                for (let i = 0; i < 7; i++) {
+                    const side = randInt(0, 1) ? 'left' : 'right';
+                    const x0 = side === 'left' ? 0 : w;
+                    const y0 = rand(h * 0.4, h);
+                    const angle = (side === 'left' ? 0 : Math.PI) + rand(-Math.PI / 8, Math.PI / 8);
+                    const length = rand(30, 60);
+                    const thickness = randInt(2, 4);
+                    const branches = [];
+                    for (let j = 0; j < randInt(1, 2); j++) {
+                        branches.push({
+                            angle: angle + rand(-Math.PI / 6, Math.PI / 6),
+                            length: length * rand(0.3, 0.6)
+                        });
+                    }
+                    TWIGS.push({ x0, y0, angle, speed: rand(20, 50), length, thickness, branches, w, h });
+                }
+            }
+        }
+
+        function initFlowers(w, h) {
+            if (FLOWERS.length === 0 || FLOWERS[0].w !== w) {
+                FLOWERS = [];
+                for (let i = 0; i < 8; i++) {
+                    const side = randInt(0, 1) ? 'left' : 'right';
+                    const x0 = side === 'left' ? 0 : w;
+                    const y0 = rand(h * 0.4, h);
+                    const petals = randInt(5, 7);
+                    const radius = rand(10, 20);
+                    FLOWERS.push({
+                        x0, y0,
+                        petals, radius,
+                        petalW: radius * 0.6, petalH: radius * 0.2,
+                        centerR: radius * 0.3,
+                        freq: rand(0.5, 1.0),
+                        phase: rand(0, Math.PI * 2),
+                        drift: rand(-30, 30),
+                        angle: rand(0, Math.PI * 2),
+                        w, h
+                    });
+                }
+            }
+        }
+
+        function initBirds(w, h) {
+            if (BIRDS.length === 0 || BIRDS[0].w !== w) {
+                BIRDS = [];
+                for (let i = 0; i < NUM_BIRDS; i++) {
+                    const side = randInt(0, 1) ? 'left' : 'right';
+                    const x0 = side === 'left' ? -50 : w + 50;
+                    BIRDS.push({
+                        x0,
+                        y0: rand(h * 0.2, h * 0.4),
+                        speed: rand(60, 120) * (side === 'left' ? 1 : -1),
+                        scale: rand(0.6, 1.0),
+                        phase: rand(0, Math.PI * 2),
+                        w, h
+                    });
+                }
+            }
+        }
+
+        // Draw functions
+        function drawSeaWave(ctx, amp, t) {
+            const w = canvas.width, h = canvas.height;
+            const margin = 60;
+            const H = h * 0.35;
+            const midY = h - margin - H;
+            const nPts = Math.ceil(w / AUDIO_STEP) + 1;
+            if (AUDIO_BUFFER.length !== nPts) { AUDIO_BUFFER = new Array(nPts).fill(0); }
+            AUDIO_BUFFER.shift();
+            AUDIO_BUFFER.push(amp);
+
+            // main polygon
+            ctx.beginPath();
+            ctx.moveTo(0, h);
+            AUDIO_BUFFER.forEach((a, i) => {
+                ctx.lineTo(i * AUDIO_STEP, midY - a * H);
+            });
+            ctx.lineTo(w, h);
+            ctx.closePath();
+            ctx.fillStyle = 'rgb(30,144,255)';
+            ctx.fill();
+
+            // ripples offscreen
+            const rippleCanvas = document.createElement('canvas');
+            rippleCanvas.width = w; rippleCanvas.height = h;
+            const rctx = rippleCanvas.getContext('2d');
+            const layers = 25;
+            for (let j = 0; j < layers; j++) {
+                const yBase = midY + H * (j / layers);
+                const ampR = H * 0.02, phaseR = j * 0.3;
+                rctx.beginPath();
+                AUDIO_BUFFER.forEach((a, i) => {
+                    const x = i * AUDIO_STEP;
+                    const y0 = yBase - a * H;
+                    const y = y0 + Math.sin((x / w) * 10 * Math.PI + t * (1 + j * 0.1) + phaseR) * ampR;
+                    j === 0 ? rctx.moveTo(x, y) : rctx.lineTo(x, y);
+                });
+                rctx.strokeStyle = 'rgba(180,220,255,0.3)';
+                rctx.lineWidth = 1;
+                rctx.stroke();
+            }
+            ctx.drawImage(rippleCanvas, 0, 0);
+        }
+
+        function drawSnow(ctx, t) {
+            const w = canvas.width, h = canvas.height;
+            ctx.save(); ctx.globalAlpha = 0.8;
+            for (let i = 0; i < 500; i++) {
+                const x = (i * 30 + t * 50) % (w + 100) - 50;
+                const y = (i * 25 + t * 30) % (h + 100) - 50;
+                const size = rand(4, 8);
+                const phase = (i * 0.5 + t) % (Math.PI * 2);
+                ctx.beginPath();
+                for (let k = 0; k < 6; k++) {
+                    const angle = phase + k * (Math.PI / 3);
+                    const x2 = x + Math.cos(angle) * size;
+                    const y2 = y + Math.sin(angle) * size;
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x2, y2);
+                }
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(x, y, 1, 0, 2 * Math.PI);
+                ctx.fillStyle = 'white'; ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        function drawClouds(ctx, t, dark = false, scaleMult = 1) {
+            const w = canvas.width, h = canvas.height;
+            initClouds(w, h);
+            ctx.save(); ctx.globalAlpha = dark ? 0.8 : 0.9;
+            CLOUDS.forEach(c => {
+                const x = (c.x0 + c.speed * t) % (w + 200) - 100;
+                const y = c.y0 + Math.sin(t * 0.5 + c.phase) * 10;
+                const dyn = c.baseScale + c.amp * Math.sin(t * c.freq + c.phase);
+                const r = h * 0.05 * dyn * scaleMult;
+                ctx.fillStyle = dark ? 'rgba(180,180,180,0.8)' : 'rgba(230,230,230,0.85)';
+                [[0, 0, r], [0.8 * r, 0.2 * r, 1.2 * r], [-0.8 * r, 0.2 * r, 1.2 * r]].forEach(([dx, dy, sr]) => {
+                    ctx.beginPath();
+                    ctx.arc(x + dx, y + dy, sr, 0, 2 * Math.PI);
+                    ctx.fill();
+                });
+            });
+            ctx.restore();
+        }
+
+        function drawSun(ctx, t) {
+            const w = canvas.width, h = canvas.height;
+            const radius = Math.min(w, h) / 10;
+            const cx = w - radius * 3;
+            const cy = radius * 2;
+            // core
+            ctx.save();
+            ctx.fillStyle = 'rgba(255,220,50,0.85)';
+            ctx.beginPath(); ctx.arc(cx, cy, radius, 0, 2 * Math.PI); ctx.fill();
+            // rays
+            for (let i = 0; i < 8; i++) {
+                const angle = i * (2 * Math.PI / 8) + t * 0.2;
+                const ix = cx + Math.cos(angle) * (radius + 5);
+                const iy = cy + Math.sin(angle) * (radius + 5);
+                const ex = cx + Math.cos(angle) * (radius + 10);
+                const ey = cy + Math.sin(angle) * (radius + 10);
+                ctx.beginPath(); ctx.moveTo(ix, iy); ctx.lineTo(ex, ey);
+                ctx.strokeStyle = 'rgba(255,220,50,0.6)'; ctx.lineWidth = 2; ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function drawStars(ctx, t) {
+            const w = canvas.width, h = canvas.height;
+            if (STAR_SIZE.w !== w || STAR_SIZE.h !== h || STAR_POS.length === 0) {
+                STAR_POS = [];
+                for (let i = 0; i < NUM_STARS; i++) STAR_POS.push({ x: randInt(0, w), y: randInt(0, h) });
+                STAR_SIZE = { w, h };
+            }
+            STAR_POS.forEach((p, idx) => {
+                const alpha = 0.5 + 0.5 * Math.sin(t + idx * 0.1);
+                ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, 2 * Math.PI);
+                ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+                ctx.fill();
+            });
+        }
+
+        function drawDry(ctx, t) {
+            const w = canvas.width, h = canvas.height;
+            const minY = h * 0.3;
+            initLeaves(w, h); initTwigs(w, h); initFlowers(w, h);
+            ctx.save();
+            // leaves
+            LEAVES.forEach(leaf => {
+                const dx = Math.cos(leaf.angle) * leaf.speed * t;
+                const dy = Math.sin(leaf.angle) * leaf.speed * t;
+                const drift = Math.sin(t * leaf.driftFreq) * leaf.driftAmp;
+                const perpX = -Math.sin(leaf.angle) * drift;
+                const perpY = Math.cos(leaf.angle) * drift;
+                const vert = Math.sin(t * leaf.vertFreq + leaf.vertPhase) * leaf.vertAmp;
+                let x = (leaf.x0 + dx + perpX) % w;
+                let y = Math.max(leaf.y0 + dy + perpY + vert, minY);
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(leaf.angleOffset * Math.sin(t) * Math.PI / 180);
+                ctx.beginPath();
+                ctx.ellipse(0, 0, leaf.size, leaf.size / 2, 0, 0, 2 * Math.PI);
+                ctx.fillStyle = 'rgba(139,69,19,0.8)'; ctx.fill();
+                ctx.restore();
+            });
+            // twigs
+            TWIGS.forEach(twig => {
+                const dx = Math.cos(twig.angle) * twig.speed * t;
+                const dy = Math.sin(twig.angle) * twig.speed * t;
+                const x = (twig.x0 + dx) % w;
+                const y = Math.max(twig.y0 + dy, minY);
+                const ex = x + Math.cos(twig.angle) * twig.length;
+                const ey = y + Math.sin(twig.angle) * twig.length;
+                ctx.strokeStyle = 'rgba(101,67,33,0.9)'; ctx.lineWidth = twig.thickness;
+                ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ex, ey); ctx.stroke();
+                twig.branches.forEach(b => {
+                    ctx.beginPath();
+                    ctx.moveTo(ex, ey);
+                    ctx.lineTo(ex + Math.cos(b.angle) * b.length, ey + Math.sin(b.angle) * b.length);
+                    ctx.strokeStyle = 'rgba(101,67,33,0.8)'; ctx.lineWidth = Math.max(1, twig.thickness / 2);
+                    ctx.stroke();
+                });
+            });
+            // flowers
+            FLOWERS.forEach(f => {
+                const x = (f.x0 + Math.sin(t * f.freq + f.phase) * f.drift) % w;
+                const y = Math.max(f.y0, minY);
+                for (let i = 0; i < f.petals; i++) {
+                    const ang = f.angle + i * (2 * Math.PI / f.petals) + t * 0.1;
+                    const px = x + Math.cos(ang) * f.radius;
+                    const py = y + Math.sin(ang) * f.radius;
+                    ctx.save(); ctx.translate(px, py); ctx.rotate(ang);
+                    ctx.beginPath(); ctx.ellipse(0, 0, f.petalW, f.petalH, 0, 0, 2 * Math.PI);
+                    ctx.fillStyle = 'rgba(205,133,63,0.7)'; ctx.fill();
+                    ctx.restore();
+                }
+                ctx.beginPath(); ctx.arc(x, y, f.centerR, 0, 2 * Math.PI);
+                ctx.fillStyle = 'rgba(139,69,19,0.9)'; ctx.fill();
+            });
+            ctx.restore();
+        }
+
+        function drawBirds(ctx, t) {
+            const w = canvas.width, h = canvas.height;
+            initBirds(w, h);
+            ctx.save(); ctx.fillStyle = 'black';
+            BIRDS.forEach(b => {
+                const x = (b.x0 + b.speed * t) % (b.w + 100) - 50;
+                const y = b.y0 + Math.sin((x / b.w) * 2 * Math.PI + b.phase) * 8;
+                const s = b.scale * 20;
+                const bw = s * 0.8, bh = s * 0.3;
+                // corpo
+                ctx.beginPath(); ctx.ellipse(x, y, bw / 2, bh / 2, 0, 0, 2 * Math.PI); ctx.fill();
+                // ali
+                [[-0.3, -0.4], [0.3, -0.4]].forEach(side => {
+                    ctx.beginPath();
+                    ctx.moveTo(x + side[0] * bw, y);
+                    ctx.lineTo(x + side[0] * bw * 2, y + side[1] * s);
+                    ctx.lineTo(x + side[0] * bw * 1.2, y);
+                    ctx.fill();
+                });
+                // coda
+                const tailBaseY = y + bh * 0.3;
+                [[-0.2, 0.5], [0.2, 0.5]].forEach(offset => {
+                    ctx.beginPath();
+                    ctx.moveTo(x, tailBaseY);
+                    ctx.lineTo(x + offset[0] * bw, y + bh * 0.5);
+                    ctx.lineTo(x, y + bh * 0.7);
+                    ctx.fill();
+                });
+            });
+            ctx.restore();
+        }
+
+        function drawScene() {
+            const w = canvas.width, h = canvas.height;
+            const t = (performance.now() - startTime) / 1000;
+            const humidity = getHumidity();
+            const temperature = getTemperature();
+            const brightness = getBrightness();
+            const amp = getAudioAmp();
+
+            // 1) cielo
+            ctx.fillStyle = 'rgb(135,206,235)'; ctx.fillRect(0, 0, w, h);
+            // 2) mare
+            drawSeaWave(ctx, amp, t);
+            // 3) luminosità overlay
+            if (brightness < 170) {
+                const alpha = (170 - brightness) / 120 * 0.6;
+                ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+                ctx.fillRect(0, 0, w, h);
+            } else if (brightness > 600) {
+                ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.fillRect(0, 0, w, h);
+            }
+            // 4) effetti sovrapposti
+            const off = document.createElement('canvas'); off.width = w; off.height = h;
+            const octx = off.getContext('2d');
+            if (temperature <= 14) drawSnow(octx, t);
+            else if (temperature > 25) drawSun(octx, t);
+            else drawBirds(octx, t);
+            if (humidity < 35) drawDry(octx, t);
+            else if (humidity <= 85) drawClouds(octx, t, false, humidity / 100);
+            else drawRain(octx, t, 0.85);
+            if (brightness < 170) drawStars(octx, t);
+            // maschera dell'onda
+            octx.globalCompositeOperation = 'destination-in';
+            octx.beginPath(); octx.moveTo(0, h);
+            AUDIO_BUFFER.forEach((a, i) => octx.lineTo(i * AUDIO_STEP, h - 60 - a * (h * 0.35)));
+            octx.lineTo(w, h); octx.closePath(); octx.fill();
+            ctx.drawImage(off, 0, 0);
+
+            requestAnimationFrame(drawScene);
+        }
+
+        let startTime;
+        window.onload = () => { startTime = performance.now(); requestAnimationFrame(drawScene); };
+    </script>
+</body>
+
+</html>
