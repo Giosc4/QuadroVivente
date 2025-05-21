@@ -10,8 +10,6 @@ window.addEventListener('resize', () => {
   H = canvas.height = window.innerHeight;
 });
 
-let humidity = 0, temperature = 0, brightness = 0, audio = 0;
-
 btnFS.onclick = () => {
   if (!document.fullscreenElement) {
     document.documentElement.requestFullscreen();
@@ -22,35 +20,135 @@ btnFS.onclick = () => {
   }
 };
 
+let latest = { h:0, t:0, l:0, a:0 };
+
 socket.on('update', data => {
-  humidity    = data.h;
-  temperature = data.t;
-  brightness  = data.l;
-  audio       = data.a;
+  latest = data;
+  handleTemperature(data.t);
+  handleHumidity(data.h);
+  handleLuminosity(data.l);
+  handleNoise(data.a);
 });
+
+// ——————————————————————
+// HANDLER PRINCIPALI
+// ——————————————————————
+
+function handleTemperature(t) {
+  document.body.classList.remove('temp-cold','temp-warm','temp-hot');
+  if (t < 14) {
+    document.body.classList.add('temp-cold');
+    onTempBelow14(t);
+  }
+  else if (t <= 24) {
+    document.body.classList.add('temp-warm');
+    onTempBetween14And24(t);
+  }
+  else {
+    document.body.classList.add('temp-hot');
+    onTempAbove24(t);
+  }
+}
+
+function handleHumidity(h) {
+  document.body.classList.remove('hum-dry','hum-normal','hum-humid');
+  if (h < 34) {
+    document.body.classList.add('hum-dry');
+    onHumBelow34(h);
+  }
+  else if (h <= 74) {
+    document.body.classList.add('hum-normal');
+    onHumBetween35And74(h);
+  }
+  else {
+    document.body.classList.add('hum-humid');
+    onHumAbove75(h);
+  }
+}
+
+function handleLuminosity(l) {
+  document.body.classList.remove('lum-dark','lum-medium','lum-bright');
+  if (l < 170) {
+    document.body.classList.add('lum-dark');
+    onLumBelow170(l);
+  }
+  else if (l <= 599) {
+    document.body.classList.add('lum-medium');
+    onLumBetween171And599(l);
+  }
+  else {
+    document.body.classList.add('lum-bright');
+    onLumAbove600(l);
+  }
+}
+
+function handleNoise(a) {
+  // normalizzo fra 0 e 1
+  const norm = Math.min(1, Math.max(0, a / 1023));
+  onNoiseChange(norm);
+}
+
+// ——————————————————————
+// CALLBACK DI LANDING
+// ——————————————————————
+
+function onTempBelow14(t) {
+  // TODO: personalizza comportamento a freddo estremo
+  console.log('Temp <14°C:', t);
+}
+
+function onTempBetween14And24(t) {
+  // TODO: personalizza comportamento temperatura “confortevole”
+  console.log('Temp 14–24°C:', t);
+}
+
+function onTempAbove24(t) {
+  // TODO: personalizza comportamento caldo
+  console.log('Temp >24°C:', t);
+}
+
+function onHumBelow34(h) {
+  // TODO: personalizza comportamento aria secca
+  console.log('Umidità <34%:', h);
+}
+
+function onHumBetween35And74(h) {
+  // TODO: personalizza comportamento umidità normale
+  console.log('Umidità 35–74%:', h);
+}
+
+function onHumAbove75(h) {
+  // TODO: personalizza comportamento umidità elevata
+  console.log('Umidità >75%:', h);
+}
+
+function onLumBelow170(l) {
+  // TODO: personalizza comportamento bassa luminosità
+  console.log('Lum <170:', l);
+}
+
+function onLumBetween171And599(l) {
+  // TODO: personalizza comportamento luminosità media
+  console.log('Lum 171–599:', l);
+}
+
+function onLumAbove600(l) {
+  // TODO: personalizza comportamento alta luminosità
+  console.log('Lum >600:', l);
+}
+
+function onNoiseChange(norm) {
+  // norm ∈ [0,1]; TODO: personalizza comportamento in funzione del rumore
+  console.log('Rumore normalizzato:', norm);
+}
+
+// ——————————————————————
+// DRAW (la tua grafica “base”)
+// ——————————————————————
 
 function draw() {
   ctx.clearRect(0, 0, W, H);
-
-  const lum = Math.min(255, brightness / 4);
-  ctx.fillStyle = `rgb(${lum}, ${lum}, ${255 - lum})`;
-  ctx.fillRect(0, 0, W, H);
-
-  const amp = Math.min(1, audio / 512);
-  const radius = 50 + amp * 100;
-  ctx.beginPath();
-  ctx.arc(W/2, H/2, radius, 0, 2 * Math.PI);
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-  ctx.fill();
-
-  ctx.fillStyle = 'white';
-  ctx.font = '20px sans-serif';
-  ctx.fillText(`Umidità: ${humidity.toFixed(1)}%`, 20, 30);
-  ctx.fillText(`Temp: ${temperature.toFixed(1)}°C`, 20, 60);
-  ctx.fillText(`Lumi: ${brightness}`, 20, 90);
-  ctx.fillText(`Audio: ${audio}`, 20, 120);
-
+  // …la tua grafica originale sul canvas, se vuoi tenerla…
   requestAnimationFrame(draw);
 }
-
 draw();
