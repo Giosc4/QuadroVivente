@@ -267,7 +267,7 @@ function drawValues() {
 
   ctx.font = '14px sans-serif';
   ctx.fillStyle = '#FFD700';
-  ctx.fillText('Progetto creato da Giovanni', txtX, H - 10);
+  ctx.fillText('Progetto creato da Giovanni', txtX, H - 30);
   ctx.fillText('giovannimaria.savoca@studio.unibo.it', txtX, H - 10);
 
 }

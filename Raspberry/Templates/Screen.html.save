@@ -12,9 +12,10 @@
   <button id="fs-btn">▶ Fullscreen</button>
   <canvas id="scene"></canvas>
   <script src="{{ url_for('static', filename='main.js') }}"></script>
-    <p>Progetto creato da Giovanni <br>
+
+  <p>Progetto creato da Giovanni <br>
     giovannimaria.savoca@studio.unibo.it
   </p>
-</body>
+/body>
 
 </html>

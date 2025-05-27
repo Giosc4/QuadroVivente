@@ -1,14 +1,18 @@
 <!doctype html>
 <html lang="it">
+
 <head>
   <meta charset="utf-8">
   <title>Quadro Vivente</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='static/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
 </head>
+
 <body>
   <button id="fs-btn">▶ Fullscreen</button>
   <canvas id="scene"></canvas>
-  <script src="{{ url_for('static', filename='Raspberry\static\main.js') }}"></script>
+  <script src="{{ url_for('static', filename='main.js') }}"></script>
+
 </body>
+
 </html>
