@@ -27,6 +27,26 @@ btnFS.addEventListener('click', () => {
 let latest = { h: 0, t: 0, l: 0, a: 0 };
 let initialized = false;
 
+// Particelle e oggetti di scena
+const clouds = Array.from({ length: 6 }, () => ({
+  x: Math.random() * W,
+  y: Math.random() * H * 0.1 + H * 0.1,
+  baseW: 150 + Math.random() * 50,
+  baseH: 50  + Math.random() * 20,
+  speed: 0.2 + Math.random() * 0.1,
+  color: '#FFF',
+  w: 0, h: 0,
+  rainDrops: [],
+  snowFlakes: []
+}));
+const birds = Array.from({ length: 5 }, () => ({
+  x: Math.random() * W,
+  y: Math.random() * H * 0.4 + H * 0.1,
+  speed: 1 + Math.random() * 0.5,
+  phase: Math.random() * Math.PI * 2,
+  flapSpeed: 0.005 + Math.random() * 0.005
+}));
+
 // Stelle fisse con “twinkle”
 let stars = [];
 
@@ -42,7 +62,7 @@ function map(v, a, b, c, d) {
 
 // Inizializza scena
 function initScene() {
-  // crea 50 stelle fisse con raggio e twinkle casuale
+  // stelle
   stars = Array.from({ length: 50 }, () => ({
     x: Math.random() * W,
     y: Math.random() * H * 0.5,
@@ -50,7 +70,7 @@ function initScene() {
     twinkleSpeed: (Math.random() * 0.02 + 0.01) * (Math.random() < 0.5 ? 1 : -1)
   }));
 
-  // inizializza nuvole (stessa logica di prima)
+  // nuvole adattate ai sensori
   clouds.forEach(c => {
     let factor = map(latest.h, 35, 75, 0.8, 1.2);
     if (latest.h < 35)      factor = 0.8;
@@ -60,6 +80,7 @@ function initScene() {
     c.h = c.baseH * factor;
     c.color = (latest.h > 75 || latest.t <= 14) ? '#AAA' : '#FFF';
 
+    // pioggia
     if (latest.h > 75) {
       c.rainDrops = Array.from({ length: 12 }, () => ({
         x: c.x - c.w * 0.4 + Math.random() * c.w * 1.8,
@@ -68,6 +89,8 @@ function initScene() {
         speed: 2 + Math.random() * 2
       }));
     } else c.rainDrops = [];
+
+    // neve
     if (latest.t <= 14) {
       c.snowFlakes = Array.from({ length: 12 }, () => ({
         x: c.x - c.w * 0.4 + Math.random() * c.w * 1.8,
@@ -78,7 +101,7 @@ function initScene() {
     } else c.snowFlakes = [];
   });
 
-  // prima onda iniziale, attiva
+  // prima onda iniziale
   const initialAmp = map(latest.a, 0, 2048, 50, 200);
   waves = [{ amp: initialAmp, offset: 0, x: W, isActive: true }];
 }
@@ -93,7 +116,7 @@ socket.on('update', data => {
     // congela tutte le onde esistenti
     waves.forEach(w => w.isActive = false);
 
-    // genera nuova onda attiva con ampiezza basata sul rumore
+    // nuova onda attiva
     const baseAmp   = map(latest.a, 0, 2048, 50, 200);
     const variedAmp = baseAmp * (0.5 + Math.random());
     waves.push({
@@ -103,7 +126,6 @@ socket.on('update', data => {
       isActive: true
     });
 
-    // mantieni al massimo maxWaves
     if (waves.length > maxWaves) waves.shift();
   }
 });
@@ -117,7 +139,6 @@ function drawBackground() {
 function drawStars() {
   if (latest.l <= 200) {
     stars.forEach(s => {
-      // twinkle
       s.r += s.twinkleSpeed;
       if (s.r <= 0.5 || s.r >= 2) s.twinkleSpeed *= -1;
       const alpha = map(s.r, 0.5, 2, 0.3, 1);
@@ -221,15 +242,16 @@ function drawWaves() {
   ctx.lineWidth   = 2;
 
   waves.forEach((w, j) => {
-    // aggiorna offset solo per l'onda attiva
+    // solo l'onda attiva cambia fase
     if (w.isActive) w.offset += 0.02;
-    // sposta tutte le onde verso sinistra
+    // tutte scorrono verso sinistra
     w.x -= 2;
 
-    // disegna da 0 a W usando (px - w.x)
     ctx.beginPath();
+    // punto di partenza a x=0
     const y0 = H - 150 - j*30 + Math.sin((0 - w.x) * waveFreq + w.offset) * w.amp;
     ctx.moveTo(0, y0);
+    // traccia fino a x=W
     for (let px = 0; px <= W; px += 10) {
       const y = H - 150 - j*30 + Math.sin((px - w.x) * waveFreq + w.offset) * w.amp;
       ctx.lineTo(px, y);
