@@ -1,2 +1,4 @@
 /.vscode
 /__pycache__
+
+/Raspberry/client_secret.json

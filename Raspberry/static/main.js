@@ -2,12 +2,12 @@
 
 const socket = io();
 const canvas = document.getElementById('scene');
-const ctx    = canvas.getContext('2d');
+const ctx = canvas.getContext('2d');
 
-let W = canvas.width  = window.innerWidth;
+let W = canvas.width = window.innerWidth;
 let H = canvas.height = window.innerHeight;
 window.addEventListener('resize', () => {
-  W = canvas.width  = window.innerWidth;
+  W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
 });
 
@@ -32,7 +32,7 @@ const clouds = Array.from({ length: 6 }, () => ({
   x: Math.random() * W,
   y: Math.random() * H * 0.1 + H * 0.1,
   baseW: 150 + Math.random() * 50,
-  baseH: 50  + Math.random() * 20,
+  baseH: 50 + Math.random() * 20,
   speed: 0.2 + Math.random() * 0.1,
   color: '#FFF',
   w: 0, h: 0,
@@ -47,7 +47,7 @@ const birds = Array.from({ length: 5 }, () => ({
   flapSpeed: 0.005 + Math.random() * 0.005
 }));
 
-// Stelle fisse con “twinkle”
+// Stelle fisse con "twinkle"
 let stars = [];
 
 // Onde audio
@@ -62,7 +62,7 @@ function map(v, a, b, c, d) {
 
 // Inizializza scena
 function initScene() {
-  // stelle
+  // crea 50 stelle fisse con raggio e twinkle casuale
   stars = Array.from({ length: 50 }, () => ({
     x: Math.random() * W,
     y: Math.random() * H * 0.5,
@@ -70,17 +70,16 @@ function initScene() {
     twinkleSpeed: (Math.random() * 0.02 + 0.01) * (Math.random() < 0.5 ? 1 : -1)
   }));
 
-  // nuvole adattate ai sensori
+  // adatta nuvole ai sensori
   clouds.forEach(c => {
     let factor = map(latest.h, 35, 75, 0.8, 1.2);
-    if (latest.h < 35)      factor = 0.8;
+    if (latest.h < 35) factor = 0.8;
     else if (latest.h > 75) factor = 2.0;
-    if (latest.t <= 14)     factor = Math.max(factor, 1.5);
+    if (latest.t <= 14) factor = Math.max(factor, 1.5);
     c.w = c.baseW * factor;
     c.h = c.baseH * factor;
     c.color = (latest.h > 75 || latest.t <= 14) ? '#AAA' : '#FFF';
 
-    // pioggia
     if (latest.h > 75) {
       c.rainDrops = Array.from({ length: 12 }, () => ({
         x: c.x - c.w * 0.4 + Math.random() * c.w * 1.8,
@@ -90,7 +89,6 @@ function initScene() {
       }));
     } else c.rainDrops = [];
 
-    // neve
     if (latest.t <= 14) {
       c.snowFlakes = Array.from({ length: 12 }, () => ({
         x: c.x - c.w * 0.4 + Math.random() * c.w * 1.8,
@@ -101,7 +99,7 @@ function initScene() {
     } else c.snowFlakes = [];
   });
 
-  // prima onda iniziale
+  // prima onda iniziale, attiva
   const initialAmp = map(latest.a, 0, 2048, 50, 200);
   waves = [{ amp: initialAmp, offset: 0, x: W, isActive: true }];
 }
@@ -113,19 +111,10 @@ socket.on('update', data => {
     initScene();
     initialized = true;
   } else {
-    // congela tutte le onde esistenti
-    waves.forEach(w => w.isActive = false);
-
-    // nuova onda attiva
-    const baseAmp   = map(latest.a, 0, 2048, 50, 200);
+    // nuova onda statica
+    const baseAmp = map(latest.a, 0, 2048, 50, 200);
     const variedAmp = baseAmp * (0.5 + Math.random());
-    waves.push({
-      amp:      variedAmp,
-      offset:   0,
-      x:        W,
-      isActive: true
-    });
-
+    waves.push({ amp: variedAmp, offset: 0, x: W, isActive: false });
     if (waves.length > maxWaves) waves.shift();
   }
 });
@@ -176,9 +165,9 @@ function drawClouds() {
     if (c.x - c.w > W) c.x = -c.w;
     ctx.fillStyle = c.color;
     ctx.beginPath();
-    ctx.ellipse(c.x,             c.y, c.w * 0.3, c.h * 0.8, 0, Math.PI * 0.5, Math.PI * 1.5);
+    ctx.ellipse(c.x, c.y, c.w * 0.3, c.h * 0.8, 0, Math.PI * 0.5, Math.PI * 1.5);
     ctx.ellipse(c.x + c.w * 0.4, c.y - c.h * 0.2, c.w * 0.35, c.h * 0.75, 0, 0, Math.PI * 2);
-    ctx.ellipse(c.x + c.w * 0.8, c.y,             c.w * 0.3, c.h * 0.8, 0, Math.PI * 1.5, Math.PI * 0.5);
+    ctx.ellipse(c.x + c.w * 0.8, c.y, c.w * 0.3, c.h * 0.8, 0, Math.PI * 1.5, Math.PI * 0.5);
     ctx.closePath();
     ctx.fill();
     c.rainDrops.forEach(d => {
@@ -213,8 +202,8 @@ function drawLeaves() {
 
 function drawBirds() {
   const comfyTemp = latest.t >= 15 && latest.t <= 24;
-  const comfyHum  = latest.h >= 36 && latest.h <= 75;
-  const isDay     = latest.l > 200;
+  const comfyHum = latest.h >= 36 && latest.h <= 75;
+  const isDay = latest.l > 200;
   if (isDay && comfyTemp && comfyHum) {
     birds.forEach(b => {
       b.x += b.speed;
@@ -237,23 +226,21 @@ function drawWaves() {
   grad.addColorStop(0, 'rgba(30,144,255,0.4)');
   grad.addColorStop(1, 'rgba(0,0,139,0.4)');
 
-  ctx.fillStyle   = grad;
+  ctx.fillStyle = grad;
   ctx.strokeStyle = '#1E90FF';
-  ctx.lineWidth   = 2;
+  ctx.lineWidth = 2;
 
   waves.forEach((w, j) => {
-    // solo l'onda attiva cambia fase
+    // solo la prima onda (isActive) cambia offset
     if (w.isActive) w.offset += 0.02;
     // tutte scorrono verso sinistra
     w.x -= 2;
 
     ctx.beginPath();
-    // punto di partenza a x=0
-    const y0 = H - 150 - j*30 + Math.sin((0 - w.x) * waveFreq + w.offset) * w.amp;
+    const y0 = H - 150 - j * 30 + Math.sin((0 - w.x) * waveFreq + w.offset) * w.amp;
     ctx.moveTo(0, y0);
-    // traccia fino a x=W
     for (let px = 0; px <= W; px += 10) {
-      const y = H - 150 - j*30 + Math.sin((px - w.x) * waveFreq + w.offset) * w.amp;
+      const y = H - 150 - j * 30 + Math.sin((px - w.x) * waveFreq + w.offset) * w.amp;
       ctx.lineTo(px, y);
     }
     ctx.lineTo(W, H);
@@ -277,6 +264,12 @@ function drawValues() {
   ctx.fillText(`Temperatura: ${latest.t}`, txtX, txtYStart + lineHeight);
   ctx.fillText(`Luminosità: ${latest.l}`, txtX, txtYStart + lineHeight * 2);
   ctx.fillText(`Audio: ${latest.a}`, txtX, txtYStart + lineHeight * 3);
+
+  ctx.font = '14px sans-serif';
+  ctx.fillStyle = '#FFD700';
+  ctx.fillText('Progetto creato da Giovanni', txtX, H - 10);
+  ctx.fillText('giovannimaria.savoca@studio.unibo.it', txtX, H - 10);
+
 }
 
 function draw() {
