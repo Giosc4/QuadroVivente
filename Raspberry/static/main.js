@@ -11,18 +11,6 @@ window.addEventListener('resize', () => {
   H = canvas.height = window.innerHeight;
 });
 
-// Fullscreen toggle
-const btnFS = document.getElementById('fs-btn');
-btnFS.addEventListener('click', () => {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen();
-    btnFS.textContent = '× Esci Fullscreen';
-  } else {
-    document.exitFullscreen();
-    btnFS.textContent = '▶ Fullscreen';
-  }
-});
-
 // Ultimi valori dai sensori
 let latest = { h: 0, t: 0, l: 0, a: 0 };
 let initialized = false;
@@ -212,24 +200,51 @@ function drawLeaves() {
 }
 
 function drawBirds() {
+  // tolta la condizione isDay; mantieni solo quella di comfort o rimuovila del tutto
   const comfyTemp = latest.t >= 15 && latest.t <= 24;
   const comfyHum = latest.h >= 36 && latest.h <= 75;
-  const isDay = latest.l > 200;
-  if (isDay && comfyTemp && comfyHum) {
+  if (comfyTemp && comfyHum) {
     birds.forEach(b => {
       b.x += b.speed;
       if (b.x > W + 50) b.x = -50;
+
+      // ampiezza di volo “flap”
       const y = b.y + Math.sin(Date.now() * b.flapSpeed * 2 + b.phase) * 10;
-      ctx.fillStyle = '#333';
+
+      // dimensioni e “apertura alare”
+      const wingSpan = 20 + 10 * Math.sin(Date.now() * b.flapSpeed + b.phase);
+      const wingHeight = 10;
+
+      // colore diverso di notte
+      const isNight = latest.l <= 200;
+      ctx.strokeStyle = isNight ? 'rgba(200,200,200,0.8)' : '#333';
+      ctx.lineWidth = 2;
+
+      // ala sinistra
       ctx.beginPath();
       ctx.moveTo(b.x, y);
-      ctx.lineTo(b.x - 10, y + 5);
-      ctx.lineTo(b.x + 10, y + 5);
-      ctx.closePath();
-      ctx.fill();
+      ctx.quadraticCurveTo(
+        b.x - wingSpan * 0.5,
+        y - wingHeight,
+        b.x - wingSpan,
+        y
+      );
+      ctx.stroke();
+
+      // ala destra
+      ctx.beginPath();
+      ctx.moveTo(b.x, y);
+      ctx.quadraticCurveTo(
+        b.x + wingSpan * 0.5,
+        y - wingHeight,
+        b.x + wingSpan,
+        y
+      );
+      ctx.stroke();
     });
   }
 }
+
 
 function drawWaves() {
   const baseY = H - 170; // lascia 10px di mare in basso
@@ -271,17 +286,42 @@ function drawValues() {
   const txtYStart = H - 150 + padding;
   ctx.font = '16px sans-serif';
   ctx.fillStyle = '#FFF';
-  ctx.fillText(`Umidità: ${latest.h} %`, txtX, txtYStart);
-  ctx.fillText(`Temperatura: ${latest.t} °C`, txtX, txtYStart + lineHeight);
-  ctx.fillText(`Luminosità: ${latest.l}`, txtX, txtYStart + lineHeight * 2);
+  ctx.fillText(`Humidity: ${latest.h} %`, txtX, txtYStart);
+  ctx.fillText(`Temperature: ${latest.t} °C`, txtX, txtYStart + lineHeight);
+  ctx.fillText(`Brightness: ${latest.l}`, txtX, txtYStart + lineHeight * 2);
   ctx.fillText(`Audio: ${latest.a}`, txtX, txtYStart + lineHeight * 3);
 
   ctx.font = '14px sans-serif';
   ctx.fillStyle = '#FFD700';
-  ctx.fillText('Progetto creato da:', txtX, H - 30);
+  ctx.fillText('Author:', txtX, H - 30);
   ctx.fillText('giovannimaria.savoca@studio.unibo.it', txtX, H - 10);
 
 }
+
+function drawPrecip() {
+  clouds.forEach(c => {
+    // pioggia
+    c.rainDrops.forEach(d => {
+      d.y += d.speed;
+      if (d.y > H) d.y = c.y + c.h * 0.3;
+      ctx.strokeStyle = 'rgba(174,194,224,0.7)';
+      ctx.beginPath();
+      ctx.moveTo(d.x, d.y);
+      ctx.lineTo(d.x, d.y + d.len);
+      ctx.stroke();
+    });
+    // neve
+    c.snowFlakes.forEach(f => {
+      f.y += f.speed;
+      if (f.y > H) f.y = c.y + c.h * 0.3;
+      ctx.fillStyle = '#FFF';
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, f.size, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  });
+}
+
 
 function draw() {
   ctx.clearRect(0, 0, W, H);
@@ -290,16 +330,20 @@ function draw() {
   const precip = latest.h > 75 || latest.t <= 14;
   if (precip) {
     drawSunOrSnow();
-    drawClouds();
+    drawPrecip();      // pioggia/neve
   } else {
     drawClouds();
-    drawSunOrSnow();
   }
   drawLeaves();
+
+  // qui: UCCELLI sempre
   drawBirds();
+
+  drawClouds();       // se vuoi che nuvole coprano leggermente gli uccelli
   drawWaves();
   drawValues();
   requestAnimationFrame(draw);
 }
+
 
 draw();
