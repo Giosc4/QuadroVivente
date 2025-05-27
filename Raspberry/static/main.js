@@ -27,7 +27,7 @@ socket.on('update', data => {
   handleTemperature(data.t);
   handleHumidity(data.h);
   handleLuminosity(data.l);
-  handleNoise(data.a);
+  handleNoise(data.a); 
 });
 
 // ——————————————————————
@@ -82,12 +82,44 @@ function handleLuminosity(l) {
   }
 }
 
-function handleNoise(a) {
-  // normalizzo fra 0 e 1
-  const norm = Math.min(1, Math.max(0, a / 1023));
-  onNoiseChange(norm);
+function handleNoise(raw) {
+  // raw ∈ [0, 2048] (valore assoluto centrato dal DHT-sketch)
+  // normalizzo fra 0 e 1 in base al massimo possibile
+  const norm = Math.min(1, Math.max(0, raw / 2048));
+
+  // pulisco le classi CSS precedenti
+  document.body.classList.remove('noise-quiet', 'noise-medium', 'noise-loud');
+
+  // suddivido in tre fasce: silenzioso, normale, rumoroso
+  if (raw < 200) {                      // sotto ~200 → quasi silenzioso
+    document.body.classList.add('noise-quiet');
+    onNoiseQuiet(raw, norm);
+  }
+  else if (raw <= 800) {               // tra 200 e 800 → livello “medio”
+    document.body.classList.add('noise-medium');
+    onNoiseMedium(raw, norm);
+  }
+  else {                               // sopra 800 → piuttosto rumoroso
+    document.body.classList.add('noise-loud');
+    onNoiseLoud(raw, norm);
+  }
 }
 
+function onNoiseQuiet(raw, norm) {
+  // TODO: comportamento per ambiente silenzioso
+  // raw: 0–2048, norm: 0.0–1.0
+  console.log(`Rumore basso: raw=${raw}, norm=${norm.toFixed(2)}`);
+}
+
+function onNoiseMedium(raw, norm) {
+  // TODO: comportamento per rumore “di fondo” normale
+  console.log(`Rumore medio: raw=${raw}, norm=${norm.toFixed(2)}`);
+}
+
+function onNoiseLoud(raw, norm) {
+  // TODO: comportamento per ambiente molto rumoroso
+  console.log(`Rumore alto: raw=${raw}, norm=${norm.toFixed(2)}`);
+}
 // ——————————————————————
 // CALLBACK DI LANDING
 // ——————————————————————
@@ -99,7 +131,7 @@ function onTempBelow14(t) {
 
 function onTempBetween14And24(t) {
   // TODO: personalizza comportamento temperatura “confortevole”
-  console.log('Temp 14–24°C:', t);
+  console.log('Temp 14-24°C:', t);
 }
 
 function onTempAbove24(t) {
@@ -114,7 +146,7 @@ function onHumBelow34(h) {
 
 function onHumBetween35And74(h) {
   // TODO: personalizza comportamento umidità normale
-  console.log('Umidità 35–74%:', h);
+  console.log('Umidità 35-74%:', h);
 }
 
 function onHumAbove75(h) {
@@ -129,7 +161,7 @@ function onLumBelow170(l) {
 
 function onLumBetween171And599(l) {
   // TODO: personalizza comportamento luminosità media
-  console.log('Lum 171–599:', l);
+  console.log('Lum 171-599:', l);
 }
 
 function onLumAbove600(l) {
