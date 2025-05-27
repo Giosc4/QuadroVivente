@@ -50,10 +50,28 @@ const birds = Array.from({ length: 5 }, () => ({
 // Stelle fisse con "twinkle"
 let stars = [];
 
-// Onde audio
-let waves = [];
-const maxWaves = 5;
-const waveFreq = 0.02;
+const sampleSpacing = 2;                    // pixel tra un campione e l’altro
+let maxSamples = Math.ceil(W / sampleSpacing);
+let waveData = [];
+
+window.addEventListener('resize', () => {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  maxSamples = Math.ceil(W / sampleSpacing);
+  if (waveData.length > maxSamples) {
+    waveData = waveData.slice(waveData.length - maxSamples);
+  }
+});
+
+// ——— Configurazione onde “oceano” ———
+let audioAmp = 0;   // ampiezza dinamica dall’audio
+
+// tre layer di onde con frequenze, velocità e pesi diversi
+const waves = [
+  { wavelength: 300, speed: 0.02, weight: 0.6, phase: 0 },
+  { wavelength: 200, speed: 0.015, weight: 0.4, phase: Math.PI / 2 },
+  { wavelength: 100, speed: 0.01, weight: 0.4, phase: Math.PI }
+];
 
 // Mapping utility
 function map(v, a, b, c, d) {
@@ -99,24 +117,17 @@ function initScene() {
     } else c.snowFlakes = [];
   });
 
-  // prima onda iniziale, attiva
-  const initialAmp = map(latest.a, 0, 2048, 50, 200);
-  waves = [{ amp: initialAmp, offset: 0, x: W, isActive: true }];
 }
 
-// Ricezione dati sensore
 socket.on('update', data => {
   latest = data;
   if (!initialized) {
     initScene();
     initialized = true;
-  } else {
-    // nuova onda statica
-    const baseAmp = map(latest.a, 0, 2048, 50, 200);
-    const variedAmp = baseAmp * (0.5 + Math.random());
-    waves.push({ amp: variedAmp, offset: 0, x: W, isActive: false });
-    if (waves.length > maxWaves) waves.shift();
   }
+  // ampiezza positiva 0..H*0.2
+  const globalWaveScale = 1.5; // tuning: >1 alza, <1 abbassa
+  audioAmp = map(latest.a, 0, 2048, 0, H * 0.2) * globalWaveScale;
 });
 
 // DISEGNI
@@ -221,53 +232,53 @@ function drawBirds() {
 }
 
 function drawWaves() {
-  // gradient per estetica onde
-  const grad = ctx.createLinearGradient(0, H - 220, 0, H);
-  grad.addColorStop(0, 'rgba(30,144,255,0.4)');
-  grad.addColorStop(1, 'rgba(0,0,139,0.4)');
+  const baseY = H - 170; // lascia 10px di mare in basso
 
-  ctx.fillStyle = grad;
-  ctx.strokeStyle = '#1E90FF';
-  ctx.lineWidth = 2;
+  waves.forEach(w => {
+    w.phase += w.speed;
+    const ampLayer = audioAmp * w.weight;
 
-  waves.forEach((w, j) => {
-    // solo la prima onda (isActive) cambia offset
-    if (w.isActive) w.offset += 0.02;
-    // tutte scorrono verso sinistra
-    w.x -= 2;
-
+    // contorno onda
     ctx.beginPath();
-    const y0 = H - 150 - j * 30 + Math.sin((0 - w.x) * waveFreq + w.offset) * w.amp;
-    ctx.moveTo(0, y0);
-    for (let px = 0; px <= W; px += 10) {
-      const y = H - 150 - j * 30 + Math.sin((px - w.x) * waveFreq + w.offset) * w.amp;
-      ctx.lineTo(px, y);
+    for (let x = 0; x <= W; x += 1) {
+      const theta = (x / w.wavelength) * Math.PI * 2 + w.phase;
+      const y = baseY - Math.sin(theta) * ampLayer;
+      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     }
+    // chiudi verso il fondo per riempire acqua
     ctx.lineTo(W, H);
     ctx.lineTo(0, H);
     ctx.closePath();
+
+    // styling
+    const alpha = 0.4 * w.weight;
+    const grad = ctx.createLinearGradient(0, baseY - ampLayer, 0, H);
+    grad.addColorStop(0, `rgba(0,191,255,${alpha})`);
+    grad.addColorStop(1, `rgba(0,0,139,${alpha})`);
+    ctx.fillStyle = grad;
     ctx.fill();
+
+    ctx.strokeStyle = `rgba(255,255,255,${0.6 * w.weight})`;
+    ctx.lineWidth = 1.5 * w.weight;
     ctx.stroke();
   });
-
-  ctx.lineWidth = 1;
 }
 
 function drawValues() {
   const padding = 10;
   const lineHeight = 20;
   const txtX = padding;
-  const txtYStart = H - 200 + padding;
+  const txtYStart = H - 150 + padding;
   ctx.font = '16px sans-serif';
   ctx.fillStyle = '#FFF';
-  ctx.fillText(`Umidità: ${latest.h}`, txtX, txtYStart);
-  ctx.fillText(`Temperatura: ${latest.t}`, txtX, txtYStart + lineHeight);
+  ctx.fillText(`Umidità: ${latest.h} %`, txtX, txtYStart);
+  ctx.fillText(`Temperatura: ${latest.t} °C`, txtX, txtYStart + lineHeight);
   ctx.fillText(`Luminosità: ${latest.l}`, txtX, txtYStart + lineHeight * 2);
   ctx.fillText(`Audio: ${latest.a}`, txtX, txtYStart + lineHeight * 3);
 
   ctx.font = '14px sans-serif';
   ctx.fillStyle = '#FFD700';
-  ctx.fillText('Progetto creato da Giovanni', txtX, H - 30);
+  ctx.fillText('Progetto creato da:', txtX, H - 30);
   ctx.fillText('giovannimaria.savoca@studio.unibo.it', txtX, H - 10);
 
 }
