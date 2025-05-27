@@ -48,6 +48,10 @@ const birds = Array.from({ length: 5 }, () => ({
   flapSpeed: 0.005 + Math.random() * 0.005
 }));
 
+// **NUOVO**: array di stelle fisse con twinkle
+let stars = [];
+
+// Onde audio
 let waveOffset = 0;
 let waves = [];
 const maxWaves = 5;
@@ -59,7 +63,17 @@ function map(v, a, b, c, d) {
 }
 
 // Inizializza scena
-function initScene() { clouds.forEach(c => {
+function initScene() {
+  // **NUOVO**: inizializza 50 stelle a posizioni fisse e parametro di twinkle
+  stars = Array.from({ length: 50 }, () => ({
+    x: Math.random() * W,
+    y: Math.random() * H * 0.5,
+    r: Math.random() * 1.5 + 0.5,               // raggio iniziale
+    twinkleSpeed: (Math.random() * 0.02 + 0.01) * (Math.random() < 0.5 ? 1 : -1)
+  }));
+
+  // nuvole come prima
+  clouds.forEach(c => {
     let factor = map(latest.h, 35, 75, 0.8, 1.2);
     if (latest.h < 35)      factor = 0.8;
     else if (latest.h > 75) factor = 2.0;
@@ -68,7 +82,7 @@ function initScene() { clouds.forEach(c => {
     c.h = c.baseH * factor;
     c.color = (latest.h > 75 || latest.t <= 14) ? '#AAA' : '#FFF';
 
-    // Prepara pioggia
+    // Prepara pioggia o neve
     if (latest.h > 75) {
       c.rainDrops = Array.from({ length: 12 }, () => ({
         x: c.x - c.w * 0.4 + Math.random() * c.w * 1.8,
@@ -77,7 +91,7 @@ function initScene() { clouds.forEach(c => {
         speed: 2 + Math.random() * 2
       }));
     } else c.rainDrops = [];
-    // Prepara neve
+
     if (latest.t <= 14) {
       c.snowFlakes = Array.from({ length: 12 }, () => ({
         x: c.x - c.w * 0.4 + Math.random() * c.w * 1.8,
@@ -87,6 +101,7 @@ function initScene() { clouds.forEach(c => {
       }));
     } else c.snowFlakes = [];
   });
+
   // prima onda iniziale
   const initialAmp = map(latest.a, 0, 2048, 50, 200);
   waves = [{ amp: initialAmp, offset: 0 }];
@@ -99,12 +114,15 @@ socket.on('update', data => {
     initScene();
     initialized = true;
   } else {
-    // ad ogni nuovo valore audio, crea una nuova wave
-    const newAmp = map(latest.a, 0, 2048, 50, 200);
-    waves.push({ amp: newAmp, offset: 0 });
+    // genera ampiezza base dal rumore e applica una variazione 0.5–1.5×
+    const baseAmp = map(latest.a, 0, 2048, 50, 200);
+    const variedAmp = baseAmp * (0.5 + Math.random());
+    // nuova onda parte da destra (x = W)
+    waves.push({ amp: variedAmp, offset: 0, x: W });
     if (waves.length > maxWaves) waves.shift();
   }
 });
+
 
 // DISEGNI
 function drawBackground() {
@@ -114,15 +132,17 @@ function drawBackground() {
 
 function drawStars() {
   if (latest.l <= 200) {
-    for (let i = 0; i < 50; i++) {
-      const x = Math.random() * W;
-      const y = Math.random() * H * 0.5;
-      const r = Math.random() * 1.5;
-      ctx.fillStyle = '#FFF';
+    stars.forEach(s => {
+      // facciamo “twinkle” variando raggio
+      s.r += s.twinkleSpeed;
+      if (s.r <= 0.5 || s.r >= 2) s.twinkleSpeed *= -1;
+      // disegna stella con opacità in base al raggio
+      const alpha = map(s.r, 0.5, 2, 0.3, 1);
+      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
       ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
       ctx.fill();
-    }
+    });
   }
 }
 
@@ -221,19 +241,30 @@ function drawWaves() {
   ctx.lineWidth = 2;
 
   waves.forEach((w, j) => {
+    // Muovi l'onda verso sinistra
+    w.x -= 2; // puoi variare la velocità qui
+
     ctx.beginPath();
-    for (let x = 0; x <= W; x += 10) {
-      const y = H - 150 - j * 30 + Math.sin(x * waveFreq + w.offset) * w.amp;
-      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    for (let px = 0; px <= W; px += 10) {
+      const y = H - 150 - j * 30
+                + Math.sin(px * waveFreq + w.offset) * w.amp;
+      const screenX = w.x + px;
+      // disegna solo la parte dentro lo schermo
+      if (screenX >= 0 && screenX <= W) {
+        if (px === 0 || screenX === w.x) ctx.moveTo(screenX, y);
+        else ctx.lineTo(screenX, y);
+      }
     }
     ctx.lineTo(W, H);
     ctx.lineTo(0, H);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
-    // anima offset costante
+
+    // anima la fase interna
     w.offset += 0.02;
   });
+
   ctx.lineWidth = 1;
 }
 
