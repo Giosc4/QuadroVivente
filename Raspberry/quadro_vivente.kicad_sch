@@ -1,0 +1,134 @@
+(kicad_sch (version 20211014) (generator ChatGPT)
+  ;; Impostazioni pagina e titolo
+  (paper "A4")
+  (title_block
+    (title "Quadro Vivente")
+    (company "UniBo – Laboratorio di Making")
+    (date "")
+    (rev "0")
+    (comment "Schema generato da ChatGPT")
+  )
+
+  ;; ==== POWER FLAGS ====
+  (symbol  
+    (lib_id Power_flags:PWR_FLAG)  
+    (at 10 30)  
+    (unit 1)  
+    (in_bom yes)  
+    (on_board yes)  
+    (value +5V)  
+    (footprint "")  
+    (fields (field "Reference" "PWR1"))
+  )
+  (symbol  
+    (lib_id Power_flags:PWR_FLAG)  
+    (at 10 20)  
+    (unit 1)  
+    (in_bom yes)  
+    (on_board yes)  
+    (value +3.3V)  
+    (footprint "")  
+    (fields (field "Reference" "PWR2"))
+  )
+  (symbol  
+    (lib_id Power_flags:PWR_FLAG)  
+    (at 10 10)  
+    (unit 1)  
+    (in_bom yes)  
+    (on_board yes)  
+    (value GND)  
+    (footprint "")  
+    (fields (field "Reference" "PWR3"))
+  )
+
+  ;; ==== DHT11 ====
+  (symbol 
+    (lib_id Device:DHT11) 
+    (at 40 30) 
+    (unit 1) 
+    (in_bom yes) 
+    (on_board yes) 
+    (value DHT11) 
+    (footprint "")
+    (fields (field "Reference" "U1"))
+  )
+  ;; ==== LDR (R1) ====
+  (symbol 
+    (lib_id Device:R) 
+    (at 40  twenty) 
+    (unit 1) 
+    (in_bom yes) 
+    (on_board yes) 
+    (value LDR) 
+    (footprint "")
+    (fields (field "Reference" "R1"))
+  )
+  ;; ==== 10kΩ pull-down (R2) ====
+  (symbol 
+    (lib_id Device:R) 
+    (at 40 15) 
+    (unit 1) 
+    (in_bom yes) 
+    (on_board yes) 
+    (value 10k) 
+    (footprint "")
+    (fields (field "Reference" "R2"))
+  )
+  ;; ==== MAX9814 ====
+  (symbol 
+    (lib_id Device:MAX9814) 
+    (at 40 5) 
+    (unit 1) 
+    (in_bom yes) 
+    (on_board yes) 
+    (value MAX9814) 
+    (footprint "")
+    (fields (field "Reference" "U2"))
+  )
+
+  ;; ==== ESP32-S with full pinout ====
+  (symbol 
+    (lib_id microcontrollers:ESP32-S) 
+    (at 90 15) 
+    (unit 1) 
+    (in_bom yes) 
+    (on_board yes) 
+    (value ESP32-S) 
+    (footprint "")
+    (fields (field "Reference" "U3"))
+  )
+
+  ;; ==== WIRES ====
+  ;; +5V → DHT11 VCC
+  (wire (pts (xy 10 30) (xy 38 30)))
+  (wire (pts (xy 42 30) (xy 90 30)))
+  ;; DHT11 GND → common GND
+  (wire (pts (xy 40 29) (xy 40 10) (xy 10 10)))
+  ;; DHT11 DATA → GPIO4
+  (wire (pts (xy 42 30) (xy 90 30)))
+
+  ;; +3.3V → LDR top
+  (wire (pts (xy 10 20) (xy 38 20)))
+  ;; LDR bottom → R2 top
+  (wire (pts (xy 40 20) (xy 40 15)))
+  ;; R2 bottom → GND
+  (wire (pts (xy 40 15) (xy 10 10)))
+
+  ;; midpoint LDR/R2 → ADC34 (GPIO34)
+  (wire (pts (xy 42 20) (xy 90 20)))
+
+  ;; +3.3V → MAX9814 VCC
+  (wire (pts (xy 10 20) (xy 38 5)))
+  ;; MAX9814 GND → GND
+  (wire (pts (xy 40 4) (xy 10 10)))
+  ;; MAX9814 OUT → GPIO36
+  (wire (pts (xy 42 5) (xy 90 10)))
+
+  ;; ==== NET LABELS ====
+  (global_label (label +5V) (at 25 30))
+  (global_label (label +3.3V) (at 25 20))
+  (global_label (label GND) (at 25 10))
+  (label (net 90) (at 65 30) (text GPIO4))
+  (label (net 91) (at 65 20) (text ADC34))
+  (label (net 92) (at 65 10) (text GPIO36))
+)
