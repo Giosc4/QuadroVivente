@@ -118,35 +118,53 @@ socket.on('update', data => {
   audioAmp = map(latest.a, 0, 2048, 0, H * 0.2) * globalWaveScale;
 });
 
-// DISEGNI
 function drawBackground() {
-  ctx.fillStyle = latest.l <= 200 ? '#001d3d' : '#87CEEB';
+  const lightFactor = getAmbientLightFactor();
+  const r = Math.floor(0 + lightFactor * (135 - 0));   // da #001d3d a #87CEEB
+  const g = Math.floor(29 + lightFactor * (206 - 29));
+  const b = Math.floor(61 + lightFactor * (235 - 61));
+  ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
   ctx.fillRect(0, 0, W, H);
 }
 
+
 function drawStars() {
-  if (latest.l <= 200) {
+  const lightFactor = getAmbientLightFactor();
+  if (lightFactor < 0.3) {
     stars.forEach(s => {
       s.r += s.twinkleSpeed;
       if (s.r <= 0.5 || s.r >= 2) s.twinkleSpeed *= -1;
-      const alpha = map(s.r, 0.5, 2, 0.3, 1);
-      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+      const baseAlpha = map(s.r, 0.5, 2, 0.3, 1);
+      const visibility = map(lightFactor, 0, 0.3, 1, 0); // scompare gradualmente con la luce
+      ctx.fillStyle = `rgba(255,255,255,${baseAlpha * visibility})`;
       ctx.beginPath();
       ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
       ctx.fill();
     });
   }
 }
+// Calcola fattore di luce ambiente da 0 (notte) a 1 (giorno pieno)
+function getAmbientLightFactor() {
+  return map(Math.min(latest.l, 1000), 0, 1000, 0, 1); // clamp massimo a 1000
+}
+
 
 function drawSunOrSnow() {
-  if (latest.t >= 25) {
+  const lightFactor = getAmbientLightFactor();
+
+  // Mostra il sole solo se fa caldo e c'è abbastanza luce
+  if (latest.t >= 25 && lightFactor > 0.4) {
     const x = W * 0.8, y = H * 0.2, r = 50;
-    ctx.fillStyle = '#FFD700';
+    ctx.fillStyle = `rgba(255, 215, 0, ${lightFactor})`; // sole più tenue se poca luce
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
-  } else if (latest.t <= 14) {
-    ctx.fillStyle = '#FFF';
+  }
+
+  // Mostra fiocchi di neve se fa freddo
+  if (latest.t <= 14) {
+    const alpha = map(lightFactor, 0, 1, 1, 0); // la neve sparisce con la luce
+    ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
     for (let i = 0; i < 5; i++) {
       const sx = Math.random() * W;
       const sy = Math.random() * (H - 200);
@@ -157,6 +175,7 @@ function drawSunOrSnow() {
     }
   }
 }
+
 
 function drawClouds() {
   clouds.forEach(c => {
