@@ -20,44 +20,45 @@ const int MIC_OFFSET = 2048;    // punto medio ADC 0–4095
 const int LDR_PIN    = 34;
 
 // === SERVER RASPBERRY (se ti serve mantenere il POST) ===
-const char*    serverIP   = "192.168.1.179";
+const char*    serverIP   = "172.20.10.3";
 const uint16_t serverPort = 8000;
 const char*    endpoint   = "/dati";
-
-// Parametri di campionamento per il plot
-const int NUM_SAMPLES = 200;               // numero di punti per frame
-const unsigned long SAMPLE_PERIOD_US = 200; // intervallo tra campioni (µs) → 5 kHz
 
 void setup() {
   Serial.begin(115200);
   delay(1000);
   dht.begin();
 
-  // Connetti Wi-Fi (opzionale, serve solo se usi il POST)
+  // Mostro a video il tentativo di connessione
+  Serial.print("Connecting to Wi-Fi \"");
+  Serial.print(ssid);
+  Serial.println("\" ...");
+
   WiFi.begin(ssid, password);
+
   uint8_t retry = 0;
   while (WiFi.status() != WL_CONNECTED && retry < 20) {
     delay(500);
+    Serial.print(".");   // punto per ogni tentativo
     retry++;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println();  // salto di riga dopo i puntini
+    Serial.print("Wi-Fi connected. IP address: ");
+    Serial.println(WiFi.localIP());
+  }
+  else {
+    Serial.println();  // salto di riga dopo i puntini
+    Serial.println("Failed to connect to Wi-Fi.");
   }
 }
 
 void loop() {
-  // 1) ACQUISIZIONE DELLA FORMA D’ONDA
-  unsigned long t0 = micros();
-  int lastMicVal = 0;
-  for (int i = 0; i < NUM_SAMPLES; i++) {
-    int micRaw      = analogRead(MIC_PIN);
-    int micCentered = micRaw - MIC_OFFSET;        // –2048…+2047
-    int micVal      = abs(micCentered);           // 0…2048
-    lastMicVal      = micVal;
-    Serial.println(micVal);                       // SOLO IL NUMERO per il Plotter
-    // sincronizzazione al sample rate
-    while (micros() - t0 < (unsigned long)(i + 1) * SAMPLE_PERIOD_US) {
-      ; 
-    }
-  }
-  delay(50); // pausa breve tra i frame
+  // 1) LETTURA IMMEDIATA DEL MICROFONO
+  int micRaw      = analogRead(MIC_PIN);
+  int micCentered = micRaw - MIC_OFFSET;      // –2048…+2047
+  int micVal      = abs(micCentered);         // 0…2048
 
   // 2) LETTURA DEGLI ALTRI SENSORI
   float h      = dht.readHumidity();
@@ -70,7 +71,7 @@ void loop() {
     doc["h"] = isnan(h) ? 0.0 : h;
     doc["t"] = isnan(t) ? 0.0 : t;
     doc["l"] = ldrRaw;
-    doc["a"] = lastMicVal;
+    doc["a"] = micVal;
     String jsonBuffer;
     serializeJson(doc, jsonBuffer);
 
@@ -86,7 +87,7 @@ void loop() {
   Serial.print("# Temp: ");   Serial.print(t,1);    Serial.print(" °C | ");
   Serial.print("Umid: ");     Serial.print(h,1);    Serial.print(" % | ");
   Serial.print("LDR: ");      Serial.print(ldrRaw);  Serial.print(" | ");
-  Serial.print("Mic val: ");  Serial.print(lastMicVal);
+  Serial.print("Mic val: ");  Serial.print(micVal);
   Serial.println();
 
   // 5) Attendi 1 s prima del prossimo ciclo completo
