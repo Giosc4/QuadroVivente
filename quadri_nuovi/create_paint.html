@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crea Nuovo Quadro - Editor Avanzato</title>
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <link rel="stylesheet" href="/quadri_nuovi/style.css">
+    <link rel="stylesheet" href="/quadri_nuovi/create_advanced.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <a href="/home/home.html" class="back-btn">← Torna alla Home</a>
+            <h1>🎨 Editor Quadro Avanzato</h1>
+            <p class="subtitle">Crea animazioni personalizzate per ogni variabile ambientale</p>
+        </header>
+
+        <div class="editor-layout">
+            <!-- Pannello laterale configurazione -->
+            <div class="sidebar">
+                <div class="sidebar-section">
+                    <h3>📝 Informazioni Base</h3>
+                    <div class="form-group">
+                        <label for="paintingName">Nome Quadro:</label>
+                        <input type="text" id="paintingName" placeholder="Il mio quadro personalizzato">
+                    </div>
+                    <div class="form-group">
+                        <label for="paintingDescription">Descrizione:</label>
+                        <textarea id="paintingDescription" placeholder="Descrivi il tuo quadro..."></textarea>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>📱 Dispositivi ESP32</h3>
+                    <div id="devices-list">
+                        {% if devices %}
+                        {% for device_id, device in devices.items() %}
+                        <div class="device-item" data-device-id="{{ device_id }}">
+                            <input type="checkbox" id="device-{{ device_id }}" value="{{ device_id }}">
+                            <label for="device-{{ device_id }}">
+                                <span class="device-name">{{ device.name or device_id }}</span>
+                                <span class="device-location">{{ device.location or 'Sconosciuta' }}</span>
+                            </label>
+                            <div class="device-values">
+                                <span>🌡️{{ "%.1f"|format(device.data.t) }}°C</span>
+                                <span>💧{{ "%.1f"|format(device.data.h) }}%</span>
+                                <span>💡{{ device.data.l }}</span>
+                                <span>🔊{{ device.data.a }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <div class="no-devices">Nessun dispositivo disponibile</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>🖼️ Dimensioni Canvas</h3>
+                    <div class="canvas-size">
+                        <div class="form-group">
+                            <label>Larghezza:</label>
+                            <input type="number" id="canvasWidth" value="800" min="400" max="1920">
+                        </div>
+                        <div class="form-group">
+                            <label>Altezza:</label>
+                            <input type="number" id="canvasHeight" value="600" min="300" max="1080">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>🎨 Sfondo</h3>
+                    <div class="background-options">
+                        <button class="bg-option active" data-type="color"
+                            onclick="selectBackgroundType('color')">Colore</button>
+                        <button class="bg-option" data-type="gradient"
+                            onclick="selectBackgroundType('gradient')">Gradiente</button>
+                        <button class="bg-option" data-type="image"
+                            onclick="selectBackgroundType('image')">Immagine</button>
+                    </div>
+                    <div id="background-controls">
+                        <input type="color" id="backgroundColor" value="#87CEEB">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Area principale editor -->
+            <div class="main-editor">
+                <div class="editor-tabs">
+                    <button class="tab-btn active" data-tab="visual" onclick="switchTab('visual')">🎨 Editor
+                        Visuale</button>
+                    <button class="tab-btn" data-tab="variables" onclick="switchTab('variables')">⚙️ Variabili</button>
+                    <button class="tab-btn" data-tab="animations" onclick="switchTab('animations')">🎬
+                        Animazioni</button>
+                    <button class="tab-btn" data-tab="preview" onclick="switchTab('preview')">👁️ Anteprima</button>
+                </div>
+
+                <!-- Tab Editor Visuale -->
+                <div class="tab-content active" id="visual-tab">
+                    <div class="canvas-container">
+                        <canvas id="mainCanvas" width="800" height="600"></canvas>
+                        <div class="canvas-overlay" id="canvasOverlay"></div>
+                    </div>
+                    <div class="tools-panel">
+                        <div class="tool-group">
+                            <h4>🖌️ Strumenti</h4>
+                            <button class="tool-btn active" data-tool="select" onclick="selectTool('select')">🔍
+                                Seleziona</button>
+                            <button class="tool-btn" data-tool="text" onclick="selectTool('text')">📝 Testo</button>
+                            <button class="tool-btn" data-tool="shape" onclick="selectTool('shape')">🔸 Forme</button>
+                            <button class="tool-btn" data-tool="image" onclick="selectTool('image')">🖼️
+                                Immagine</button>
+                            <button class="tool-btn" data-tool="variable" onclick="selectTool('variable')">📊
+                                Variabile</button>
+                        </div>
+                        <div class="tool-group">
+                            <h4>📂 Carica Risorse</h4>
+                            <input type="file" id="imageUpload" accept="image/*" multiple style="display: none;">
+                            <button onclick="document.getElementById('imageUpload').click()">📁 Carica Immagini</button>
+                            <div id="uploadedImages" class="uploaded-images"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Variabili -->
+                <div class="tab-content" id="variables-tab">
+                    <div class="variables-config">
+                        <h3>🌡️ Configurazione Temperatura</h3>
+                        <div class="variable-mapping">
+                            <div class="mapping-row">
+                                <label>Valore Minimo:</label>
+                                <input type="number" id="tempMin" value="0" step="0.1">
+                                <label>Valore Massimo:</label>
+                                <input type="number" id="tempMax" value="40" step="0.1">
+                            </div>
+                            <div class="mapping-row">
+                                <label>Comportamento:</label>
+                                <select id="tempBehavior">
+                                    <option value="color">Cambia Colore</option>
+                                    <option value="size">Cambia Dimensione</option>
+                                    <option value="position">Cambia Posizione</option>
+                                    <option value="rotation">Rotazione</option>
+                                    <option value="opacity">Trasparenza</option>
+                                    <option value="animation">Velocità Animazione</option>
+                                </select>
+                            </div>
+                            <div class="mapping-row">
+                                <label>Elementi Interessati:</label>
+                                <div class="element-selector" id="tempElements"></div>
+                            </div>
+                        </div>
+
+                        <h3>💧 Configurazione Umidità</h3>
+                        <div class="variable-mapping">
+                            <div class="mapping-row">
+                                <label>Valore Minimo:</label>
+                                <input type="number" id="humidityMin" value="0" step="0.1">
+                                <label>Valore Massimo:</label>
+                                <input type="number" id="humidityMax" value="100" step="0.1">
+                            </div>
+                            <div class="mapping-row">
+                                <label>Comportamento:</label>
+                                <select id="humidityBehavior">
+                                    <option value="color">Cambia Colore</option>
+                                    <option value="size">Cambia Dimensione</option>
+                                    <option value="position">Cambia Posizione</option>
+                                    <option value="rotation">Rotazione</option>
+                                    <option value="opacity">Trasparenza</option>
+                                    <option value="animation">Velocità Animazione</option>
+                                </select>
+                            </div>
+                            <div class="mapping-row">
+                                <label>Elementi Interessati:</label>
+                                <div class="element-selector" id="humidityElements"></div>
+                            </div>
+                        </div>
+
+                        <h3>💡 Configurazione Luce</h3>
+                        <div class="variable-mapping">
+                            <div class="mapping-row">
+                                <label>Valore Minimo:</label>
+                                <input type="number" id="lightMin" value="0">
+                                <label>Valore Massimo:</label>
+                                <input type="number" id="lightMax" value="4095">
+                            </div>
+                            <div class="mapping-row">
+                                <label>Comportamento:</label>
+                                <select id="lightBehavior">
+                                    <option value="color">Cambia Colore</option>
+                                    <option value="size">Cambia Dimensione</option>
+                                    <option value="position">Cambia Posizione</option>
+                                    <option value="rotation">Rotazione</option>
+                                    <option value="opacity">Trasparenza</option>
+                                    <option value="animation">Velocità Animazione</option>
+                                </select>
+                            </div>
+                            <div class="mapping-row">
+                                <label>Elementi Interessati:</label>
+                                <div class="element-selector" id="lightElements"></div>
+                            </div>
+                        </div>
+
+                        <h3>🔊 Configurazione Audio</h3>
+                        <div class="variable-mapping">
+                            <div class="mapping-row">
+                                <label>Valore Minimo:</label>
+                                <input type="number" id="audioMin" value="0">
+                                <label>Valore Massimo:</label>
+                                <input type="number" id="audioMax" value="4095">
+                            </div>
+                            <div class="mapping-row">
+                                <label>Comportamento:</label>
+                                <select id="audioBehavior">
+                                    <option value="color">Cambia Colore</option>
+                                    <option value="size">Cambia Dimensione</option>
+                                    <option value="position">Cambia Posizione</option>
+                                    <option value="rotation">Rotazione</option>
+                                    <option value="opacity">Trasparenza</option>
+                                    <option value="animation">Velocità Animazione</option>
+                                </select>
+                            </div>
+                            <div class="mapping-row">
+                                <label>Elementi Interessati:</label>
+                                <div class="element-selector" id="audioElements"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Animazioni -->
+                <div class="tab-content" id="animations-tab">
+                    <div class="animations-config">
+                        <div class="animation-templates">
+                            <h3>🎬 Template Animazioni</h3>
+                            <div class="template-grid">
+                                <div class="template-card" onclick="addAnimation('floating')">
+                                    <div class="template-preview">🎈</div>
+                                    <h4>Fluttuante</h4>
+                                    <p>Movimento su e giù continuo</p>
+                                </div>
+                                <div class="template-card" onclick="addAnimation('rotating')">
+                                    <div class="template-preview">🌀</div>
+                                    <h4>Rotazione</h4>
+                                    <p>Rotazione continua</p>
+                                </div>
+                                <div class="template-card" onclick="addAnimation('pulsing')">
+                                    <div class="template-preview">💓</div>
+                                    <h4>Pulsazione</h4>
+                                    <p>Cambia dimensione ritmicamente</p>
+                                </div>
+                                <div class="template-card" onclick="addAnimation('bouncing')">
+                                    <div class="template-preview">⚽</div>
+                                    <h4>Rimbalzo</h4>
+                                    <p>Movimento a rimbalzo</p>
+                                </div>
+                                <div class="template-card" onclick="addAnimation('wave')">
+                                    <div class="template-preview">🌊</div>
+                                    <h4>Onda</h4>
+                                    <p>Movimento ondulatorio</p>
+                                </div>
+                                <div class="template-card" onclick="addAnimation('sparkle')">
+                                    <div class="template-preview">✨</div>
+                                    <h4>Scintillio</h4>
+                                    <p>Effetto scintille</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="custom-animations">
+                            <h3>⚙️ Animazioni Personalizzate</h3>
+                            <div class="animation-editor">
+                                <div class="animation-controls">
+                                    <button onclick="createCustomAnimation()">➕ Nuova Animazione</button>
+                                    <button onclick="importAnimation()">📁 Importa</button>
+                                    <button onclick="exportAnimation()">💾 Esporta</button>
+                                </div>
+                                <div id="animationsList" class="animations-list"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Anteprima -->
+                <div class="tab-content" id="preview-tab">
+                    <div class="preview-container">
+                        <div class="preview-controls">
+                            <button onclick="startPreview()">▶️ Avvia Anteprima</button>
+                            <button onclick="stopPreview()">⏹️ Ferma</button>
+                            <button onclick="resetPreview()">🔄 Reset</button>
+                        </div>
+                        <div class="simulation-controls">
+                            <h4>🎛️ Simula Dati Sensori</h4>
+                            <div class="sensor-sliders">
+                                <div class="slider-group">
+                                    <label>Temperatura: <span id="tempValue">20</span>°C</label>
+                                    <input type="range" id="tempSlider" min="0" max="40" value="20" step="0.1">
+                                </div>
+                                <div class="slider-group">
+                                    <label>Umidità: <span id="humidityValue">50</span>%</label>
+                                    <input type="range" id="humiditySlider" min="0" max="100" value="50" step="0.1">
+                                </div>
+                                <div class="slider-group">
+                                    <label>Luce: <span id="lightValue">2000</span></label>
+                                    <input type="range" id="lightSlider" min="0" max="4095" value="2000">
+                                </div>
+                                <div class="slider-group">
+                                    <label>Audio: <span id="audioValue">500</span></label>
+                                    <input type="range" id="audioSlider" min="0" max="4095" value="500">
+                                </div>
+                            </div>
+                        </div>
+                        <canvas id="previewCanvas" width="800" height="600"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pannello inferiore azioni -->
+        <div class="bottom-panel">
+            <div class="action-buttons">
+                <button class="btn btn-secondary" onclick="saveAsDraft()">💾 Salva Bozza</button>
+                <button class="btn btn-secondary" onclick="exportConfig()">📤 Esporta Configurazione</button>
+                <button class="btn btn-secondary" onclick="importConfig()">📥 Importa Configurazione</button>
+                <button class="btn btn-primary" onclick="createPainting()">🎨 Crea Quadro</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal per animazioni personalizzate -->
+    <div id="animationModal" class="modal">
+        <div class="modal-content large-modal">
+            <span class="close">&times;</span>
+            <h2>⚙️ Editor Animazione Personalizzata</h2>
+            <div class="animation-editor-modal">
+                <div class="keyframe-editor">
+                    <h3>🎞️ Keyframes</h3>
+                    <div id="keyframesList"></div>
+                    <button onclick="addKeyframe()">➕ Aggiungi Keyframe</button>
+                </div>
+                <div class="animation-properties">
+                    <h3>🎚️ Proprietà</h3>
+                    <div class="property-controls">
+                        <label>Durata (ms):</label>
+                        <input type="number" id="animDuration" value="1000">
+                        <label>Loop:</label>
+                        <input type="checkbox" id="animLoop" checked>
+                        <label>Easing:</label>
+                        <select id="animEasing">
+                            <option value="linear">Linear</option>
+                            <option value="ease">Ease</option>
+                            <option value="ease-in">Ease In</option>
+                            <option value="ease-out">Ease Out</option>
+                            <option value="ease-in-out">Ease In Out</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button onclick="saveCustomAnimation()">💾 Salva</button>
+                <button onclick="closeAnimationModal()">❌ Annulla</button>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="configImport" accept=".json" style="display: none;">
+
+    <script src="/quadri_nuovi/main.js"></script>
+    <script src="/quadri_nuovi/create_advanced.js"></script>
+</body>
+
+</html>

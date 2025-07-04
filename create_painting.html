@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crea Nuovo Quadro - Quadro Vivente</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .form-container {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            font-size: 1em;
+        }
+        
+        input::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+        
+        .devices-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .device-checkbox {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .device-checkbox:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .device-checkbox.selected {
+            border-color: #4CAF50;
+            background: rgba(76,175,80,0.2);
+        }
+        
+        .device-checkbox input[type="checkbox"] {
+            display: none;
+        }
+        
+        .device-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .info-item {
+            background: rgba(255,255,255,0.1);
+            padding: 5px 8px;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+        
+        .layout-options, .theme-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .option-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .option-card:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .option-card.selected {
+            border-color: #667eea;
+            background: rgba(102,126,234,0.2);
+        }
+        
+        .option-card input[type="radio"] {
+            display: none;
+        }
+        
+        .option-icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: all 0.3s ease;
+            margin: 10px 5px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn-back {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .preview-area {
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            border: 1px dashed rgba(255,255,255,0.3);
+        }
+        
+        .error-message {
+            background: rgba(244,67,54,0.2);
+            border: 1px solid #f44336;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        .success-message {
+            background: rgba(76,175,80,0.2);
+            border: 1px solid #4CAF50;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 Crea Nuovo Quadro</h1>
+            <p>Combina i dati di più ESP32 per creare un'esperienza visiva unica</p>
+        </div>
+        
+        <div class="form-container">
+            <form id="painting-form">
+                <!-- Nome del Quadro -->
+                <div class="form-group">
+                    <label for="painting-name">Nome del Quadro</label>
+                    <input type="text" id="painting-name" name="name" placeholder="Es: Giardino Zen, Ufficio Moderno..." required>
+                </div>
+                
+                <!-- Selezione Dispositivi -->
+                <div class="form-group">
+                    <label>Seleziona Dispositivi ESP32</label>
+                    <div class="devices-grid" id="devices-grid">
+                        {% if devices %}
+                            {% for device_id, device in devices.items() %}
+                            <div class="device-checkbox" onclick="toggleDevice('{{ device_id }}')">
+                                <input type="checkbox" id="device-{{ device_id }}" name="devices" value="{{ device_id }}">
+                                <h4>{{ device.name or device_id }}</h4>
+                                <div class="device-info">
+                                    <div class="info-item">🌡️ {{ "%.1f"|format(device.t) }}°C</div>
+                                    <div class="info-item">💧 {{ "%.1f"|format(device.h) }}%</div>
+                                    <div class="info-item">💡 {{ device.l }}</div>
+                                    <div class="info-item">🔊 {{ device.a }}</div>
+                                </div>
+                                <div style="margin-top: 10px; font-size: 0.9em; opacity: 0.8;">
+                                    📍 {{ device.location or 'Posizione sconosciuta' }}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
+                                <h3>Nessun dispositivo disponibile</h3>
+                                <p>Connetti almeno un ESP32 per creare un quadro</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Layout -->
+                <div class="form-group">
+                    <label>Layout del Quadro</label>
+                    <div class="layout-options">
+                        <div class="option-card" onclick="selectOption('layout', 'grid')">
+                            <input type="radio" name="layout" value="grid" id="layout-grid">
+                            <div class="option-icon">📱</div>
+                            <h4>Griglia</h4>
+                            <p>Dati combinati</p>
+                        </div>
+                        <div class="option-card" onclick="selectOption('layout', 'split')">
+                            <input type="radio" name="layout" value="split" id="layout-split">
+                            <div class="option-icon">➗</div>
+                            <h4>Diviso</h4>
+                            <p>Sezioni separate</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Tema -->
+                <div class="form-group">
+                    <label>Tema Visivo</label>
+                    <div class="theme-options">
+                        <div class="option-card selected" onclick="selectOption('theme', 'nature')">
+                            <input type="radio" name="theme" value="nature" id="theme-nature" checked>
+                            <div class="option-icon">🌿</div>
+                            <h4>Natura</h4>
+                            <p>Paesaggi organici</p>
+                        </div>
+                        <div class="option-card" onclick="selectOption('theme', 'abstract')">
+                            <input type="radio" name="theme" value="abstract" id="theme-abstract">
+                            <div class="option-icon">🎨</div>
+                            <h4>Astratto</h4>
+                            <p>Forme geometriche</p>
+                        </div>
+                        <div class="option-card" onclick="selectOption('theme', 'minimal')">
+                            <input type="radio" name="theme" value="minimal" id="theme-minimal">
+                            <div class="option-icon">⚪</div>
+                            <h4>Minimale</h4>
+                            <p>Design pulito</p>
+                        </div>
+                        <div class="option-card" onclick="selectOption('theme', 'cyberpunk')">
+                            <input type="radio" name="theme" value="cyberpunk" id="theme-cyberpunk">
+                            <div class="option-icon">🌆</div>
+                            <h4>Cyberpunk</h4>
+                            <p>Stile futuristico</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Anteprima -->
+                <div class="form-group">
+                    <label>Anteprima Configurazione</label>
+                    <div class="preview-area" id="preview-area">
+                        <div style="text-align: center; opacity: 0.6;">
+                            <div style="font-size: 2em; margin-bottom: 10px;">🎨</div>
+                            <p>Seleziona dispositivi e configurazioni per vedere l'anteprima</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Messaggi -->
+                <div class="error-message" id="error-message"></div>
+                <div class="success-message" id="success-message"></div>
+                
+                <!-- Pulsanti -->
+                <div style="text-align: center; margin-top: 30px;">
+                    <button type="button" class="btn btn-back" onclick="goBack()">← Indietro</button>
+                    <button type="submit" class="btn">🎨 Crea Quadro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let selectedDevices = [];
+        let selectedLayout = 'grid';
+        let selectedTheme = 'nature';
+        
+        function toggleDevice(deviceId) {
+            const checkbox = document.getElementById(`device-${deviceId}`);
+            const card = checkbox.closest('.device-checkbox');
+            
+            if (checkbox.checked) {
+                checkbox.checked = false;
+                card.classList.remove('selected');
+                selectedDevices = selectedDevices.filter(id => id !== deviceId);
+            } else {
+                checkbox.checked = true;
+                card.classList.add('selected');
+                selectedDevices.push(deviceId);
+            }
+            
+            updatePreview();
+        }
+        
+        function selectOption(type, value) {
+            // Rimuovi selezione precedente
+            document.querySelectorAll(`.${type}-options .option-card`).forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // Aggiungi nuova selezione
+            const selectedCard = document.querySelector(`#${type}-${value}`).closest('.option-card');
+            selectedCard.classList.add('selected');
+            
+            // Aggiorna radio button
+            document.getElementById(`${type}-${value}`).checked = true;
+            
+            if (type === 'layout') {
+                selectedLayout = value;
+            } else if (type === 'theme') {
+                selectedTheme = value;
+            }
+            
+            updatePreview();
+        }
+        
+        function updatePreview() {
+            const previewArea = document.getElementById('preview-area');
+            
+            if (selectedDevices.length === 0) {
+                previewArea.innerHTML = `
+                    <div style="text-align: center; opacity: 0.6;">
+                        <div style="font-size: 2em; margin-bottom: 10px;">🎨</div>
+                        <p>Seleziona almeno un dispositivo per vedere l'anteprima</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const themeEmojis = {
+                nature: '🌿🌊☁️',
+                abstract: '🎨⚡🔵',
+                minimal: '⚪⚫⬜',
+                cyberpunk: '🌆💜🔴'
+            };
+            
+            const layoutDescriptions = {
+                grid: 'I dispositivi saranno mostrati in una griglia ordinata',
+                overlay: 'I dati di tutti i dispositivi saranno combinati in un\'unica visualizzazione',
+                split: 'Lo schermo sarà diviso in sezioni per ogni dispositivo'
+            };
+            
+            previewArea.innerHTML = `
+                <h4 style="margin-bottom: 15px;">✨ Configurazione Attuale</h4>
+                <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <div style="margin-bottom: 10px;">
+                        <strong>📱 Dispositivi selezionati:</strong> ${selectedDevices.length}
+                        <div style="margin-top: 5px; font-size: 0.9em; opacity: 0.8;">
+                            ${selectedDevices.map(id => {
+                                const deviceName = document.querySelector(`#device-${id}`).closest('.device-checkbox').querySelector('h4').textContent;
+                                return `• ${deviceName}`;
+                            }).join('<br>')}
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <strong>📐 Layout:</strong> ${selectedLayout.charAt(0).toUpperCase() + selectedLayout.slice(1)}
+                        <div style="font-size: 0.9em; opacity: 0.8;">${layoutDescriptions[selectedLayout]}</div>
+                    </div>
+                    <div>
+                        <strong>🎨 Tema:</strong> ${selectedTheme.charAt(0).toUpperCase() + selectedTheme.slice(1)} ${themeEmojis[selectedTheme]}
+                    </div>
+                </div>
+                <div style="text-align: center; padding: 20px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                    <div style="font-size: 3em; margin-bottom: 10px;">${themeEmojis[selectedTheme]}</div>
+                    <p>Il tuo quadro vivente sarà pronto! 🎉</p>
+                </div>
+            `;
+        }
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+        
+        function showSuccess(message) {
+            const successDiv = document.getElementById('success-message');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+        }
+        
+        function goBack() {
+            window.location.href = '/';
+        }
+        
+        // Form submission
+        document.getElementById('painting-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('painting-name').value.trim();
+            
+            if (!name) {
+                showError('Inserisci un nome per il quadro');
+                return;
+            }
+            
+            if (selectedDevices.length === 0) {
+                showError('Seleziona almeno un dispositivo ESP32');
+                return;
+            }
+            
+            const paintingData = {
+                name: name,
+                devices: selectedDevices,
+                layout: selectedLayout,
+                theme: selectedTheme
+            };
+            
+            // Salva il quadro
+            fetch('/api/paintings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(paintingData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showSuccess('Quadro creato con successo! Reindirizzamento in corso...');
+                    setTimeout(() => {
+                        window.location.href = `/view/${data.painting_id}`;
+                    }, 2000);
+                } else {
+                    showError('Errore durante la creazione del quadro');
+                }
+            })
+            .catch(error => {
+                console.error('Errore:', error);
+                showError('Errore di connessione');
+            });
+        });
+        
+        // Inizializza con tema nature selezionato
+        updatePreview();
+    </script>
+</body>
+</html>ispositivi affiancati</p>
+                        </div>
+                        <div class="option-card" onclick="selectOption('layout', 'overlay')">
+                            <input type="radio" name="layout" value="overlay" id="layout-overlay">
+                            <div class="option-icon">🔄</div>
+                            <h4>Sovrapposizione</h4>
+                            <p>D

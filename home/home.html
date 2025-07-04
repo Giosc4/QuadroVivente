@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quadro Vivente - Home</title>
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <link rel="stylesheet" href="/home/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>🎨 Quadro Vivente</h1>
+            <p class="subtitle">Trasforma i dati ambientali in arte dinamica</p>
+        </header>
+
+        <!-- Sezione Quadri Personalizzati -->
+        <div class="section">
+            <h2>🖼️ I Tuoi Quadri
+                <span class="device-count" id="paintings-count">{{ paintings|length }}</span>
+            </h2>
+
+            <a href="/quadri_nuovi/create_paint.html" class="btn btn-create">➕ Crea Nuovo Quadro</a>
+
+            <div class="grid" id="paintings-grid">
+                {% if paintings %}
+                {% for painting_id, painting in paintings.items() %}
+                <div class="card" data-painting-id="{{ painting_id }}">
+                    <h3>{{ painting.name }}</h3>
+                    <div class="painting-meta">
+                        <div>📱 {{ painting.devices|length }} dispositivi</div>
+                        <div>🎨 {{ painting.theme.title() }}</div>
+                        <div>📐 Layout: {{ painting.layout.title() }}</div>
+                        <div>📅 {{ painting.created_at[:10] }}</div>
+                    </div>
+                    <div class="device-list">
+                        {% for device_id in painting.devices %}
+                        <span class="device-badge" data-device-id="{{ device_id }}">
+                            {{ devices.get(device_id, {}).get('name', device_id) }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-primary" onclick="viewPainting('{{ painting_id }}')">Visualizza</button>
+                        <button class="btn btn-danger" onclick="deletePainting('{{ painting_id }}')">Elimina</button>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">🎨</div>
+                    <h3>Nessun quadro personalizzato</h3>
+                    <p>Crea il tuo primo quadro combinando i dati di più ESP32!</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Sezione Dispositivi ESP32 -->
+        <div class="section">
+            <h2>📡 Dispositivi ESP32
+                <span class="device-count" id="devices-count">{{ devices|length }}</span>
+            </h2>
+
+            <div class="grid" id="devices-grid">
+                {% if devices %}
+                {% for device_id, device in devices.items() %}
+                <div class="card device-card" data-device-id="{{ device_id }}">
+                    <div class="device-header">
+                        <h3>
+                            <span class="status-indicator" id="status-{{ device_id }}"></span>
+                            <span class="device-name" id="name-{{ device_id }}">{{ device.name or device_id }}</span>
+                        </h3>
+                        <button class="btn-edit" onclick="editDevice('{{ device_id }}')">✏️</button>
+                    </div>
+
+                    <div class="device-info" id="info-{{ device_id }}">
+                        <div class="info-item">
+                            <span class="info-label">🌡️</span>
+                            <span class="info-value" id="temp-{{ device_id }}">{{ "%.1f"|format(device.data.t)
+                                }}°C</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">💧</span>
+                            <span class="info-value" id="humidity-{{ device_id }}">{{ "%.1f"|format(device.data.h)
+                                }}%</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">💡</span>
+                            <span class="info-value" id="light-{{ device_id }}">{{ device.data.l }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">🔊</span>
+                            <span class="info-value" id="audio-{{ device_id }}">{{ device.data.a }}</span>
+                        </div>
+                    </div>
+
+                    <div class="device-meta">
+                        <div class="location" id="location-{{ device_id }}">📍 {{ device.location or 'Sconosciuta' }}
+                        </div>
+                        <div class="last-seen" id="lastseen-{{ device_id }}">🕐 {{ device.last_seen[:19] if
+                            device.last_seen else 'Mai' }}</div>
+                    </div>
+
+                    <div class="card-actions">
+                        <button class="btn btn-primary" onclick="viewSingleDevice('{{ device_id }}')">Visualizza
+                            Quadro</button>
+                        <button class="btn btn-secondary" onclick="showHistory('{{ device_id }}')">Cronologia</button>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">📡</div>
+                    <h3>Nessun dispositivo connesso</h3>
+                    <p>Connetti i tuoi ESP32 alla rete WiFi del Raspberry Pi</p>
+                    <div class="connection-info">
+                        <strong>Nome Rete:</strong> QuadroVivente_WiFi<br>
+                        <strong>Password:</strong> quadrovivente123
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal per modifica dispositivo -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Modifica Dispositivo</h2>
+            <form id="editForm">
+                <input type="hidden" id="editDeviceId">
+                <div class="form-group">
+                    <label for="editName">Nome:</label>
+                    <input type="text" id="editName" required>
+                </div>
+                <div class="form-group">
+                    <label for="editLocation">Posizione (via/indirizzo):</label>
+                    <input type="text" id="editLocation" placeholder="es. Via Roma 123, Bologna" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Salva</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Annulla</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal per cronologia -->
+    <div id="historyModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Cronologia Dispositivo</h2>
+            <div id="historyContent">
+                <div class="loading">Caricamento cronologia...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/home/main.js"></script>
+</body>
+
+</html>
