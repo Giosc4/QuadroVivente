@@ -4,372 +4,376 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crea Nuovo Quadro - Editor Avanzato</title>
+    <title>Crea Nuovo Quadro - Step by Step</title>
     <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
-    <link rel="stylesheet" href="/quadri_nuovi/style.css">
-    <link rel="stylesheet" href="/quadri_nuovi/create_advanced.css">
+    <link rel="stylesheet" href="/quadri_nuovi/create_paint.css">
 </head>
 
 <body>
     <div class="container">
         <header>
             <a href="/home/home.html" class="back-btn">← Torna alla Home</a>
-            <h1>🎨 Editor Quadro Avanzato</h1>
-            <p class="subtitle">Crea animazioni personalizzate per ogni variabile ambientale</p>
+            <h1>🎨 Crea Nuovo Quadro</h1>
+            <p class="subtitle">Segui i passaggi per creare il tuo quadro personalizzato</p>
         </header>
 
-        <div class="editor-layout">
-            <!-- Pannello laterale configurazione -->
-            <div class="sidebar">
-                <div class="sidebar-section">
-                    <h3>📝 Informazioni Base</h3>
-                    <div class="form-group">
-                        <label for="paintingName">Nome Quadro:</label>
-                        <input type="text" id="paintingName" placeholder="Il mio quadro personalizzato">
-                    </div>
-                    <div class="form-group">
-                        <label for="paintingDescription">Descrizione:</label>
-                        <textarea id="paintingDescription" placeholder="Descrivi il tuo quadro..."></textarea>
-                    </div>
+        <!-- Progress Bar -->
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <div class="progress-steps">
+                <div class="step active" data-step="1">
+                    <div class="step-number">1</div>
+                    <div class="step-label">Dispositivo</div>
                 </div>
+                <div class="step" data-step="2">
+                    <div class="step-number">2</div>
+                    <div class="step-label">Template</div>
+                </div>
+                <div class="step" data-step="3">
+                    <div class="step-number">3</div>
+                    <div class="step-label">Temperatura</div>
+                </div>
+                <div class="step" data-step="4">
+                    <div class="step-number">4</div>
+                    <div class="step-label">Umidità</div>
+                </div>
+                <div class="step" data-step="5">
+                    <div class="step-number">5</div>
+                    <div class="step-label">Luce</div>
+                </div>
+                <div class="step" data-step="6">
+                    <div class="step-number">6</div>
+                    <div class="step-label">Audio</div>
+                </div>
+                <div class="step" data-step="7">
+                    <div class="step-number">7</div>
+                    <div class="step-label">Anteprima</div>
+                </div>
+            </div>
+        </div>
 
-                <div class="sidebar-section">
-                    <h3>📱 Dispositivi ESP32</h3>
-                    <div id="devices-list">
+        <main class="step-content">
+            <!-- Step 1: Selezione Dispositivo -->
+            <div class="step-panel active" id="step-1">
+                <h2>📱 Seleziona il Dispositivo ESP32</h2>
+                <p class="step-description">Scegli quale dispositivo ESP32 vuoi utilizzare per il tuo quadro</p>
+
+                <div class="device-selection">
+                    <div class="form-group">
+                        <label for="quadro-name">Nome del Quadro:</label>
+                        <input type="text" id="quadro-name" placeholder="es. Giardino di Casa" required>
+                    </div>
+
+                    <div class="devices-grid" id="devices-grid">
                         {% if devices %}
                         {% for device_id, device in devices.items() %}
-                        <div class="device-item" data-device-id="{{ device_id }}">
-                            <input type="checkbox" id="device-{{ device_id }}" value="{{ device_id }}">
-                            <label for="device-{{ device_id }}">
-                                <span class="device-name">{{ device.name or device_id }}</span>
-                                <span class="device-location">{{ device.location or 'Sconosciuta' }}</span>
-                            </label>
-                            <div class="device-values">
-                                <span>🌡️{{ "%.1f"|format(device.data.t) }}°C</span>
-                                <span>💧{{ "%.1f"|format(device.data.h) }}%</span>
-                                <span>💡{{ device.data.l }}</span>
-                                <span>🔊{{ device.data.a }}</span>
+                        <div class="device-card" data-device-id="{{ device_id }}">
+                            <div class="device-header">
+                                <h3>{{ device.name }}</h3>
+                                <span class="device-status online">🟢 Online</span>
+                            </div>
+                            <div class="device-location">
+                                <span>📍 {{ device.location }}</span>
+                            </div>
+                            <div class="device-data">
+                                <div class="sensor-reading">
+                                    <span class="sensor-icon">🌡️</span>
+                                    <span class="sensor-value">{{ "%.1f"|format(device.data.t) }}°C</span>
+                                </div>
+                                <div class="sensor-reading">
+                                    <span class="sensor-icon">💧</span>
+                                    <span class="sensor-value">{{ "%.1f"|format(device.data.h) }}%</span>
+                                </div>
+                                <div class="sensor-reading">
+                                    <span class="sensor-icon">💡</span>
+                                    <span class="sensor-value">{{ device.data.l }}</span>
+                                </div>
+                                <div class="sensor-reading">
+                                    <span class="sensor-icon">🔊</span>
+                                    <span class="sensor-value">{{ device.data.a }}</span>
+                                </div>
+                            </div>
+                            <div class="device-actions">
+                                <button class="btn btn-primary" onclick="selectDevice('{{ device_id }}')">
+                                    Seleziona Dispositivo
+                                </button>
                             </div>
                         </div>
                         {% endfor %}
                         {% else %}
-                        <div class="no-devices">Nessun dispositivo disponibile</div>
+                        <div class="no-devices">
+                            <h3>Nessun dispositivo disponibile</h3>
+                            <p>Assicurati che almeno un ESP32 sia connesso al sistema</p>
+                        </div>
                         {% endif %}
                     </div>
                 </div>
+            </div>
 
-                <div class="sidebar-section">
-                    <h3>🖼️ Dimensioni Canvas</h3>
-                    <div class="canvas-size">
-                        <div class="form-group">
-                            <label>Larghezza:</label>
-                            <input type="number" id="canvasWidth" value="800" min="400" max="1920">
-                        </div>
-                        <div class="form-group">
-                            <label>Altezza:</label>
-                            <input type="number" id="canvasHeight" value="600" min="300" max="1080">
-                        </div>
-                    </div>
+            <!-- Step 2: Selezione Template -->
+            <div class="step-panel" id="step-2">
+                <h2>🎨 Scegli il Template</h2>
+                <p class="step-description">Seleziona lo stile grafico base per il tuo quadro</p>
+
+                <div class="templates-grid" id="templates-grid">
+                    <!-- I template verranno caricati dinamicamente -->
                 </div>
+            </div>
 
-                <div class="sidebar-section">
-                    <h3>🎨 Sfondo</h3>
-                    <div class="background-options">
-                        <button class="bg-option active" data-type="color"
-                            onclick="selectBackgroundType('color')">Colore</button>
-                        <button class="bg-option" data-type="gradient"
-                            onclick="selectBackgroundType('gradient')">Gradiente</button>
-                        <button class="bg-option" data-type="image"
-                            onclick="selectBackgroundType('image')">Immagine</button>
+            <!-- Step 3: Configurazione Temperatura -->
+            <div class="step-panel" id="step-3">
+                <h2>🌡️ Configura il Sensore di Temperatura</h2>
+                <p class="step-description">Scegli come la temperatura influenzerà il tuo quadro</p>
+
+                <div class="sensor-config">
+                    <div class="config-left">
+                        <div class="range-config">
+                            <h3>Intervallo di Temperatura</h3>
+                            <div class="range-inputs">
+                                <div class="input-group">
+                                    <label>Minimo:</label>
+                                    <input type="number" id="temp-min" value="0" step="0.1">
+                                    <span>°C</span>
+                                </div>
+                                <div class="input-group">
+                                    <label>Massimo:</label>
+                                    <input type="number" id="temp-max" value="40" step="0.1">
+                                    <span>°C</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="animation-selection">
+                            <h3>Animazione</h3>
+                            <div class="animation-options" id="temp-animations">
+                                <!-- Animazioni caricate dinamicamente -->
+                            </div>
+                        </div>
                     </div>
-                    <div id="background-controls">
-                        <input type="color" id="backgroundColor" value="#87CEEB">
+
+                    <div class="config-right">
+                        <div class="preview-area">
+                            <h3>Anteprima</h3>
+                            <canvas id="temp-preview" width="300" height="200"></canvas>
+                            <div class="preview-controls">
+                                <label>Simula Temperatura:</label>
+                                <input type="range" id="temp-simulator" min="0" max="40" value="20" step="0.1">
+                                <span id="temp-value">20°C</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Area principale editor -->
-            <div class="main-editor">
-                <div class="editor-tabs">
-                    <button class="tab-btn active" data-tab="visual" onclick="switchTab('visual')">🎨 Editor
-                        Visuale</button>
-                    <button class="tab-btn" data-tab="variables" onclick="switchTab('variables')">⚙️ Variabili</button>
-                    <button class="tab-btn" data-tab="animations" onclick="switchTab('animations')">🎬
-                        Animazioni</button>
-                    <button class="tab-btn" data-tab="preview" onclick="switchTab('preview')">👁️ Anteprima</button>
-                </div>
+            <!-- Step 4: Configurazione Umidità -->
+            <div class="step-panel" id="step-4">
+                <h2>💧 Configura il Sensore di Umidità</h2>
+                <p class="step-description">Scegli come l'umidità influenzerà il tuo quadro</p>
 
-                <!-- Tab Editor Visuale -->
-                <div class="tab-content active" id="visual-tab">
-                    <div class="canvas-container">
-                        <canvas id="mainCanvas" width="800" height="600"></canvas>
-                        <div class="canvas-overlay" id="canvasOverlay"></div>
-                    </div>
-                    <div class="tools-panel">
-                        <div class="tool-group">
-                            <h4>🖌️ Strumenti</h4>
-                            <button class="tool-btn active" data-tool="select" onclick="selectTool('select')">🔍
-                                Seleziona</button>
-                            <button class="tool-btn" data-tool="text" onclick="selectTool('text')">📝 Testo</button>
-                            <button class="tool-btn" data-tool="shape" onclick="selectTool('shape')">🔸 Forme</button>
-                            <button class="tool-btn" data-tool="image" onclick="selectTool('image')">🖼️
-                                Immagine</button>
-                            <button class="tool-btn" data-tool="variable" onclick="selectTool('variable')">📊
-                                Variabile</button>
-                        </div>
-                        <div class="tool-group">
-                            <h4>📂 Carica Risorse</h4>
-                            <input type="file" id="imageUpload" accept="image/*" multiple style="display: none;">
-                            <button onclick="document.getElementById('imageUpload').click()">📁 Carica Immagini</button>
-                            <div id="uploadedImages" class="uploaded-images"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tab Variabili -->
-                <div class="tab-content" id="variables-tab">
-                    <div class="variables-config">
-                        <h3>🌡️ Configurazione Temperatura</h3>
-                        <div class="variable-mapping">
-                            <div class="mapping-row">
-                                <label>Valore Minimo:</label>
-                                <input type="number" id="tempMin" value="0" step="0.1">
-                                <label>Valore Massimo:</label>
-                                <input type="number" id="tempMax" value="40" step="0.1">
-                            </div>
-                            <div class="mapping-row">
-                                <label>Comportamento:</label>
-                                <select id="tempBehavior">
-                                    <option value="color">Cambia Colore</option>
-                                    <option value="size">Cambia Dimensione</option>
-                                    <option value="position">Cambia Posizione</option>
-                                    <option value="rotation">Rotazione</option>
-                                    <option value="opacity">Trasparenza</option>
-                                    <option value="animation">Velocità Animazione</option>
-                                </select>
-                            </div>
-                            <div class="mapping-row">
-                                <label>Elementi Interessati:</label>
-                                <div class="element-selector" id="tempElements"></div>
+                <div class="sensor-config">
+                    <div class="config-left">
+                        <div class="range-config">
+                            <h3>Intervallo di Umidità</h3>
+                            <div class="range-inputs">
+                                <div class="input-group">
+                                    <label>Minimo:</label>
+                                    <input type="number" id="humidity-min" value="0" step="0.1">
+                                    <span>%</span>
+                                </div>
+                                <div class="input-group">
+                                    <label>Massimo:</label>
+                                    <input type="number" id="humidity-max" value="100" step="0.1">
+                                    <span>%</span>
+                                </div>
                             </div>
                         </div>
 
-                        <h3>💧 Configurazione Umidità</h3>
-                        <div class="variable-mapping">
-                            <div class="mapping-row">
-                                <label>Valore Minimo:</label>
-                                <input type="number" id="humidityMin" value="0" step="0.1">
-                                <label>Valore Massimo:</label>
-                                <input type="number" id="humidityMax" value="100" step="0.1">
-                            </div>
-                            <div class="mapping-row">
-                                <label>Comportamento:</label>
-                                <select id="humidityBehavior">
-                                    <option value="color">Cambia Colore</option>
-                                    <option value="size">Cambia Dimensione</option>
-                                    <option value="position">Cambia Posizione</option>
-                                    <option value="rotation">Rotazione</option>
-                                    <option value="opacity">Trasparenza</option>
-                                    <option value="animation">Velocità Animazione</option>
-                                </select>
-                            </div>
-                            <div class="mapping-row">
-                                <label>Elementi Interessati:</label>
-                                <div class="element-selector" id="humidityElements"></div>
-                            </div>
-                        </div>
-
-                        <h3>💡 Configurazione Luce</h3>
-                        <div class="variable-mapping">
-                            <div class="mapping-row">
-                                <label>Valore Minimo:</label>
-                                <input type="number" id="lightMin" value="0">
-                                <label>Valore Massimo:</label>
-                                <input type="number" id="lightMax" value="4095">
-                            </div>
-                            <div class="mapping-row">
-                                <label>Comportamento:</label>
-                                <select id="lightBehavior">
-                                    <option value="color">Cambia Colore</option>
-                                    <option value="size">Cambia Dimensione</option>
-                                    <option value="position">Cambia Posizione</option>
-                                    <option value="rotation">Rotazione</option>
-                                    <option value="opacity">Trasparenza</option>
-                                    <option value="animation">Velocità Animazione</option>
-                                </select>
-                            </div>
-                            <div class="mapping-row">
-                                <label>Elementi Interessati:</label>
-                                <div class="element-selector" id="lightElements"></div>
-                            </div>
-                        </div>
-
-                        <h3>🔊 Configurazione Audio</h3>
-                        <div class="variable-mapping">
-                            <div class="mapping-row">
-                                <label>Valore Minimo:</label>
-                                <input type="number" id="audioMin" value="0">
-                                <label>Valore Massimo:</label>
-                                <input type="number" id="audioMax" value="4095">
-                            </div>
-                            <div class="mapping-row">
-                                <label>Comportamento:</label>
-                                <select id="audioBehavior">
-                                    <option value="color">Cambia Colore</option>
-                                    <option value="size">Cambia Dimensione</option>
-                                    <option value="position">Cambia Posizione</option>
-                                    <option value="rotation">Rotazione</option>
-                                    <option value="opacity">Trasparenza</option>
-                                    <option value="animation">Velocità Animazione</option>
-                                </select>
-                            </div>
-                            <div class="mapping-row">
-                                <label>Elementi Interessati:</label>
-                                <div class="element-selector" id="audioElements"></div>
+                        <div class="animation-selection">
+                            <h3>Animazione</h3>
+                            <div class="animation-options" id="humidity-animations">
+                                <!-- Animazioni caricate dinamicamente -->
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Tab Animazioni -->
-                <div class="tab-content" id="animations-tab">
-                    <div class="animations-config">
-                        <div class="animation-templates">
-                            <h3>🎬 Template Animazioni</h3>
-                            <div class="template-grid">
-                                <div class="template-card" onclick="addAnimation('floating')">
-                                    <div class="template-preview">🎈</div>
-                                    <h4>Fluttuante</h4>
-                                    <p>Movimento su e giù continuo</p>
-                                </div>
-                                <div class="template-card" onclick="addAnimation('rotating')">
-                                    <div class="template-preview">🌀</div>
-                                    <h4>Rotazione</h4>
-                                    <p>Rotazione continua</p>
-                                </div>
-                                <div class="template-card" onclick="addAnimation('pulsing')">
-                                    <div class="template-preview">💓</div>
-                                    <h4>Pulsazione</h4>
-                                    <p>Cambia dimensione ritmicamente</p>
-                                </div>
-                                <div class="template-card" onclick="addAnimation('bouncing')">
-                                    <div class="template-preview">⚽</div>
-                                    <h4>Rimbalzo</h4>
-                                    <p>Movimento a rimbalzo</p>
-                                </div>
-                                <div class="template-card" onclick="addAnimation('wave')">
-                                    <div class="template-preview">🌊</div>
-                                    <h4>Onda</h4>
-                                    <p>Movimento ondulatorio</p>
-                                </div>
-                                <div class="template-card" onclick="addAnimation('sparkle')">
-                                    <div class="template-preview">✨</div>
-                                    <h4>Scintillio</h4>
-                                    <p>Effetto scintille</p>
-                                </div>
+                    <div class="config-right">
+                        <div class="preview-area">
+                            <h3>Anteprima</h3>
+                            <canvas id="humidity-preview" width="300" height="200"></canvas>
+                            <div class="preview-controls">
+                                <label>Simula Umidità:</label>
+                                <input type="range" id="humidity-simulator" min="0" max="100" value="50" step="0.1">
+                                <span id="humidity-value">50%</span>
                             </div>
                         </div>
-
-                        <div class="custom-animations">
-                            <h3>⚙️ Animazioni Personalizzate</h3>
-                            <div class="animation-editor">
-                                <div class="animation-controls">
-                                    <button onclick="createCustomAnimation()">➕ Nuova Animazione</button>
-                                    <button onclick="importAnimation()">📁 Importa</button>
-                                    <button onclick="exportAnimation()">💾 Esporta</button>
-                                </div>
-                                <div id="animationsList" class="animations-list"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tab Anteprima -->
-                <div class="tab-content" id="preview-tab">
-                    <div class="preview-container">
-                        <div class="preview-controls">
-                            <button onclick="startPreview()">▶️ Avvia Anteprima</button>
-                            <button onclick="stopPreview()">⏹️ Ferma</button>
-                            <button onclick="resetPreview()">🔄 Reset</button>
-                        </div>
-                        <div class="simulation-controls">
-                            <h4>🎛️ Simula Dati Sensori</h4>
-                            <div class="sensor-sliders">
-                                <div class="slider-group">
-                                    <label>Temperatura: <span id="tempValue">20</span>°C</label>
-                                    <input type="range" id="tempSlider" min="0" max="40" value="20" step="0.1">
-                                </div>
-                                <div class="slider-group">
-                                    <label>Umidità: <span id="humidityValue">50</span>%</label>
-                                    <input type="range" id="humiditySlider" min="0" max="100" value="50" step="0.1">
-                                </div>
-                                <div class="slider-group">
-                                    <label>Luce: <span id="lightValue">2000</span></label>
-                                    <input type="range" id="lightSlider" min="0" max="4095" value="2000">
-                                </div>
-                                <div class="slider-group">
-                                    <label>Audio: <span id="audioValue">500</span></label>
-                                    <input type="range" id="audioSlider" min="0" max="4095" value="500">
-                                </div>
-                            </div>
-                        </div>
-                        <canvas id="previewCanvas" width="800" height="600"></canvas>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Pannello inferiore azioni -->
-        <div class="bottom-panel">
-            <div class="action-buttons">
-                <button class="btn btn-secondary" onclick="saveAsDraft()">💾 Salva Bozza</button>
-                <button class="btn btn-secondary" onclick="exportConfig()">📤 Esporta Configurazione</button>
-                <button class="btn btn-secondary" onclick="importConfig()">📥 Importa Configurazione</button>
-                <button class="btn btn-primary" onclick="createPainting()">🎨 Crea Quadro</button>
+            <!-- Step 5: Configurazione Luce -->
+            <div class="step-panel" id="step-5">
+                <h2>💡 Configura il Sensore di Luce</h2>
+                <p class="step-description">Scegli come la luminosità influenzerà il tuo quadro</p>
+
+                <div class="sensor-config">
+                    <div class="config-left">
+                        <div class="range-config">
+                            <h3>Intervallo di Luce</h3>
+                            <div class="range-inputs">
+                                <div class="input-group">
+                                    <label>Minimo:</label>
+                                    <input type="number" id="light-min" value="0">
+                                    <span>lux</span>
+                                </div>
+                                <div class="input-group">
+                                    <label>Massimo:</label>
+                                    <input type="number" id="light-max" value="4095">
+                                    <span>lux</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="animation-selection">
+                            <h3>Animazione</h3>
+                            <div class="animation-options" id="light-animations">
+                                <!-- Animazioni caricate dinamicamente -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="config-right">
+                        <div class="preview-area">
+                            <h3>Anteprima</h3>
+                            <canvas id="light-preview" width="300" height="200"></canvas>
+                            <div class="preview-controls">
+                                <label>Simula Luce:</label>
+                                <input type="range" id="light-simulator" min="0" max="4095" value="2000">
+                                <span id="light-value">2000</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            <!-- Step 6: Configurazione Audio -->
+            <div class="step-panel" id="step-6">
+                <h2>🔊 Configura il Sensore Audio</h2>
+                <p class="step-description">Scegli come l'audio influenzerà il tuo quadro</p>
+
+                <div class="sensor-config">
+                    <div class="config-left">
+                        <div class="range-config">
+                            <h3>Intervallo Audio</h3>
+                            <div class="range-inputs">
+                                <div class="input-group">
+                                    <label>Minimo:</label>
+                                    <input type="number" id="audio-min" value="0">
+                                    <span>dB</span>
+                                </div>
+                                <div class="input-group">
+                                    <label>Massimo:</label>
+                                    <input type="number" id="audio-max" value="4095">
+                                    <span>dB</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="animation-selection">
+                            <h3>Animazione</h3>
+                            <div class="animation-options" id="audio-animations">
+                                <!-- Animazioni caricate dinamicamente -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="config-right">
+                        <div class="preview-area">
+                            <h3>Anteprima</h3>
+                            <canvas id="audio-preview" width="300" height="200"></canvas>
+                            <div class="preview-controls">
+                                <label>Simula Audio:</label>
+                                <input type="range" id="audio-simulator" min="0" max="4095" value="500">
+                                <span id="audio-value">500</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 7: Anteprima Finale -->
+            <div class="step-panel" id="step-7">
+                <h2>👁️ Anteprima Finale</h2>
+                <p class="step-description">Vedi il risultato finale e testa il tuo quadro</p>
+
+                <div class="final-preview">
+                    <div class="preview-main">
+                        <canvas id="final-preview" width="800" height="600"></canvas>
+                    </div>
+
+                    <div class="preview-controls-panel">
+                        <h3>Controlli Simulazione</h3>
+                        <div class="controls-grid">
+                            <div class="control-group">
+                                <label>🌡️ Temperatura: <span id="final-temp-value">20°C</span></label>
+                                <input type="range" id="final-temp-slider" min="0" max="40" value="20" step="0.1">
+                            </div>
+                            <div class="control-group">
+                                <label>💧 Umidità: <span id="final-humidity-value">50%</span></label>
+                                <input type="range" id="final-humidity-slider" min="0" max="100" value="50" step="0.1">
+                            </div>
+                            <div class="control-group">
+                                <label>💡 Luce: <span id="final-light-value">2000</span></label>
+                                <input type="range" id="final-light-slider" min="0" max="4095" value="2000">
+                            </div>
+                            <div class="control-group">
+                                <label>🔊 Audio: <span id="final-audio-value">500</span></label>
+                                <input type="range" id="final-audio-slider" min="0" max="4095" value="500">
+                            </div>
+                        </div>
+
+                        <div class="action-buttons">
+                            <button class="btn btn-secondary" onclick="useRealData()">
+                                📡 Usa Dati Reali
+                            </button>
+                            <button class="btn btn-secondary" onclick="randomizeData()">
+                                🎲 Dati Casuali
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="summary-panel">
+                    <h3>Riepilogo Configurazione</h3>
+                    <div class="summary-content" id="configuration-summary">
+                        <!-- Riepilogo generato dinamicamente -->
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Navigation Buttons -->
+        <div class="navigation-buttons">
+            <button class="btn btn-secondary" id="prev-btn" onclick="previousStep()" disabled>
+                ← Precedente
+            </button>
+            <button class="btn btn-primary" id="next-btn" onclick="nextStep()">
+                Successivo →
+            </button>
+            <button class="btn btn-success" id="create-btn" onclick="createPainting()" style="display: none;">
+                🎨 Crea Quadro
+            </button>
         </div>
     </div>
 
-    <!-- Modal per animazioni personalizzate -->
-    <div id="animationModal" class="modal">
-        <div class="modal-content large-modal">
-            <span class="close">&times;</span>
-            <h2>⚙️ Editor Animazione Personalizzata</h2>
-            <div class="animation-editor-modal">
-                <div class="keyframe-editor">
-                    <h3>🎞️ Keyframes</h3>
-                    <div id="keyframesList"></div>
-                    <button onclick="addKeyframe()">➕ Aggiungi Keyframe</button>
-                </div>
-                <div class="animation-properties">
-                    <h3>🎚️ Proprietà</h3>
-                    <div class="property-controls">
-                        <label>Durata (ms):</label>
-                        <input type="number" id="animDuration" value="1000">
-                        <label>Loop:</label>
-                        <input type="checkbox" id="animLoop" checked>
-                        <label>Easing:</label>
-                        <select id="animEasing">
-                            <option value="linear">Linear</option>
-                            <option value="ease">Ease</option>
-                            <option value="ease-in">Ease In</option>
-                            <option value="ease-out">Ease Out</option>
-                            <option value="ease-in-out">Ease In Out</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-actions">
-                <button onclick="saveCustomAnimation()">💾 Salva</button>
-                <button onclick="closeAnimationModal()">❌ Annulla</button>
-            </div>
-        </div>
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p>Creazione del quadro in corso...</p>
     </div>
 
-    <input type="file" id="configImport" accept=".json" style="display: none;">
-
-    <script src="/quadri_nuovi/main.js"></script>
-    <script src="/quadri_nuovi/create_advanced.js"></script>
+    <script src="/quadri_nuovi/create_paint.js"></script>
 </body>
 
 </html>

@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configurazione Sistema - Quadri Viventi</title>
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <link rel="stylesheet" href="/static/css/fullscreen-config.css">
+</head>
+
+<body>
+    <div class="fullscreen-container">
+        <!-- Header con controlli -->
+        <header class="fullscreen-header">
+            <div class="header-title">
+                <h1>⚙️ Configurazione Sistema</h1>
+                <p class="subtitle">Gestisci le impostazioni del sistema Quadri Viventi</p>
+            </div>
+            <div class="header-controls">
+                <button class="control-btn" onclick="minimizeConfig()">
+                    🔽 Minimizza
+                </button>
+                <button class="control-btn" onclick="toggleHelp()">
+                    ❓ Aiuto
+                </button>
+                <button class="control-btn" onclick="closeConfig()">
+                    ❌ Chiudi
+                </button>
+            </div>
+        </header>
+
+        <!-- Sidebar di navigazione -->
+        <nav class="config-sidebar">
+            <div class="nav-section">
+                <h3>⚙️ SISTEMA</h3>
+                <div class="nav-item active" data-section="dashboard" onclick="showSection('dashboard')">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-label">Dashboard</span>
+                </div>
+                <div class="nav-item" data-section="network" onclick="showSection('network')">
+                    <span class="nav-icon">📶</span>
+                    <span class="nav-label">Rete</span>
+                </div>
+                <div class="nav-item" data-section="performance" onclick="showSection('performance')">
+                    <span class="nav-icon">⚡</span>
+                    <span class="nav-label">Prestazioni</span>
+                </div>
+            </div>
+
+            <div class="nav-section">
+                <h3>🎨 QUADRI</h3>
+                <div class="nav-item" data-section="quadri" onclick="showSection('quadri')">
+                    <span class="nav-icon">🎨</span>
+                    <span class="nav-label">Gestione Quadri</span>
+                </div>
+                <div class="nav-item" data-section="templates" onclick="showSection('templates')">
+                    <span class="nav-icon">📋</span>
+                    <span class="nav-label">Templates</span>
+                </div>
+                <div class="nav-item" data-section="animations" onclick="showSection('animations')">
+                    <span class="nav-icon">🎬</span>
+                    <span class="nav-label">Animazioni</span>
+                </div>
+            </div>
+
+            <div class="nav-section">
+                <h3>📱 DISPOSITIVI</h3>
+                <div class="nav-item" data-section="devices" onclick="showSection('devices')">
+                    <span class="nav-icon">📱</span>
+                    <span class="nav-label">ESP32</span>
+                </div>
+                <div class="nav-item" data-section="sensors" onclick="showSection('sensors')">
+                    <span class="nav-icon">🔬</span>
+                    <span class="nav-label">Sensori</span>
+                </div>
+                <div class="nav-item" data-section="calibration" onclick="showSection('calibration')">
+                    <span class="nav-icon">🎯</span>
+                    <span class="nav-label">Calibrazione</span>
+                </div>
+            </div>
+
+            <div class="nav-section">
+                <h3>🔧 AVANZATE</h3>
+                <div class="nav-item" data-section="backup" onclick="showSection('backup')">
+                    <span class="nav-icon">💾</span>
+                    <span class="nav-label">Backup</span>
+                </div>
+                <div class="nav-item" data-section="logs" onclick="showSection('logs')">
+                    <span class="nav-icon">📋</span>
+                    <span class="nav-label">Log</span>
+                </div>
+                <div class="nav-item" data-section="about" onclick="showSection('about')">
+                    <span class="nav-icon">ℹ️</span>
+                    <span class="nav-label">Info</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Area principale -->
+        <main class="config-main">
+            <!-- Dashboard -->
+            <section class="config-section active" id="dashboard-section">
+                <h2>📊 Dashboard Sistema</h2>
+
+                <!-- Statistiche rapide -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📱</div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="devices-count">0</div>
+                            <div class="stat-label">Dispositivi Online</div>
+                        </div>
+                        <div class="stat-trend">▲ 2.3%</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">🎨</div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="quadri-count">0</div>
+                            <div class="stat-label">Quadri Attivi</div>
+                        </div>
+                        <div class="stat-trend">▲ 5.1%</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="data-points">0</div>
+                            <div class="stat-label">Dati/Minuto</div>
+                        </div>
+                        <div class="stat-trend">▲ 12.7%</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">⚡</div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="system-load">0%</div>
+                            <div class="stat-label">Carico Sistema</div>
+                        </div>
+                        <div class="stat-trend">▼ 8.2%</div>
+                    </div>
+                </div>
+
+                <!-- Grafici in tempo reale -->
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>📈 Dati Sensori</h3>
+                        <canvas id="sensors-chart" width="400" height="200"></canvas>
+                    </div>
+
+                    <div class="chart-card">
+                        <h3>🖥️ Prestazioni Sistema</h3>
+                        <canvas id="performance-chart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+
+                <!-- Dispositivi live -->
+                <div class="live-devices">
+                    <h3>📱 Dispositivi Live</h3>
+                    <div class="devices-grid" id="live-devices-grid">
+                        <!-- Popolato dinamicamente -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Sezione Rete -->
+            <section class="config-section" id="network-section">
+                <h2>📶 Configurazione Rete</h2>
+
+                <div class="network-config">
+                    <div class="config-card">
+                        <h3>WiFi Access Point</h3>
+                        <div class="form-group">
+                            <label for="ap-ssid">Nome Rete (SSID):</label>
+                            <input type="text" id="ap-ssid" value="QuadroVivente_AP">
+                        </div>
+                        <div class="form-group">
+                            <label for="ap-password">Password:</label>
+                            <input type="password" id="ap-password" value="quadro2025">
+                        </div>
+                        <div class="form-group">
+                            <label for="ap-channel">Canale:</label>
+                            <select id="ap-channel">
+                                <option value="1">1</option>
+                                <option value="6">6</option>
+                                <option value="7" selected>7</option>
+                                <option value="11">11</option>
+                            </select>
+                        </div>
+                        <div class="form-actions">
+                            <button class="btn btn-primary" onclick="saveNetworkConfig()">
+                                💾 Salva Configurazione
+                            </button>
+                            <button class="btn btn-secondary" onclick="restartNetwork()">
+                                🔄 Riavvia Rete
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="config-card">
+                        <h3>Stato Rete</h3>
+                        <div class="network-status">
+                            <div class="status-item">
+                                <span class="status-label">Access Point:</span>
+                                <span class="status-value" id="ap-status">🟢 Attivo</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Dispositivi Connessi:</span>
+                                <span class="status-value" id="connected-devices">3</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Traffico:</span>
+                                <span class="status-value" id="network-traffic">↑ 2.5 KB/s ↓ 1.2 KB/s</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Sezione Prestazioni -->
+            <section class="config-section" id="performance-section">
+                <h2>⚡ Prestazioni Sistema</h2>
+
+                <div class="performance-grid">
+                    <div class="performance-card">
+                        <h3>🖥️ CPU</h3>
+                        <div class="performance-meter">
+                            <div class="meter-bar">
+                                <div class="meter-fill" style="width: 35%"></div>
+                            </div>
+                            <span class="meter-value">35%</span>
+                        </div>
+                        <div class="performance-details">
+                            <div class="detail-item">
+                                <span>Temperatura:</span>
+                                <span id="cpu-temp">45°C</span>
+                            </div>
+                            <div class="detail-item">
+                                <span>Frequenza:</span>
+                                <span id="cpu-freq">1.2 GHz</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="performance-card">
+                        <h3>💾 Memoria</h3>
+                        <div class="performance-meter">
+                            <div class="meter-bar">
+                                <div class="meter-fill" style="width: 60%"></div>
+                            </div>
+                            <span class="meter-value">60%</span>
+                        </div>
+                        <div class="performance-details">
+                            <div class="detail-item">
+                                <span>Utilizzata:</span>
+                                <span id="memory-used">1.2 GB</span>
+                            </div>
+                            <div class="detail-item">
+                                <span>Disponibile:</span>
+                                <span id="memory-free">0.8 GB</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="performance-card">
+                        <h3>💽 Disco</h3>
+                        <div class="performance-meter">
+                            <div class="meter-bar">
+                                <div class="meter-fill" style="width: 25%"></div>
+                            </div>
+                            <span class="meter-value">25%</span>
+                        </div>
+                        <div class="performance-details">
+                            <div class="detail-item">
+                                <span>Utilizzato:</span>
+                                <span id="disk-used">8.2 GB</span>
+                            </div>
+                            <div class="detail-item">
+                                <span>Libero:</span>
+                                <span id="disk-free">24.8 GB</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="performance-actions">
+                    <button class="btn btn-primary" onclick="optimizeSystem()">
+                        🚀 Ottimizza Sistema
+                    </button>
+                    <button class="btn btn-secondary" onclick="clearCache()">
+                        🗑️ Pulisci Cache
+                    </button>
+                    <button class="btn btn-warning" onclick="restartSystem()">
+                        🔄 Riavvia Sistema
+                    </button>
+                </div>
+            </section>
+
+            <!-- Sezione Dispositivi -->
+            <section class="config-section" id="devices-section">
+                <h2>📱 Gestione Dispositivi ESP32</h2>
+
+                <div class="devices-actions">
+                    <button class="btn btn-primary" onclick="scanDevices()">
+                        🔍 Scansiona Dispositivi
+                    </button>
+                    <button class="btn btn-secondary" onclick="addDevice()">
+                        ➕ Aggiungi Dispositivo
+                    </button>
+                    <button class="btn btn-warning" onclick="calibrateAll()">
+                        🎯 Calibra Tutti
+                    </button>
+                </div>
+
+                <div class="devices-list" id="devices-list">
+                    <!-- Popolato dinamicamente -->
+                </div>
+            </section>
+
+            <!-- Sezione Backup -->
+            <section class="config-section" id="backup-section">
+                <h2>💾 Backup e Ripristino</h2>
+
+                <div class="backup-grid">
+                    <div class="backup-card">
+                        <h3>📤 Backup Automatico</h3>
+                        <div class="backup-status">
+                            <span class="status-indicator online"></span>
+                            <span>Ultimo backup: 2 ore fa</span>
+                        </div>
+                        <div class="backup-actions">
+                            <button class="btn btn-primary" onclick="createBackup()">
+                                💾 Crea Backup Ora
+                            </button>
+                            <button class="btn btn-secondary" onclick="scheduleBackup()">
+                                ⏰ Pianifica Backup
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="backup-card">
+                        <h3>📥 Ripristino</h3>
+                        <div class="backup-list" id="backup-list">
+                            <!-- Lista backup disponibili -->
+                        </div>
+                        <div class="backup-actions">
+                            <button class="btn btn-warning" onclick="restoreFromBackup()">
+                                🔄 Ripristina Sistema
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Sezione About -->
+            <section class="config-section" id="about-section">
+                <h2>ℹ️ Informazioni Sistema</h2>
+
+                <div class="about-content">
+                    <div class="system-info">
+                        <h3>🖥️ Sistema Operativo</h3>
+                        <p id="os-info">Caricamento...</p>
+                    </div>
+
+                    <div class="system-info">
+                        <h3>🐍 Python</h3>
+                        <p id="python-info">Caricamento...</p>
+                    </div>
+
+                    <div class="system-info">
+                        <h3>🎨 Quadri Viventi</h3>
+                        <p>Versione: 1.0.0</p>
+                        <p>Autore: Giovanni Maria Savoca</p>
+                        <p>Data: 2025</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Pannello di aiuto -->
+        <div class="help-panel" id="help-panel">
+            <h3>❓ Aiuto</h3>
+            <div class="help-content">
+                <div class="help-section">
+                    <h4>🎯 Comandi Rapidi</h4>
+                    <ul>
+                        <li><kbd>F11</kbd> - Fullscreen</li>
+                        <li><kbd>Esc</kbd> - Chiudi pannelli</li>
+                        <li><kbd>H</kbd> - Mostra/nascondi aiuto</li>
+                        <li><kbd>C</kbd> - Configurazione</li>
+                    </ul>
+                </div>
+
+                <div class="help-section">
+                    <h4>📱 Dispositivi</h4>
+                    <p>Per aggiungere un nuovo ESP32:</p>
+                    <ol>
+                        <li>Assicurati che l'ESP32 sia programmato</li>
+                        <li>Connetti l'ESP32 al WiFi</li>
+                        <li>Clicca "Scansiona Dispositivi"</li>
+                        <li>Configura la posizione del dispositivo</li>
+                    </ol>
+                </div>
+
+                <div class="help-section">
+                    <h4>🎨 Quadri</h4>
+                    <p>Per creare un nuovo quadro:</p>
+                    <ol>
+                        <li>Vai alla sezione "Gestione Quadri"</li>
+                        <li>Seleziona un dispositivo ESP32</li>
+                        <li>Scegli un template</li>
+                        <li>Configura le animazioni per ogni sensore</li>
+                        <li>Salva il quadro</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification System -->
+    <div class="notification-container" id="notification-container">
+        <!-- Notifiche popolate dinamicamente -->
+    </div>
+
+    <script>
+        // Configurazione globale
+        window.configData = {
+            currentSection: 'dashboard',
+            autoRefresh: true,
+            refreshInterval: 30000,
+            notifications: true
+        };
+    </script>
+    <script src="/static/js/fullscreen-config.js"></script>
+</body>
+
+</html>

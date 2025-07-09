@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ quadro_name or 'Quadro Vivente' }} - Fullscreen</title>
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <link rel="stylesheet" href="/fullscreen/quadro.css">
+</head>
+
+<body>
+    <div class="quadro-container">
+        <!-- Canvas principale -->
+        <canvas id="quadro-canvas" class="quadro-canvas"></canvas>
+
+        <!-- Overlay con controlli -->
+        <div class="quadro-overlay" id="quadro-overlay">
+            <!-- Header con informazioni -->
+            <div class="quadro-header">
+                <div class="quadro-title">
+                    <h1>{{ quadro_name or 'Quadro Vivente' }}</h1>
+                    <p class="quadro-subtitle">{{ device_location or 'Dispositivo non specificato' }}</p>
+                </div>
+                <div class="quadro-controls">
+                    <button class="control-btn" id="fullscreen-btn" onclick="toggleFullscreen()">
+                        🔲 Fullscreen
+                    </button>
+                    <button class="control-btn" id="settings-btn" onclick="toggleSettings()">
+                        ⚙️ Impostazioni
+                    </button>
+                    <button class="control-btn" id="info-btn" onclick="toggleInfo()">
+                        ℹ️ Info
+                    </button>
+                    <button class="control-btn" id="config-btn" onclick="openConfig()">
+                        🔧 Configurazione
+                    </button>
+                    <button class="control-btn" id="back-btn" onclick="goBack()">
+                        ← Indietro
+                    </button>
+                </div>
+            </div>
+
+            <!-- Pannello sensori -->
+            <div class="sensors-panel" id="sensors-panel">
+                <h3>📊 Dati Sensori in Tempo Reale</h3>
+                <div class="sensors-grid">
+                    <div class="sensor-card" id="temp-sensor" data-sensor="temperature">
+                        <div class="sensor-icon">🌡️</div>
+                        <div class="sensor-data">
+                            <div class="sensor-value" id="temp-value">--°C</div>
+                            <div class="sensor-label">Temperatura</div>
+                        </div>
+                        <div class="sensor-trend" id="temp-trend">
+                            <canvas width="60" height="30"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="sensor-card" id="humidity-sensor" data-sensor="humidity">
+                        <div class="sensor-icon">💧</div>
+                        <div class="sensor-data">
+                            <div class="sensor-value" id="humidity-value">--%</div>
+                            <div class="sensor-label">Umidità</div>
+                        </div>
+                        <div class="sensor-trend" id="humidity-trend">
+                            <canvas width="60" height="30"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="sensor-card" id="light-sensor" data-sensor="light">
+                        <div class="sensor-icon">💡</div>
+                        <div class="sensor-data">
+                            <div class="sensor-value" id="light-value">--</div>
+                            <div class="sensor-label">Luminosità</div>
+                        </div>
+                        <div class="sensor-trend" id="light-trend">
+                            <canvas width="60" height="30"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="sensor-card" id="audio-sensor" data-sensor="audio">
+                        <div class="sensor-icon">🔊</div>
+                        <div class="sensor-data">
+                            <div class="sensor-value" id="audio-value">--</div>
+                            <div class="sensor-label">Audio</div>
+                        </div>
+                        <div class="sensor-trend" id="audio-trend">
+                            <canvas width="60" height="30"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pannello informazioni -->
+            <div class="info-panel" id="info-panel" style="display: none;">
+                <h3>ℹ️ Informazioni Quadro</h3>
+                <div class="info-content">
+                    <div class="info-item">
+                        <strong>Nome:</strong> {{ quadro_name or 'Quadro Vivente' }}
+                    </div>
+                    <div class="info-item">
+                        <strong>Dispositivo:</strong> {{ device_id or 'Non specificato' }}
+                    </div>
+                    <div class="info-item">
+                        <strong>Posizione:</strong> {{ device_location or 'Non specificata' }}
+                    </div>
+                    <div class="info-item">
+                        <strong>Template:</strong> <span id="template-name">Caricamento...</span>
+                    </div>
+                    <div class="info-item">
+                        <strong>Stato Connessione:</strong> <span id="connection-status">Connessione...</span>
+                    </div>
+                    <div class="info-item">
+                        <strong>Ultimo Aggiornamento:</strong> <span id="last-update">--</span>
+                    </div>
+                    <div class="info-item">
+                        <strong>Dati Ricevuti:</strong> <span id="data-count">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pannello impostazioni -->
+            <div class="settings-panel" id="settings-panel" style="display: none;">
+                <h3>⚙️ Impostazioni Visualizzazione</h3>
+                <div class="settings-content">
+                    <div class="setting-group">
+                        <label for="show-sensors">Mostra Pannello Sensori:</label>
+                        <input type="checkbox" id="show-sensors" checked onchange="toggleSensorsPanel()">
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="show-fps">Mostra FPS:</label>
+                        <input type="checkbox" id="show-fps" onchange="toggleFPS()">
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="animation-speed">Velocità Animazione:</label>
+                        <input type="range" id="animation-speed" min="0.1" max="2" step="0.1" value="1"
+                            onchange="setAnimationSpeed(this.value)">
+                        <span id="speed-value">1.0x</span>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="quality">Qualità Rendering:</label>
+                        <select id="quality" onchange="setRenderQuality(this.value)">
+                            <option value="low">Bassa</option>
+                            <option value="medium" selected>Media</option>
+                            <option value="high">Alta</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="auto-hide">Nascondi Controlli Automaticamente:</label>
+                        <input type="checkbox" id="auto-hide" checked onchange="toggleAutoHide()">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Indicatore FPS -->
+        <div class="fps-counter" id="fps-counter" style="display: none;">
+            <span id="fps-value">0</span> FPS
+        </div>
+
+        <!-- Indicatore di connessione -->
+        <div class="connection-indicator" id="connection-indicator">
+            <div class="connection-dot"></div>
+            <span>Connessione...</span>
+        </div>
+
+        <!-- Indicatore di loading -->
+        <div class="loading-overlay" id="loading-overlay">
+            <div class="loading-spinner"></div>
+            <p>Caricamento quadro...</p>
+        </div>
+    </div>
+
+    <!-- Controlli touch per mobile -->
+    <div class="touch-controls" id="touch-controls">
+        <button class="touch-btn" onclick="toggleOverlay()">
+            📊 Controlli
+        </button>
+    </div>
+
+    <script>
+        // Passa i dati del quadro al JavaScript
+        window.quadroData = {
+            id: '{{ quadro_id }}',
+            name: '{{ quadro_name }}',
+            deviceId: '{{ device_id }}',
+            template: '{{ template }}',
+            sensorsConfig: JSON.parse('{{ sensors_config | default({}) | tojson | escapejs }}')
+        };
+    </script>
+    <script src="/static/js/quadro.js"></script>
+</body>
+
+</html>
