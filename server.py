@@ -15,7 +15,6 @@ from flask_cors import CORS
 DATA_RETENTION_MINUTES = 3
 DATA_FILE = 'device_data.json'
 QUADRI_FILE = 'quadri_config.json'
-AP_CONFIG_FILE = 'ap_config.json'
 
 # =========== FLASK & SOCKETIO ==========
 app = Flask(__name__, static_folder='static')
@@ -90,10 +89,6 @@ def setup_access_point():
         print("Access Point setup requires root privileges.")
         return
 
-    if os.path.exists(AP_CONFIG_FILE):
-        with open(AP_CONFIG_FILE, 'r') as f:
-            ap_conf = json.load(f)
-    else:
         ap_conf = {'ssid': 'QuadroVivente_AP', 'passphrase': 'quadro2025'}
 
     hostapd_conf = f"""
@@ -150,6 +145,15 @@ def create_quadro():
             }
     
     return render_template('create_paint.html', devices=devices)
+
+# GET dettagli di un singolo quadro
+@app.route('/api/quadri/<quadro_id>', methods=['GET'])
+def get_quadro(quadro_id):
+    quadro = quadri_config.get(quadro_id)
+    if not quadro:
+        return jsonify({'error': 'Quadro non trovato'}), 404
+    return jsonify(quadro), 200
+
 
 @app.route('/quadro/<quadro_id>')
 def view_quadro(quadro_id):

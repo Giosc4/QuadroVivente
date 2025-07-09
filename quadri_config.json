@@ -1,1 +1,52 @@
-{}
+{
+  "9a3258d0-2891-4f9e-a54f-e930767ff332": {
+    "id": "9a3258d0-2891-4f9e-a54f-e930767ff332",
+    "name": "test1",
+    "device_id": "ESP32_000000",
+    "template": "acquatico",
+    "sensors_config": {
+      "temperature": {
+        "min": 0,
+        "max": 40
+      },
+      "humidity": {
+        "min": 0,
+        "max": 100
+      },
+      "light": {
+        "min": 0,
+        "max": 4095
+      },
+      "audio": {
+        "min": 0,
+        "max": 4095
+      }
+    },
+    "created_at": "2025-07-09T16:40:13.527670"
+  },
+  "822b6fa8-ec62-4530-a5dc-093605ecaa8c": {
+    "id": "822b6fa8-ec62-4530-a5dc-093605ecaa8c",
+    "name": "test 2",
+    "device_id": "ESP32_000000",
+    "template": "naturale",
+    "sensors_config": {
+      "temperature": {
+        "min": 0,
+        "max": 40
+      },
+      "humidity": {
+        "min": 0,
+        "max": 100
+      },
+      "light": {
+        "min": 0,
+        "max": 4095
+      },
+      "audio": {
+        "min": 0,
+        "max": 4095
+      }
+    },
+    "created_at": "2025-07-09T16:45:27.522902"
+  }
+}

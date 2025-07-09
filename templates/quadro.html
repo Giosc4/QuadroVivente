@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ quadro_name or 'Quadro Vivente' }} - Fullscreen</title>
     <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
-    <link rel="stylesheet" href="static/css/quadro.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/quadro.css') }}">
 </head>
 
 <body>
@@ -189,7 +189,8 @@
             name: '{{ quadro_name }}',
             deviceId: '{{ device_id }}',
             template: '{{ template }}',
-            sensorsConfig: JSON.parse('{{ sensors_config | default({}) | tojson | escapejs }}')
+            sensorsConfig: {{ sensors_config | default({}) | tojson }}
+
         };
     </script>
     <script src="/static/js/quadro.js"></script>
