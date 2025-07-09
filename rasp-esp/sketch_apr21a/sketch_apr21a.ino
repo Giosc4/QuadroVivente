@@ -23,7 +23,7 @@ const int LDR_PIN = 34;      // LDR su pin 34 (ADC1_CH6)
 
 // =========== IDENTIFICAZIONE DISPOSITIVO ===========
 String deviceID;
-String deviceLocation = "Dispositivo_Prova"; // Puoi cambiare questa stringa
+String deviceLocation = "Esp_Giovanni"; // Puoi cambiare questa stringa
 
 // =========== PARAMETRI CAMPIONAMENTO ===========
 const int NUM_SAMPLES = 100;
@@ -118,7 +118,7 @@ void registerDevice()
   }
 
   HTTPClient http;
-  String url = String("http://") + serverIP + ":" + serverPort + "/api/device_register";
+  String url = String("http://") + serverHost + ":" + serverPort + "/api/device_register";
 
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
