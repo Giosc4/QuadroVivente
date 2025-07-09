@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crea Nuovo Quadro - Quadri Viventi</title>
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <link rel="stylesheet" href="/static/css/create_paint.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <a href="/" class="back-btn">← Torna alla Home</a>
+            <h1>🎨 Crea Nuovo Quadro</h1>
+            <p class="subtitle">Segui i passaggi per creare il tuo quadro personalizzato</p>
+        </header>
+
+        <!-- Progress Bar -->
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <div class="progress-steps">
+                <div class="step active" data-step="1">
+                    <div class="step-number">1</div>
+                    <div class="step-label">Dispositivo</div>
+                </div>
+                <div class="step" data-step="2">
+                    <div class="step-number">2</div>
+                    <div class="step-label">Template</div>
+                </div>
+                <div class="step" data-step="3">
+                    <div class="step-number">3</div>
+                    <div class="step-label">Configurazione</div>
+                </div>
+                <div class="step" data-step="4">
+                    <div class="step-number">4</div>
+                    <div class="step-label">Anteprima</div>
+                </div>
+            </div>
+        </div>
+
+        <main class="step-content">
+            <!-- Step 1: Selezione Dispositivo -->
+            <div class="step-panel active" id="step-1">
+                <h2>📱 Seleziona il Dispositivo ESP32</h2>
+                <p class="step-description">Scegli quale dispositivo ESP32 vuoi utilizzare per il tuo quadro</p>
+
+                <div class="device-selection">
+                    <div class="form-group">
+                        <label for="quadro-name">Nome del Quadro:</label>
+                        <input type="text" id="quadro-name" placeholder="es. Giardino di Casa" required>
+                    </div>
+
+                    <div class="devices-grid" id="devices-grid">
+                        {% if devices %}
+                        {% for device_id, device in devices.items() %}
+                        <div class="device-card" data-device-id="{{ device_id }}">
+                            <div class="device-header">
+                                <h3>{{ device.name }}</h3>
+                                <span class="device-status online">🟢 Online</span>
+                            </div>
+                            <div class="device-location">
+                                <span>📍 {{ device.location }}</span>
+                            </div>
+                            <div class="device-data">
+                                <div class="sensor-reading">
+                                    <span class="sensor-icon">🌡️</span>
+                                    <span class="sensor-value">{{ "%.1f"|format(device.data.t) }}°C</span>
+                                </div>
+                                <div class="sensor-reading">
+                                    <span class="sensor-icon">💧</span>
+                                    <span class="sensor-value">{{ "%.1f"|format(device.data.h) }}%</span>
+                                </div>
+                                <div class="sensor-reading">
+                                    <span class="sensor-icon">💡</span>
+                                    <span class="sensor-value">{{ device.data.l }}</span>
+                                </div>
+                                <div class="sensor-reading">
+                                    <span class="sensor-icon">🔊</span>
+                                    <span class="sensor-value">{{ device.data.a }}</span>
+                                </div>
+                            </div>
+                            <div class="device-actions">
+                                <button class="btn btn-primary" onclick="selectDevice('{{ device_id }}')">
+                                    Seleziona Dispositivo
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <div class="no-devices">
+                            <h3>Nessun dispositivo disponibile</h3>
+                            <p>Assicurati che almeno un ESP32 sia connesso al sistema</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Selezione Template -->
+            <div class="step-panel" id="step-2">
+                <h2>🎨 Scegli il Template</h2>
+                <p class="step-description">Seleziona lo stile grafico base per il tuo quadro</p>
+
+                <div class="templates-grid" id="templates-grid">
+                    <!-- I template verranno caricati dinamicamente -->
+                </div>
+            </div>
+
+            <!-- Step 3: Configurazione Sensori -->
+            <div class="step-panel" id="step-3">
+                <h2>⚙️ Configura i Sensori</h2>
+                <p class="step-description">Imposta i parametri per ogni sensore</p>
+
+                <div class="sensors-config">
+                    <div class="sensor-config-item">
+                        <h3>🌡️ Temperatura</h3>
+                        <div class="config-group">
+                            <label>Range minimo:</label>
+                            <input type="number" id="temp-min" value="0" step="0.1">
+                            <span>°C</span>
+                        </div>
+                        <div class="config-group">
+                            <label>Range massimo:</label>
+                            <input type="number" id="temp-max" value="40" step="0.1">
+                            <span>°C</span>
+                        </div>
+                    </div>
+
+                    <div class="sensor-config-item">
+                        <h3>💧 Umidità</h3>
+                        <div class="config-group">
+                            <label>Range minimo:</label>
+                            <input type="number" id="humidity-min" value="0" step="0.1">
+                            <span>%</span>
+                        </div>
+                        <div class="config-group">
+                            <label>Range massimo:</label>
+                            <input type="number" id="humidity-max" value="100" step="0.1">
+                            <span>%</span>
+                        </div>
+                    </div>
+
+                    <div class="sensor-config-item">
+                        <h3>💡 Luce</h3>
+                        <div class="config-group">
+                            <label>Range minimo:</label>
+                            <input type="number" id="light-min" value="0">
+                        </div>
+                        <div class="config-group">
+                            <label>Range massimo:</label>
+                            <input type="number" id="light-max" value="4095">
+                        </div>
+                    </div>
+
+                    <div class="sensor-config-item">
+                        <h3>🔊 Audio</h3>
+                        <div class="config-group">
+                            <label>Range minimo:</label>
+                            <input type="number" id="audio-min" value="0">
+                        </div>
+                        <div class="config-group">
+                            <label>Range massimo:</label>
+                            <input type="number" id="audio-max" value="4095">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4: Anteprima Finale -->
+            <div class="step-panel" id="step-4">
+                <h2>👁️ Anteprima Finale</h2>
+                <p class="step-description">Vedi il risultato finale e testa il tuo quadro</p>
+
+                <div class="final-preview">
+                    <div class="preview-main">
+                        <canvas id="final-preview" width="800" height="600"></canvas>
+                    </div>
+
+                    <div class="preview-controls-panel">
+                        <h3>Controlli Simulazione</h3>
+                        <div class="controls-grid">
+                            <div class="control-group">
+                                <label>🌡️ Temperatura: <span id="final-temp-value">20°C</span></label>
+                                <input type="range" id="final-temp-slider" min="0" max="40" value="20" step="0.1">
+                            </div>
+                            <div class="control-group">
+                                <label>💧 Umidità: <span id="final-humidity-value">50%</span></label>
+                                <input type="range" id="final-humidity-slider" min="0" max="100" value="50" step="0.1">
+                            </div>
+                            <div class="control-group">
+                                <label>💡 Luce: <span id="final-light-value">2000</span></label>
+                                <input type="range" id="final-light-slider" min="0" max="4095" value="2000">
+                            </div>
+                            <div class="control-group">
+                                <label>🔊 Audio: <span id="final-audio-value">500</span></label>
+                                <input type="range" id="final-audio-slider" min="0" max="4095" value="500">
+                            </div>
+                        </div>
+
+                        <div class="action-buttons">
+                            <button class="btn btn-secondary" onclick="useRealData()">
+                                📡 Usa Dati Reali
+                            </button>
+                            <button class="btn btn-secondary" onclick="randomizeData()">
+                                🎲 Dati Casuali
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="summary-panel">
+                    <h3>Riepilogo Configurazione</h3>
+                    <div class="summary-content" id="configuration-summary">
+                        <!-- Riepilogo generato dinamicamente -->
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Navigation Buttons -->
+        <div class="navigation-buttons">
+            <button class="btn btn-secondary" id="prev-btn" onclick="previousStep()" disabled>
+                ← Precedente
+            </button>
+            <button class="btn btn-primary" id="next-btn" onclick="nextStep()">
+                Successivo →
+            </button>
+            <button class="btn btn-success" id="create-btn" onclick="createPainting()" style="display: none;">
+                🎨 Crea Quadro
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p>Creazione del quadro in corso...</p>
+    </div>
+
+    <script src="/static/js/create_paint.js"></script>
+</body>
+
+</html>

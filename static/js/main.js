@@ -17,7 +17,7 @@ class QuadriManager {
         this.previewCanvas = null;
         this.previewCtx = null;
         this.animationId = null;
-        this.favorites = JSON.parse(localStorage.getItem('quadri_favorites') || '[]');
+        this.favorites = this.loadFavorites();
         
         this.init();
     }
@@ -32,19 +32,39 @@ class QuadriManager {
     }
 
     setupSocket() {
-        this.socket = io();
+        console.log('Inizializzazione WebSocket...');
         
-        this.socket.on('connect', () => {
-            console.log('Connesso al server');
-        });
+        // Controlla se io è definito
+        if (typeof io === 'undefined') {
+            console.error('Socket.IO non è caricato correttamente');
+            this.showError('Errore di connessione: Socket.IO non disponibile');
+            return;
+        }
 
-        this.socket.on('device_data_update', (data) => {
-            this.handleDeviceUpdate(data);
-        });
+        try {
+            this.socket = io();
+            
+            this.socket.on('connect', () => {
+                console.log('Connesso al server WebSocket');
+            });
 
-        this.socket.on('disconnect', () => {
-            console.log('Disconnesso dal server');
-        });
+            this.socket.on('device_data_update', (data) => {
+                this.handleDeviceUpdate(data);
+            });
+
+            this.socket.on('disconnect', () => {
+                console.log('Disconnesso dal server WebSocket');
+            });
+
+            this.socket.on('connect_error', (error) => {
+                console.error('Errore di connessione WebSocket:', error);
+                this.showError('Errore di connessione al server');
+            });
+
+        } catch (error) {
+            console.error('Errore nell\'inizializzazione WebSocket:', error);
+            this.showError('Errore nell\'inizializzazione della connessione');
+        }
     }
 
     setupEventListeners() {
@@ -77,6 +97,8 @@ class QuadriManager {
 
     async loadData() {
         try {
+            console.log('Caricamento dati...');
+            
             // Carica quadri e dispositivi in parallelo
             const [quadriResponse, devicesResponse] = await Promise.all([
                 fetch('/api/quadri'),
@@ -85,10 +107,16 @@ class QuadriManager {
 
             if (quadriResponse.ok) {
                 this.quadri = await quadriResponse.json();
+                console.log('Quadri caricati:', this.quadri);
+            } else {
+                console.error('Errore nel caricamento quadri:', quadriResponse.status);
             }
 
             if (devicesResponse.ok) {
                 this.devices = await devicesResponse.json();
+                console.log('Dispositivi caricati:', this.devices);
+            } else {
+                console.error('Errore nel caricamento dispositivi:', devicesResponse.status);
             }
 
             this.updateStats();
@@ -446,10 +474,12 @@ class QuadriManager {
             const deviceName = card.querySelector('.device-name').textContent;
             if (deviceName === data.device_id) {
                 const sensors = card.querySelectorAll('.sensor-value');
-                sensors[0].textContent = `${data.data.temperature.toFixed(1)}°C`;
-                sensors[1].textContent = `${data.data.humidity.toFixed(1)}%`;
-                sensors[2].textContent = data.data.light.toString();
-                sensors[3].textContent = data.data.audio.toString();
+                if (sensors.length >= 4) {
+                    sensors[0].textContent = `${data.data.temperature.toFixed(1)}°C`;
+                    sensors[1].textContent = `${data.data.humidity.toFixed(1)}%`;
+                    sensors[2].textContent = data.data.light.toString();
+                    sensors[3].textContent = data.data.audio.toString();
+                }
             }
         });
         
@@ -615,8 +645,20 @@ class QuadriManager {
         this.renderQuadri();
     }
 
+    loadFavorites() {
+        try {
+            return JSON.parse(localStorage.getItem('quadri_favorites') || '[]');
+        } catch {
+            return [];
+        }
+    }
+
     saveFavorites() {
-        localStorage.setItem('quadri_favorites', JSON.stringify(this.favorites));
+        try {
+            localStorage.setItem('quadri_favorites', JSON.stringify(this.favorites));
+        } catch (error) {
+            console.error('Errore nel salvare i preferiti:', error);
+        }
     }
 
     startUpdateCounter() {
