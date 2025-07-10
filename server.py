@@ -143,8 +143,8 @@ def create_quadro():
                     'a': latest_data.get('audio', 0)
                 }
             }
-    
-    return render_template('create_paint.html', devices=devices)
+
+    return render_template('/templates/create_paint.html', devices=devices)
 
 # GET dettagli di un singolo quadro
 @app.route('/api/quadri/<quadro_id>', methods=['GET'])
@@ -184,7 +184,7 @@ def receive_data():
         if not data:
             return jsonify({'error': 'No data received'}), 400
         
-        device_id = data.get('device_id')
+        device_id = data.get('device_id') or data.get('id')  # Support both formats
         if not device_id:
             return jsonify({'error': 'Missing device_id'}), 400
         
@@ -205,10 +205,10 @@ def receive_data():
         timestamp = datetime.now()
         data_entry = {
             'timestamp': timestamp,
-            'temperature': float(data.get('temperature', 0)),
-            'humidity': float(data.get('humidity', 0)),
-            'light': int(data.get('light', 0)),
-            'audio': int(data.get('audio', 0))
+            'temperature': float(data.get('temperature', data.get('t', 0))),
+            'humidity': float(data.get('humidity', data.get('h', 0))),
+            'light': int(data.get('light', data.get('l', 0))),
+            'audio': int(data.get('audio', data.get('a', 0)))
         }
         
         device['data_history'].append(data_entry)
@@ -219,7 +219,10 @@ def receive_data():
         
         # Emetti aggiornamento via WebSocket (con timestamp serializzato)
         emit_entry = {
-            **data_entry,
+            'temperature': data_entry['temperature'],
+            'humidity': data_entry['humidity'],
+            'light': data_entry['light'],
+            'audio': data_entry['audio'],
             'timestamp': timestamp.isoformat()
         }
         socketio.emit('device_data_update', {

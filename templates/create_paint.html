@@ -6,15 +6,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crea Nuovo Quadro - Quadri Viventi</title>
     <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="/static/css/create_paint.css">
 </head>
 
 <body>
     <div class="container">
         <header>
-            <a href="/" class="back-btn">← Torna alla Home</a>
-            <h1>🎨 Crea Nuovo Quadro</h1>
-            <p class="subtitle">Segui i passaggi per creare il tuo quadro personalizzato</p>
+            <a href="templates/home.html" class="back-btn">← Torna alla Home</a>
+            <h1>🎨 Crea Nuovo Quadro Avanzato</h1>
+            <p class="subtitle">Sistema di creazione quadri con animazioni e trigger personalizzati</p>
         </header>
 
         <!-- Progress Bar -->
@@ -25,39 +26,39 @@
             <div class="progress-steps">
                 <div class="step active" data-step="1">
                     <div class="step-number">1</div>
-                    <div class="step-label">Dispositivo</div>
+                    <div class="step-label">Configurazione</div>
                 </div>
                 <div class="step" data-step="2">
                     <div class="step-number">2</div>
-                    <div class="step-label">Template</div>
+                    <div class="step-label">Trigger & Animazioni</div>
                 </div>
                 <div class="step" data-step="3">
                     <div class="step-number">3</div>
-                    <div class="step-label">Configurazione</div>
+                    <div class="step-label">Anteprima</div>
                 </div>
                 <div class="step" data-step="4">
                     <div class="step-number">4</div>
-                    <div class="step-label">Anteprima</div>
+                    <div class="step-label">Salvataggio</div>
                 </div>
             </div>
         </div>
 
         <main class="step-content">
-            <!-- Step 1: Selezione Dispositivo -->
+            <!-- Step 1: Configurazione Base -->
             <div class="step-panel active" id="step-1">
-                <h2>📱 Seleziona il Dispositivo ESP32</h2>
-                <p class="step-description">Scegli quale dispositivo ESP32 vuoi utilizzare per il tuo quadro</p>
+                <h2>📱 Configurazione Base</h2>
+                <p class="step-description">Scegli il nome del quadro e seleziona il dispositivo ESP32</p>
 
-                <div class="device-selection">
+                <div class="config-section">
                     <div class="form-group">
                         <label for="quadro-name">Nome del Quadro:</label>
-                        <input type="text" id="quadro-name" placeholder="es. Giardino di Casa" required>
+                        <input type="text" id="quadro-name" placeholder="es. Giardino Magico" required>
                     </div>
 
                     <div class="devices-grid" id="devices-grid">
                         {% if devices %}
                         {% for device_id, device in devices.items() %}
-                        <div class="device-card" data-device-id="{{ device_id }}">
+                        <div class="device-card" data-device-id="{{ device_id }}" onclick="selectDevice('{{ device_id }}')">
                             <div class="device-header">
                                 <h3>{{ device.name }}</h3>
                                 <span class="device-status online">🟢 Online</span>
@@ -83,16 +84,11 @@
                                     <span class="sensor-value">{{ device.data.a }}</span>
                                 </div>
                             </div>
-                            <div class="device-actions">
-                                <button class="btn btn-primary" onclick="selectDevice('{{ device_id }}')">
-                                    Seleziona Dispositivo
-                                </button>
-                            </div>
                         </div>
                         {% endfor %}
                         {% else %}
                         <div class="no-devices">
-                            <h3>Nessun dispositivo disponibile</h3>
+                            <h3>⚠️ Nessun dispositivo disponibile</h3>
                             <p>Assicurati che almeno un ESP32 sia connesso al sistema</p>
                         </div>
                         {% endif %}
@@ -100,122 +96,124 @@
                 </div>
             </div>
 
-            <!-- Step 2: Selezione Template -->
+            <!-- Step 2: Trigger & Animazioni -->
             <div class="step-panel" id="step-2">
-                <h2>🎨 Scegli il Template</h2>
-                <p class="step-description">Seleziona lo stile grafico base per il tuo quadro</p>
+                <h2>⚡ Trigger & Animazioni</h2>
+                <p class="step-description">Visualizza i dati in tempo reale e configura le azioni basate sui range dei sensori</p>
 
-                <div class="templates-grid" id="templates-grid">
-                    <!-- I template verranno caricati dinamicamente -->
+                <div class="trigger-workspace">
+                    <!-- Live Data Charts -->
+                    <div class="charts-section">
+                        <h3>📊 Dati Live</h3>
+                        <div class="charts-grid">
+                            <div class="chart-container">
+                                <canvas id="temp-chart"></canvas>
+                                <div class="chart-info">🌡️ Temperatura</div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="humidity-chart"></canvas>
+                                <div class="chart-info">💧 Umidità</div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="light-chart"></canvas>
+                                <div class="chart-info">💡 Luce</div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="audio-chart"></canvas>
+                                <div class="chart-info">🔊 Audio</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Trigger Configuration -->
+                    <div class="triggers-section">
+                        <div class="triggers-header">
+                            <h3>🎯 Configurazione Trigger</h3>
+                            <button class="btn btn-primary" onclick="addTrigger()">+ Aggiungi Trigger</button>
+                        </div>
+                        
+                        <div class="triggers-list" id="triggers-list">
+                            <!-- Trigger items will be added dynamically -->
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Step 3: Configurazione Sensori -->
+            <!-- Step 3: Anteprima -->
             <div class="step-panel" id="step-3">
-                <h2>⚙️ Configura i Sensori</h2>
-                <p class="step-description">Imposta i parametri per ogni sensore</p>
+                <h2>👁️ Anteprima Finale</h2>
+                <p class="step-description">Vedi il risultato finale del tuo quadro in azione</p>
 
-                <div class="sensors-config">
-                    <div class="sensor-config-item">
-                        <h3>🌡️ Temperatura</h3>
-                        <div class="config-group">
-                            <label>Range minimo:</label>
-                            <input type="number" id="temp-min" value="0" step="0.1">
-                            <span>°C</span>
-                        </div>
-                        <div class="config-group">
-                            <label>Range massimo:</label>
-                            <input type="number" id="temp-max" value="40" step="0.1">
-                            <span>°C</span>
+                <div class="preview-section">
+                    <div class="preview-main">
+                        <canvas id="preview-canvas" width="800" height="600"></canvas>
+                        <div class="preview-controls">
+                            <button class="btn btn-secondary" onclick="pausePreview()">⏸️ Pausa</button>
+                            <button class="btn btn-secondary" onclick="resetPreview()">🔄 Reset</button>
+                            <button class="btn btn-primary" onclick="testAllTriggers()">🧪 Test Tutti i Trigger</button>
                         </div>
                     </div>
 
-                    <div class="sensor-config-item">
-                        <h3>💧 Umidità</h3>
-                        <div class="config-group">
-                            <label>Range minimo:</label>
-                            <input type="number" id="humidity-min" value="0" step="0.1">
-                            <span>%</span>
+                    <div class="preview-sidebar">
+                        <div class="simulation-controls">
+                            <h3>🎮 Controlli Simulazione</h3>
+                            <div class="simulation-sliders">
+                                <div class="slider-group">
+                                    <label>🌡️ Temperatura: <span id="sim-temp-value">20°C</span></label>
+                                    <input type="range" id="sim-temp" min="0" max="40" value="20" step="0.1">
+                                </div>
+                                <div class="slider-group">
+                                    <label>💧 Umidità: <span id="sim-humidity-value">50%</span></label>
+                                    <input type="range" id="sim-humidity" min="0" max="100" value="50" step="0.1">
+                                </div>
+                                <div class="slider-group">
+                                    <label>💡 Luce: <span id="sim-light-value">2000</span></label>
+                                    <input type="range" id="sim-light" min="0" max="4095" value="2000">
+                                </div>
+                                <div class="slider-group">
+                                    <label>🔊 Audio: <span id="sim-audio-value">500</span></label>
+                                    <input type="range" id="sim-audio" min="0" max="4095" value="500">
+                                </div>
+                            </div>
                         </div>
-                        <div class="config-group">
-                            <label>Range massimo:</label>
-                            <input type="number" id="humidity-max" value="100" step="0.1">
-                            <span>%</span>
-                        </div>
-                    </div>
 
-                    <div class="sensor-config-item">
-                        <h3>💡 Luce</h3>
-                        <div class="config-group">
-                            <label>Range minimo:</label>
-                            <input type="number" id="light-min" value="0">
-                        </div>
-                        <div class="config-group">
-                            <label>Range massimo:</label>
-                            <input type="number" id="light-max" value="4095">
-                        </div>
-                    </div>
-
-                    <div class="sensor-config-item">
-                        <h3>🔊 Audio</h3>
-                        <div class="config-group">
-                            <label>Range minimo:</label>
-                            <input type="number" id="audio-min" value="0">
-                        </div>
-                        <div class="config-group">
-                            <label>Range massimo:</label>
-                            <input type="number" id="audio-max" value="4095">
+                        <div class="layers-panel">
+                            <h3>📚 Layers</h3>
+                            <div class="layers-list" id="layers-list">
+                                <!-- Layers will be populated dynamically -->
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Step 4: Anteprima Finale -->
+            <!-- Step 4: Salvataggio -->
             <div class="step-panel" id="step-4">
-                <h2>👁️ Anteprima Finale</h2>
-                <p class="step-description">Vedi il risultato finale e testa il tuo quadro</p>
+                <h2>💾 Salvataggio Quadro</h2>
+                <p class="step-description">Rivedi la configurazione e salva il tuo quadro</p>
 
-                <div class="final-preview">
-                    <div class="preview-main">
-                        <canvas id="final-preview" width="800" height="600"></canvas>
-                    </div>
-
-                    <div class="preview-controls-panel">
-                        <h3>Controlli Simulazione</h3>
-                        <div class="controls-grid">
-                            <div class="control-group">
-                                <label>🌡️ Temperatura: <span id="final-temp-value">20°C</span></label>
-                                <input type="range" id="final-temp-slider" min="0" max="40" value="20" step="0.1">
-                            </div>
-                            <div class="control-group">
-                                <label>💧 Umidità: <span id="final-humidity-value">50%</span></label>
-                                <input type="range" id="final-humidity-slider" min="0" max="100" value="50" step="0.1">
-                            </div>
-                            <div class="control-group">
-                                <label>💡 Luce: <span id="final-light-value">2000</span></label>
-                                <input type="range" id="final-light-slider" min="0" max="4095" value="2000">
-                            </div>
-                            <div class="control-group">
-                                <label>🔊 Audio: <span id="final-audio-value">500</span></label>
-                                <input type="range" id="final-audio-slider" min="0" max="4095" value="500">
-                            </div>
-                        </div>
-
-                        <div class="action-buttons">
-                            <button class="btn btn-secondary" onclick="useRealData()">
-                                📡 Usa Dati Reali
-                            </button>
-                            <button class="btn btn-secondary" onclick="randomizeData()">
-                                🎲 Dati Casuali
-                            </button>
+                <div class="save-section">
+                    <div class="configuration-summary">
+                        <h3>📋 Riepilogo Configurazione</h3>
+                        <div class="summary-content" id="final-summary">
+                            <!-- Summary will be populated dynamically -->
                         </div>
                     </div>
-                </div>
 
-                <div class="summary-panel">
-                    <h3>Riepilogo Configurazione</h3>
-                    <div class="summary-content" id="configuration-summary">
-                        <!-- Riepilogo generato dinamicamente -->
+                    <div class="save-options">
+                        <h3>⚙️ Opzioni di Salvataggio</h3>
+                        <div class="save-controls">
+                            <div class="form-group">
+                                <label for="auto-start">🚀 Avvio Automatico:</label>
+                                <input type="checkbox" id="auto-start" checked>
+                                <span class="help-text">Attiva il quadro immediatamente dopo il salvataggio</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="public-share">🌐 Condivisione Pubblica:</label>
+                                <input type="checkbox" id="public-share">
+                                <span class="help-text">Permetti ad altri di visualizzare questo quadro</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -229,16 +227,177 @@
             <button class="btn btn-primary" id="next-btn" onclick="nextStep()">
                 Successivo →
             </button>
-            <button class="btn btn-success" id="create-btn" onclick="createPainting()" style="display: none;">
-                🎨 Crea Quadro
+            <button class="btn btn-success" id="save-btn" onclick="saveQuadro()" style="display: none;">
+                💾 Salva Quadro
             </button>
+        </div>
+    </div>
+
+    <!-- Trigger Configuration Modal -->
+    <div id="trigger-modal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2>⚡ Configurazione Trigger</h2>
+                <span class="close" onclick="closeTriggerModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="trigger-config">
+                    <!-- Sensor Selection -->
+                    <div class="config-group">
+                        <h3>📊 Sensore e Condizione</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Sensore:</label>
+                                <select id="trigger-sensor">
+                                    <option value="temperature">🌡️ Temperatura</option>
+                                    <option value="humidity">💧 Umidità</option>
+                                    <option value="light">💡 Luce</option>
+                                    <option value="audio">🔊 Audio</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Condizione:</label>
+                                <select id="trigger-condition">
+                                    <option value="range">📊 Nel range</option>
+                                    <option value="above">⬆️ Sopra il valore</option>
+                                    <option value="below">⬇️ Sotto il valore</option>
+                                    <option value="equals">🎯 Uguale al valore</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Valore Min:</label>
+                                <input type="number" id="trigger-min" step="0.1">
+                            </div>
+                            <div class="form-group">
+                                <label>Valore Max:</label>
+                                <input type="number" id="trigger-max" step="0.1">
+                            </div>
+                            <div class="form-group">
+                                <label>Durata (sec):</label>
+                                <input type="number" id="trigger-duration" min="0" step="0.1" value="0">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Type Selection -->
+                    <div class="config-group">
+                        <h3>🎬 Tipo di Azione</h3>
+                        <div class="action-types">
+                            <button class="action-type-btn active" data-type="image" onclick="selectActionType('image')">
+                                🖼️ Immagine/SVG
+                            </button>
+                            <button class="action-type-btn" data-type="background" onclick="selectActionType('background')">
+                                🌄 Sfondo
+                            </button>
+                            <button class="action-type-btn" data-type="shape" onclick="selectActionType('shape')">
+                                🔷 Forma Geometrica
+                            </button>
+                            <button class="action-type-btn" data-type="text" onclick="selectActionType('text')">
+                                📝 Testo
+                            </button>
+                            <button class="action-type-btn" data-type="effect" onclick="selectActionType('effect')">
+                                ✨ Effetti
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Action Configuration (Dynamic Content) -->
+                    <div class="config-group">
+                        <h3>⚙️ Configurazione Azione</h3>
+                        <div id="action-config-content">
+                            <!-- Content will be populated based on action type -->
+                        </div>
+                    </div>
+
+                    <!-- Animation Settings -->
+                    <div class="config-group">
+                        <h3>🎭 Impostazioni Animazione</h3>
+                        <div class="animation-config">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Tipo Animazione:</label>
+                                    <select id="animation-type">
+                                        <option value="none">🚫 Nessuna</option>
+                                        <option value="fade">🌫️ Fade In/Out</option>
+                                        <option value="slide">➡️ Scivolamento</option>
+                                        <option value="bounce">🏀 Rimbalzo</option>
+                                        <option value="rotate">🔄 Rotazione</option>
+                                        <option value="scale">📏 Scala</option>
+                                        <option value="float">🍃 Fluttuazione</option>
+                                        <option value="particle">💫 Sistema Particelle</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Easing:</label>
+                                    <select id="animation-easing">
+                                        <option value="linear">📏 Lineare</option>
+                                        <option value="ease-in">📈 Ease In</option>
+                                        <option value="ease-out">📉 Ease Out</option>
+                                        <option value="ease-in-out">🌊 Ease In-Out</option>
+                                        <option value="bounce">🏀 Bounce</option>
+                                        <option value="elastic">🎭 Elastic</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Durata (sec):</label>
+                                    <input type="number" id="animation-duration" min="0.1" step="0.1" value="1">
+                                </div>
+                                <div class="form-group">
+                                    <label>Loop:</label>
+                                    <select id="animation-loop">
+                                        <option value="none">🚫 Nessuno</option>
+                                        <option value="infinite">♾️ Infinito</option>
+                                        <option value="ping-pong">🏓 Ping-Pong</option>
+                                        <option value="count">🔢 Numero Ripetizioni</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Ripetizioni:</label>
+                                    <input type="number" id="animation-count" min="1" value="1">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeTriggerModal()">Annulla</button>
+                <button class="btn btn-primary" onclick="saveTrigger()">💾 Salva Trigger</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Asset Library Modal -->
+    <div id="asset-modal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2>📚 Libreria Asset</h2>
+                <span class="close" onclick="closeAssetModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="asset-library">
+                    <div class="asset-tabs">
+                        <button class="asset-tab active" data-tab="images">🖼️ Immagini</button>
+                        <button class="asset-tab" data-tab="shapes">🔷 Forme</button>
+                        <button class="asset-tab" data-tab="backgrounds">🌄 Sfondi</button>
+                        <button class="asset-tab" data-tab="upload">📤 Carica</button>
+                    </div>
+                    <div class="asset-content" id="asset-content">
+                        <!-- Content will be populated based on selected tab -->
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Loading Overlay -->
     <div id="loading-overlay" class="loading-overlay" style="display: none;">
         <div class="loading-spinner"></div>
-        <p>Creazione del quadro in corso...</p>
+        <p>Operazione in corso...</p>
     </div>
 
     <script src="/static/js/create_paint.js"></script>
