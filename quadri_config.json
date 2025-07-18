@@ -2,7 +2,7 @@
   "79e05e48-afd3-4ea6-b820-bdd0327d4c32": {
     "id": "79e05e48-afd3-4ea6-b820-bdd0327d4c32",
     "name": "SPAZIO 2",
-    "device_id": "Esp_Simulator",
+    "device_id": "Esp_Giovanni",
     "template": "naturale",
     "triggers": [],
     "layers": [],
@@ -76,7 +76,7 @@
   "80f53b1e-819d-45d4-9b78-488f228af57b": {
     "id": "80f53b1e-819d-45d4-9b78-488f228af57b",
     "name": "33",
-    "device_id": "Esp_Simulator",
+    "device_id": "Esp_Giovanni",
     "template": "naturale",
     "triggers": [],
     "layers": [],

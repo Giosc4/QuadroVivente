@@ -8,7 +8,7 @@ const char* ssid = "QuadroVivente_AP";
 const char* password = "quadro2025";
 
 // =========== CONFIGURAZIONE SERVER ===========
-const char* serverHost = "192.168.4.1";  // IP Raspberry Pi AP
+const char* serverHost = "192.168.4.1";
 const uint16_t serverPort = 8000;
 const char* endpoint = "/api/data";
 
@@ -16,84 +16,116 @@ const char* endpoint = "/api/data";
 #define DHTPIN 22
 #define DHTTYPE DHT11
 DHT dht(DHTPIN, DHTTYPE);
-const int MIC_PIN = 36;  // MAX9814 ADC1_CH0
-const int LDR_PIN = 34;  // ADC1_CH6
+const int MIC_PIN = 36;  // rumore (ADC1_CH0)
+const int LDR_PIN = 34;  // luminosità (ADC1_CH6)
 
 // =========== DEVICE ID ===========
 String deviceID = "Esp_Giovanni";
 
 // =========== INTERVALLI ===========
-const unsigned long FAST_INTERVAL = 225;   // ms: audio + luminosità
-const unsigned long SLOW_INTERVAL = 1000;  // ms: DHT11
-
-// =========== PARAMETRI CAMPIONAMENTO AUDIO ===========
-const int NUM_SAMPLES = 100;
-const unsigned long SAMPLE_PERIOD_US = 200;
+const unsigned long SEND_INTERVAL = 1000;        // 1 secondo per tutti i dati
+const unsigned long HEARTBEAT_INTERVAL = 60000;  // 1 minuto per heartbeat
 
 // =========== VARIABILI GLOBALI ===========
-unsigned long lastFastSend = 0;
-unsigned long lastSlowSend = 0;
+unsigned long lastSend = 0;
+unsigned long lastHeartbeat = 0;
 
-// =====================================================
+// -----------------------------------------------------
+// Callback eventi WiFi
+void onWiFiEvent(WiFiEvent_t event) {
+  switch (event) {
+    case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+      Serial.printf("\n✔ WiFi connesso, IP: %s\n",
+                    WiFi.localIP().toString().c_str());
+      break;
+    case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+      Serial.println("\n✖ WiFi disconnesso!");
+      break;
+    default:
+      break;
+  }
+}
+
 void setup() {
   Serial.begin(115200);
-  delay(2000);
+  delay(1000);
 
-  // Inizializza sensori
+  // Configura ADC LDR per full‑range (0–3.6 V)
+  analogSetPinAttenuation(LDR_PIN, ADC_11db);
+  analogSetWidth(12);
+
+  // Inizializza DHT
   dht.begin();
   deviceID.replace(":", "");
 
+  // Header seriale
   Serial.println("========================================");
   Serial.println("    QUADRI VIVENTI - ESP32 CLIENT");
   Serial.println("========================================");
   Serial.println("Device ID: " + deviceID);
-  Serial.println("Server: http://" + String(serverHost) + ":" + serverPort + endpoint);
+  Serial.printf("Server: http://%s:%u%s\n", serverHost, serverPort, endpoint);
   Serial.println("========================================");
 
+  // Registra eventi WiFi
+  WiFi.onEvent(onWiFiEvent, ARDUINO_EVENT_WIFI_STA_GOT_IP);
+  WiFi.onEvent(onWiFiEvent, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+
+  // Connessione iniziale
   connectToWiFi();
-  registerDevice();
-  printDeviceInfo();
+  if (WiFi.status() == WL_CONNECTED) {
+    registerDevice();
+  }
 }
 
 void loop() {
   unsigned long now = millis();
 
-  // Invio rapidi: audio + luminosità
-  if (now - lastFastSend >= FAST_INTERVAL) {
-    sendFastData();
-    lastFastSend = now;
+  // 1) Heartbeat periodico per mantenere lo stato “online”
+  if (now - lastHeartbeat >= HEARTBEAT_INTERVAL) {
+    Serial.println("⟳ Heartbeat: re-registrazione device");
+    registerDevice();
+    lastHeartbeat = now;
   }
 
-  // Invio lenti: umidità + temperatura
-  if (now - lastSlowSend >= SLOW_INTERVAL) {
-    sendSlowData();
-    lastSlowSend = now;
+  // 2) Se il WiFi è caduto, prova a riconnettere
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("✖ WiFi non connesso, tenterò di ricollegarmi…");
+    connectToWiFi();
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.println("✔ Riconnesso al WiFi, re-registro device");
+      registerDevice();
+    } else {
+      delay(500);
+      return;  // salto l’invio finché non torna il WiFi
+    }
   }
 
-  delay(10);  // riduce utilizzo CPU
+  // 3) Invio unificato ogni SEND_INTERVAL
+  if (now - lastSend >= SEND_INTERVAL) {
+    sendAllData();
+    lastSend = now;
+  }
+
+  delay(10);
 }
 
 // -----------------------------------------------------
 void connectToWiFi() {
-  WiFi.begin(ssid, password);
+  if (WiFi.status() == WL_CONNECTED) return;
   Serial.print("Connessione al WiFi");
+  WiFi.begin(ssid, password);
   int attempts = 0;
   while (WiFi.status() != WL_CONNECTED && attempts < 10) {
     delay(1000);
     Serial.print(".");
     attempts++;
   }
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\nWiFi connesso!");
-    Serial.println("IP: " + WiFi.localIP().toString());
-  } else {
-    Serial.println("\nErrore connessione WiFi");
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("\n✖ Errore connessione WiFi");
   }
 }
 
 void registerDevice() {
-  if (WiFi.status() != WL_CONNECTED) return;
-
   HTTPClient http;
   String url = String("http://") + serverHost + ":" + serverPort + "/api/device_register";
   http.begin(url);
@@ -108,85 +140,70 @@ void registerDevice() {
   String payload;
   serializeJson(doc, payload);
   int code = http.POST(payload);
-  if (code > 0) {
-    Serial.println("Registrazione: " + String(code));
-  } else {
-    Serial.println("Errore registrazione: " + String(code));
-  }
+  Serial.printf("Registrazione device → HTTP %d (%s)\n",
+                code,
+                code > 0 ? http.getString().c_str()
+                         : http.errorToString(code).c_str());
   http.end();
 }
 
-void printDeviceInfo() {
-  Serial.println("========== DEVICE INFO ==========");
-  Serial.println("ID: " + deviceID);
-  Serial.println("MAC: " + WiFi.macAddress());
-  Serial.println("IP : " + WiFi.localIP().toString());
-  Serial.println("RSSI: " + String(WiFi.RSSI()) + " dBm");
-  Serial.println("Uptime: " + String(millis() / 1000) + " s");
-  Serial.println("================================");
-}
-
 // -----------------------------------------------------
-// Campionamento raw audio
-void readAudioRaw(int* buffer) {
-  unsigned long start = micros();
-  for (int i = 0; i < NUM_SAMPLES; i++) {
-    buffer[i] = analogRead(MIC_PIN);
-    while (micros() - start < (unsigned long)(i + 1) * SAMPLE_PERIOD_US) {}
-  }
-}
-
-// Invio audio + luminosità
-void sendFastData() {
-  if (WiFi.status() != WL_CONNECTED) return;
-
-  // Lettura
-  int light = analogRead(LDR_PIN);
-  int audioSamples[NUM_SAMPLES];
-  readAudioRaw(audioSamples);
-
-  // Serializzazione JSON
-  StaticJsonDocument<1024> doc;
-  doc["device_id"] = deviceID;
-  doc["l"] = light;
-  JsonArray arr = doc.createNestedArray("audio_raw");
-  for (int i = 0; i < NUM_SAMPLES; i++) arr.add(audioSamples[i]);
-
-  postJson(doc);
-}
-
-// Invio umidità + temperatura
-void sendSlowData() {
-  if (WiFi.status() != WL_CONNECTED) return;
-
+// Legge tutti i sensori e invia un unico JSON
+void sendAllData() {
+  // Letture sensori
   float h = dht.readHumidity();
   float t = dht.readTemperature();
   if (isnan(h)) h = 0.0;
   if (isnan(t)) t = 0.0;
 
-  StaticJsonDocument<256> doc;
+  int light = analogRead(LDR_PIN);  // ultimo dato luminosità
+  int noise = analogRead(MIC_PIN);  // ultimo dato rumore
+
+  Serial.printf(">> Dati: H=%.1f%% T=%.1f°C LDR=%d Noise=%d\n",
+                h, t, light, noise);
+
+  // Prepara JSON
+  StaticJsonDocument<512> doc;
   doc["device_id"] = deviceID;
   doc["h"] = h;
   doc["t"] = t;
+  doc["l"] = light;
+  doc["n"] = noise;
 
-  postJson(doc);
+  // Invia
+  postJson(doc, "ALL");
 }
 
 template<size_t N>
-void postJson(const StaticJsonDocument<N>& doc) {
+void postJson(const StaticJsonDocument<N>& doc, const char* tag) {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.printf("  %s SKIP: WiFi non connesso\n", tag);
+    return;
+  }
+
   HTTPClient http;
   String url = String("http://") + serverHost + ":" + serverPort + endpoint;
+  Serial.printf("  %s → POST %s\n", tag, url.c_str());
+
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
+  http.addHeader("Connection", "close", true);
+  http.setTimeout(5000);
 
   String payload;
   serializeJson(doc, payload);
+
   int code = http.POST(payload);
-  if (code <= 0) {
-    Serial.println("HTTP error: " + String(code));
-  } else if (code != 200) {
-    Serial.println("Server response: " + String(code));
-    Serial.println(http.getString());
+  if (code > 0) {
+    if (code == 200) {
+      Serial.printf("    %s OK (200)\n", tag);
+    } else {
+      Serial.printf("    %s WARN HTTP %d: %s\n",
+                    tag, code, http.getString().c_str());
+    }
+  } else {
+    Serial.printf("    %s ERR %d: %s\n",
+                  tag, code, http.errorToString(code).c_str());
   }
   http.end();
 }

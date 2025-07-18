@@ -13,12 +13,14 @@ from flask_cors import CORS
 from datetime import datetime, timedelta
 
 # Soglia oltre cui considerare il device offline
-ONLINE_THRESHOLD = timedelta(seconds=2)
+ONLINE_THRESHOLD = timedelta(seconds=3)
 
 # =========== CONFIG ==========
 DATA_RETENTION_MINUTES = 3
 DATA_FILE = 'device_data.json'
 QUADRI_FILE = 'quadri_config.json'
+
+global connected_devices
 
 # =========== FLASK & SOCKETIO ==========
 app = Flask(__name__, static_folder='static')
@@ -166,7 +168,6 @@ def config():
     return render_template('config.html')
 
 # =========== API ENDPOINTS ==========
-
 @app.route('/api/data', methods=['POST'])
 @app.route('/api/receive_data', methods=['POST'])
 def receive_data():
@@ -179,8 +180,6 @@ def receive_data():
         if not device_id:
             return jsonify({'error': 'Missing device_id'}), 400
 
-        # ricarica dal file per avere lo storico più recente
-        connected_devices = load_json(DATA_FILE, iso_dates=True)
 
         # se è un nuovo device, inizializza struttura
         if device_id not in connected_devices:
@@ -199,19 +198,13 @@ def receive_data():
         prev_light = prev.get('light',       0)
         prev_audio = prev.get('audio',       0)
 
-        # estrai campi presenti
-        raw_t = data.get('temperature', data.get('t',    None))
-        raw_h = data.get('humidity',    data.get('h',    None))
-        raw_l = data.get('light',       data.get('l',    None))
-        raw_a = data.get('audio',       data.get('a',    None))
-        if raw_a is None and 'audio_raw' in data:
-            raw_a = max(data['audio_raw'])
+        # prendi solo i dati appena ricevuti
+        temperature = float(data.get('temperature', data.get('t'))) if data.get('temperature', data.get('t')) is not None else None
+        humidity    = float(data.get('humidity',    data.get('h'))) if data.get('humidity',    data.get('h')) is not None else None
+        light       = int(data.get('light',         data.get('l'))) if data.get('light',       data.get('l')) is not None else None
+        audio       = int(data.get('audio', data.get('a', data.get('n')))) if data.get('audio', data.get('a', data.get('n'))) is not None else None
 
-        # mantieni valore precedente se mancante
-        temperature = float(raw_t) if raw_t is not None else prev_temp
-        humidity    = float(raw_h) if raw_h is not None else prev_hum
-        light       = int(raw_l)   if raw_l is not None else prev_light
-        audio       = int(raw_a)   if raw_a is not None else prev_audio
+
 
         # crea la nuova entry
         timestamp = datetime.now()
@@ -243,13 +236,15 @@ def receive_data():
             'device_id': device_id,
             'data': emit_entry
         })
-        print(f"Dati ricevuti da {device_id}: T={temperature:.1f}°C, H={humidity:.1f}%, L={light}, A={audio}")
+
+        print(f"Dati ricevuti da {device_id}: "
+              f"T={temperature:.1f}°C, H={humidity:.1f}%, "
+              f"L={light}, A={audio}")
         return jsonify({'status': 'success'}), 200
 
     except Exception as e:
         print(f"Errore nella ricezione dati: {e}")
         return jsonify({'error': str(e)}), 500
-
 
 
 @app.route('/api/device_register', methods=['POST'])
@@ -384,7 +379,6 @@ def serve_static(filename):
 # =========== SERVER START ==========
 if __name__ == '__main__':
     # Carica i dati esistenti
-    connected_devices = load_json(DATA_FILE, iso_dates=True)
     quadri_config = load_json(QUADRI_FILE, iso_dates=False)
 
     # Avvia il thread di pulizia periodica
@@ -392,13 +386,12 @@ if __name__ == '__main__':
     cleanup_thread.start()
 
     # Determina l'IP del server
-    try:
-        ip = socket.gethostbyname(socket.gethostname())
-    except:
-        ip = '127.0.0.1'
+    # IP fisso dell'Access Point
+    ip = '192.168.4.1'
+    print(f"Server running at http://{ip}:8000")
     
     print(f"Server running at http://{ip}:8000")
     print(f"Access Point SSID: QuadroVivente_AP")
     print(f"Access Point Password: quadro2025")
     
-    socketio.run(app, host='0.0.0.0', port=8000, debug=True)
+    socketio.run(app, host='192.168.4.1', port=8000, debug=True)

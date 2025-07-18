@@ -433,7 +433,7 @@ class QuadriManager {
                             ${isOnline ? '🟢 Online' : '🔴 Offline'}
                         </div>
                     </div>
-                    <div class="device-location">📍 ${device.location}</div>
+
                     <div class="device-sensors">
                         <div class="sensor-reading">
                             <span class="sensor-icon">🌡️</span>

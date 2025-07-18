@@ -390,7 +390,7 @@ class QuadroCreator {
         Object.entries(this.devices).forEach(([id, device]) => {
             const option = document.createElement('option');
             option.value = id;
-            option.textContent = `${device.name} - ${device.location}`;
+            option.textContent = `${device.name}`;
             select.appendChild(option);
         });
     }
@@ -420,8 +420,8 @@ class QuadroCreator {
 
         statusIndicator.className = `status-indicator ${isOnline ? 'online' : 'offline'}`;
         statusText.textContent = isOnline ?
-            `Online - ${device.location}` :
-            `Offline - ${device.location}`;
+            `Online` :
+            `Offline`;
     }
 
     selectTemplate(template) {
