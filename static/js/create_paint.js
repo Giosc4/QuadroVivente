@@ -1,1865 +1,2150 @@
 // ============================================================================
-// ADVANCED QUADRO CREATOR - Sistema Avanzato di Creazione Quadri
+// CREATE PAINT - SISTEMA DI CREAZIONE QUADRI VIVENTI
+// JavaScript completo per la creazione e configurazione di quadri personalizzati
 // ============================================================================
 
-class AdvancedQuadroCreator {
+class QuadroCreator {
     constructor() {
-        this.currentStep = 1;
-        this.totalSteps = 4;
         this.socket = null;
+        this.devices = {};
         this.selectedDevice = null;
-        this.quadroName = '';
-        this.triggers = [];
-        this.currentEditingTrigger = null;
-        this.sensorData = { temperature: 20, humidity: 50, light: 2000, audio: 500 };
-        this.charts = {};
+        this.selectedTemplate = 'natura';
         this.previewCanvas = null;
         this.previewCtx = null;
         this.animationId = null;
-        this.layers = [];
-        this.assets = {
-            images: [],
-            shapes: [],
-            backgrounds: []
+        this.isPlaying = true;
+        this.createdQuadroId = null;
+
+        // Valori sensori per simulazione
+        this.sensorValues = {
+            temperature: 20.5,
+            humidity: 65,
+            light: 1250,
+            audio: 850
         };
-        this.isPreviewPlaying = true;
-        
+
+        // Configurazione sensori
+        this.sensorsConfig = {
+            temperature: { animations: {} },
+            humidity: { animations: {} },
+            light: { animations: {} },
+            audio: { animations: {} }
+        };
+
+        // Configurazione personalizzata
+        this.customConfig = {
+            background: 'gradient',
+            elements: []
+        };
+
+        // Templates predefiniti
+        this.predefinedTemplates = {
+            natura: this.getNaturaTemplate(),
+            spazio: this.getSpazioTemplate(),
+            oceano: this.getOceanoTemplate()
+        };
+
+        // Oggetti SVG disponibili
+        this.availableSVGs = [];
+
         this.init();
+    }
+
+    // Templates predefiniti
+    getNaturaTemplate() {
+        return {
+            temperature: {
+                animations: {
+                    svg_objects: {
+                        object: 'snowflake.svg',
+                        count: 15,
+                        animation: 'snow_fall',
+                        condition: 'below',
+                        threshold: 15,
+                        alternativeObject: 'sun.svg',
+                        alternativeAnimation: 'sun_rays',
+                        alternativeCondition: 'above',
+                        alternativeThreshold: 25
+                    }
+                }
+            },
+            humidity: {
+                animations: {
+                    svg_objects: {
+                        object: 'leaf.svg',
+                        count: 10,
+                        animation: 'falling_leaves',
+                        condition: 'below',
+                        threshold: 40,
+                        levels: [
+                            { threshold: 40, object: 'leaf.svg', animation: 'falling_leaves' },
+                            { threshold: 60, object: 'bird.svg', animation: 'flying_birds' },
+                            { threshold: 80, object: 'cloud-rain.svg', animation: 'rain_fall' }
+                        ]
+                    }
+                }
+            },
+            light: {
+                animations: {
+                    color_change: {
+                        type: 'variable',
+                        condition: 'range',
+                        threshold_min: 0,
+                        threshold_max: 4095,
+                        color_low: '#0a0a1e',
+                        color_high: '#87ceeb',
+                        gradient: true,
+                        levels: ['#0a0a1e', '#4a5568', '#87ceeb', '#ffd93d']
+                    },
+                    svg_objects: {
+                        object: 'star.svg',
+                        count: 20,
+                        animation: 'twinkle',
+                        condition: 'below',
+                        threshold: 500
+                    }
+                }
+            },
+            audio: {
+                animations: {
+                    waves: {
+                        type: 'sea_waves',
+                        sensitivity: 5,
+                        count: 3,
+                        origin: 'bottom'
+                    }
+                }
+            }
+        };
+    }
+
+    getSpazioTemplate() {
+        return {
+            temperature: {
+                animations: {
+                    color_change: {
+                        type: 'variable',
+                        condition: 'range',
+                        threshold_min: 0,
+                        threshold_max: 40,
+                        color_low: '#001f3f',
+                        color_high: '#ff6b6b'
+                    }
+                }
+            },
+            humidity: {
+                animations: {
+                    svg_objects: {
+                        object: 'asteroid.svg',
+                        count: 5,
+                        animation: 'floating',
+                        condition: 'range',
+                        threshold_min: 30,
+                        threshold_max: 70,
+                        countVariable: true
+                    }
+                }
+            },
+            light: {
+                animations: {
+                    color_change: {
+                        type: 'variable',
+                        condition: 'range',
+                        threshold_min: 0,
+                        threshold_max: 4095,
+                        color_low: '#000814',
+                        color_high: '#1e3c72',
+                        opacity: true
+                    }
+                }
+            },
+            audio: {
+                animations: {
+                    waves: {
+                        type: 'solar_waves',
+                        sensitivity: 7,
+                        count: 5,
+                        origin: 'object',
+                        objectId: 'sun',
+                        color: '#ffd700'
+                    }
+                }
+            }
+        };
+    }
+
+    getOceanoTemplate() {
+        return {
+            temperature: {
+                animations: {
+                    svg_objects: {
+                        object: 'fish.svg',
+                        count: 8,
+                        animation: 'swim',
+                        speedVariable: true,
+                        speedRange: [0.5, 3],
+                        temperatureMapping: true
+                    }
+                }
+            },
+            humidity: {
+                animations: {
+                    svg_objects: {
+                        object: 'fish.svg',
+                        count: 5,
+                        animation: 'swim',
+                        sizeVariable: true,
+                        condition: 'levels',
+                        levels: [
+                            { threshold: 30, size: 'small', count: 3 },
+                            { threshold: 60, size: 'medium', count: 5 },
+                            { threshold: 80, size: 'large', count: 8 }
+                        ]
+                    }
+                }
+            },
+            light: {
+                animations: {
+                    color_change: {
+                        type: 'variable',
+                        condition: 'gradient',
+                        gradient: ['#000428', '#004e92', '#009ffd', '#2a2a72'],
+                        opacity: false
+                    }
+                }
+            },
+            audio: {
+                animations: {
+                    waves: {
+                        type: 'currents',
+                        sensitivity: 6,
+                        count: 4,
+                        origin: 'multi',
+                        pattern: 'circular'
+                    }
+                }
+            }
+        };
     }
 
     init() {
         this.setupSocket();
         this.setupEventListeners();
-        this.initializeCharts();
-        this.setupPreviewCanvas();
-        this.loadAssets();
-        this.updateUI();
-        this.startPreviewLoop();
+        this.setupCanvas();
+        this.loadDevices();
+        this.loadAvailableSVGs();
+        this.initializeTemplates();
+        this.startPreviewAnimation();
+        this.hideLoadingOverlay();
     }
 
     setupSocket() {
-        if (typeof io !== 'undefined') {
-            this.socket = io();
-            this.socket.on('device_data_update', (data) => {
-                this.updateSensorData(data);
-            });
+        if (typeof io === 'undefined') {
+            console.error('Socket.IO non disponibile');
+            return;
         }
+
+        this.socket = io();
+
+        this.socket.on('connect', () => {
+            console.log('Connesso al server');
+        });
+
+        this.socket.on('device_data_update', (data) => {
+            this.handleDeviceUpdate(data);
+        });
     }
 
     setupEventListeners() {
-        // Simulation sliders
-        ['temp', 'humidity', 'light', 'audio'].forEach(sensor => {
-            const slider = document.getElementById(`sim-${sensor}`);
-            const valueDisplay = document.getElementById(`sim-${sensor}-value`);
-            
-            if (slider && valueDisplay) {
-                slider.addEventListener('input', (e) => {
-                    const value = parseFloat(e.target.value);
-                    const unit = this.getSensorUnit(sensor);
-                    valueDisplay.textContent = `${value}${unit}`;
-                    this.updateSimulatedSensorData(sensor, value);
-                });
-            }
+        // Nome quadro
+        const nameInput = document.getElementById('quadro-name');
+        nameInput.addEventListener('input', (e) => {
+            this.validateName(e.target.value);
         });
 
-        // Modal close on outside click
-        window.addEventListener('click', (event) => {
-            if (event.target.classList.contains('modal')) {
-                this.closeAllModals();
-            }
+        // Selezione dispositivo
+        const deviceSelect = document.getElementById('device-select');
+        deviceSelect.addEventListener('change', (e) => {
+            this.selectDevice(e.target.value);
         });
 
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape') {
-                this.closeAllModals();
-            }
+        // Selezione template
+        document.querySelectorAll('.template-card').forEach(card => {
+            card.addEventListener('click', () => {
+                this.selectTemplate(card.dataset.template);
+            });
         });
-    }
 
-    initializeCharts() {
-        const chartConfigs = {
-            'temp-chart': {
-                label: 'Temperatura (°C)',
-                borderColor: 'rgb(255, 107, 107)',
-                backgroundColor: 'rgba(255, 107, 107, 0.1)',
-                min: 0,
-                max: 40
-            },
-            'humidity-chart': {
-                label: 'Umidità (%)',
-                borderColor: 'rgb(78, 205, 196)',
-                backgroundColor: 'rgba(78, 205, 196, 0.1)',
-                min: 0,
-                max: 100
-            },
-            'light-chart': {
-                label: 'Luce',
-                borderColor: 'rgb(255, 217, 61)',
-                backgroundColor: 'rgba(255, 217, 61, 0.1)',
-                min: 0,
-                max: 4095
-            },
-            'audio-chart': {
-                label: 'Audio',
-                borderColor: 'rgb(168, 230, 207)',
-                backgroundColor: 'rgba(168, 230, 207, 0.1)',
-                min: 0,
-                max: 4095
-            }
-        };
+        // Checkbox animazioni
+        document.querySelectorAll('.animation-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                this.toggleAnimation(e.target);
+            });
+        });
 
-        Object.entries(chartConfigs).forEach(([canvasId, config]) => {
-            const canvas = document.getElementById(canvasId);
-            if (canvas) {
-                this.charts[canvasId] = new Chart(canvas, {
-                    type: 'line',
-                    data: {
-                        labels: [],
-                        datasets: [{
-                            label: config.label,
-                            data: [],
-                            borderColor: config.borderColor,
-                            backgroundColor: config.backgroundColor,
-                            borderWidth: 2,
-                            fill: true,
-                            tension: 0.4,
-                            pointRadius: 0,
-                            pointHoverRadius: 4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: {
-                            intersect: false,
-                            mode: 'index'
-                        },
-                        scales: {
-                            x: {
-                                display: false
-                            },
-                            y: {
-                                min: config.min,
-                                max: config.max,
-                                grid: {
-                                    color: 'rgba(102, 126, 234, 0.1)'
-                                }
-                            }
-                        },
-                        plugins: {
-                            legend: {
-                                display: true,
-                                position: 'top'
-                            }
-                        },
-                        animation: {
-                            duration: 0
-                        }
-                    }
-                });
+        // Slider di simulazione
+        const sliders = ['temp', 'humidity', 'light', 'audio'];
+        sliders.forEach(slider => {
+            const element = document.getElementById(`${slider}-slider`);
+            element.addEventListener('input', (e) => {
+                this.updateSensorValue(slider, e.target.value);
+            });
+        });
+
+        // Gestione input di configurazione
+        document.querySelectorAll('.animation-config input, .animation-config select').forEach(input => {
+            input.addEventListener('change', (e) => {
+                this.updateAnimationConfig(e.target);
+            });
+        });
+
+        // Gestione modali
+        window.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) {
+                this.closeModal(e.target);
             }
         });
     }
 
-    setupPreviewCanvas() {
+    setupCanvas() {
         this.previewCanvas = document.getElementById('preview-canvas');
-        if (this.previewCanvas) {
-            this.previewCtx = this.previewCanvas.getContext('2d');
+        this.previewCtx = this.previewCanvas.getContext('2d');
+
+        // Ottimizzazioni rendering
+        this.previewCtx.imageSmoothingEnabled = true;
+        this.previewCtx.textBaseline = 'middle';
+    }
+
+    async loadDevices() {
+        try {
+            const response = await fetch('/api/devices');
+            if (response.ok) {
+                this.devices = await response.json();
+                this.populateDeviceSelect();
+            } else {
+                console.error('Errore nel caricamento dispositivi');
+            }
+        } catch (error) {
+            console.error('Errore nella richiesta dispositivi:', error);
         }
     }
 
-    startPreviewLoop() {
-        const animate = () => {
-            if (this.isPreviewPlaying) {
-                this.renderPreview();
+    async loadAvailableSVGs() {
+        // Simula il caricamento degli SVG disponibili
+        this.availableSVGs = [
+            'sun.svg', 'snowflake.svg', 'cloud.svg', 'cloud-rain.svg',
+            'star.svg', 'moon.svg', 'leaf.svg', 'bird.svg',
+            'fish.svg', 'bubble.svg', 'wave.svg', 'droplet.svg',
+            'thermometer.svg', 'sparkles.svg', 'asteroid.svg',
+            'galaxy.svg', 'butterfly.svg', 'music-note.svg'
+        ];
+
+        // Aggiorna le opzioni nei select
+        this.updateSVGOptions();
+    }
+
+    updateSVGOptions() {
+        document.querySelectorAll('.svg-object').forEach(select => {
+            const currentValue = select.value;
+            select.innerHTML = this.availableSVGs.map(svg => {
+                const name = svg.replace('.svg', '');
+                const icon = this.getSVGIcon(name);
+                return `<option value="${svg}">${icon} ${this.formatSVGName(name)}</option>`;
+            }).join('');
+            select.value = currentValue;
+        });
+    }
+
+    getSVGIcon(name) {
+        const icons = {
+            'sun': '☀️',
+            'snowflake': '❄️',
+            'cloud': '☁️',
+            'cloud-rain': '🌧️',
+            'star': '⭐',
+            'moon': '🌙',
+            'leaf': '🍃',
+            'bird': '🐦',
+            'fish': '🐟',
+            'bubble': '💧',
+            'wave': '🌊',
+            'droplet': '💧',
+            'thermometer': '🌡️',
+            'sparkles': '✨',
+            'asteroid': '☄️',
+            'galaxy': '🌌',
+            'butterfly': '🦋',
+            'music-note': '🎵'
+        };
+        return icons[name] || '📄';
+    }
+
+    formatSVGName(name) {
+        return name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, ' ');
+    }
+
+    populateDeviceSelect() {
+        const select = document.getElementById('device-select');
+        select.innerHTML = '<option value="">Seleziona un dispositivo...</option>';
+
+        Object.entries(this.devices).forEach(([id, device]) => {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = `${device.name} - ${device.location}`;
+            select.appendChild(option);
+        });
+    }
+
+    selectDevice(deviceId) {
+        this.selectedDevice = deviceId;
+        this.updateDeviceStatus();
+        this.validateForm();
+
+        if (deviceId && this.devices[deviceId]) {
+            this.updateSensorValues();
+        }
+    }
+
+    updateDeviceStatus() {
+        const statusIndicator = document.querySelector('.status-indicator');
+        const statusText = document.querySelector('.status-text');
+
+        if (!this.selectedDevice) {
+            statusIndicator.className = 'status-indicator';
+            statusText.textContent = 'Seleziona un dispositivo';
+            return;
+        }
+
+        const device = this.devices[this.selectedDevice];
+        const isOnline = device && device.data_count > 0;
+
+        statusIndicator.className = `status-indicator ${isOnline ? 'online' : 'offline'}`;
+        statusText.textContent = isOnline ?
+            `Online - ${device.location}` :
+            `Offline - ${device.location}`;
+    }
+
+    selectTemplate(template) {
+        this.selectedTemplate = template;
+
+        // Aggiorna UI
+        document.querySelectorAll('.template-card').forEach(card => {
+            card.classList.remove('selected');
+        });
+        document.querySelector(`[data-template="${template}"]`).classList.add('selected');
+
+        // Mostra/nascondi configurazione personalizzata
+        this.toggleCustomConfig(template === 'personalizzato');
+
+        // Se template predefinito, carica la configurazione
+        if (template !== 'personalizzato' && this.predefinedTemplates[template]) {
+            this.loadTemplateConfig(this.predefinedTemplates[template]);
+        }
+
+        this.updatePreview();
+    }
+
+    loadTemplateConfig(config) {
+        // Reset configurazione
+        this.sensorsConfig = {
+            temperature: { animations: {} },
+            humidity: { animations: {} },
+            light: { animations: {} },
+            audio: { animations: {} }
+        };
+
+        // Deseleziona tutti i checkbox
+        document.querySelectorAll('.animation-checkbox').forEach(checkbox => {
+            checkbox.checked = false;
+            const animConfig = checkbox.parentElement.nextElementSibling;
+            if (animConfig) animConfig.classList.add('hidden');
+        });
+
+        // Applica configurazione template
+        Object.entries(config).forEach(([sensor, sensorConfig]) => {
+            Object.entries(sensorConfig.animations).forEach(([animationType, animConfig]) => {
+                // Trova e attiva il checkbox corrispondente
+                const checkbox = document.querySelector(
+                    `.sensor-config[data-sensor="${sensor}"] .animation-checkbox[data-animation="${animationType}"]`
+                );
+
+                if (checkbox) {
+                    checkbox.checked = true;
+                    const configDiv = checkbox.parentElement.nextElementSibling;
+                    if (configDiv) {
+                        configDiv.classList.remove('hidden');
+                        // Applica i valori della configurazione
+                        this.applyAnimationConfig(configDiv, animConfig);
+                    }
+                }
+
+                // Salva configurazione
+                this.sensorsConfig[sensor].animations[animationType] = animConfig;
+            });
+        });
+    }
+
+    applyAnimationConfig(configDiv, config) {
+        Object.entries(config).forEach(([key, value]) => {
+            const input = configDiv.querySelector(`.${key.replace(/_/g, '-')}`);
+            if (input) {
+                if (input.type === 'checkbox') {
+                    input.checked = value;
+                } else {
+                    input.value = value;
+                }
             }
-            this.animationId = requestAnimationFrame(animate);
+        });
+    }
+
+    toggleCustomConfig(show) {
+        const customConfig = document.getElementById('custom-config');
+        if (show) {
+            customConfig.classList.remove('hidden');
+            this.initializeCustomConfig();
+        } else {
+            customConfig.classList.add('hidden');
+        }
+    }
+
+    initializeCustomConfig() {
+        this.customConfig = {
+            background: 'gradient',
+            elements: []
         };
-        animate();
+        this.renderCustomConfigUI();
     }
 
-    loadAssets() {
-        // Load default assets
-        this.assets.images = [
-            { id: 'leaf1', name: 'Foglia 1', url: '/static/assets/leaf1.svg', type: 'svg' },
-            { id: 'leaf2', name: 'Foglia 2', url: '/static/assets/leaf2.svg', type: 'svg' },
-            { id: 'bird1', name: 'Uccello 1', url: '/static/assets/bird1.svg', type: 'svg' },
-            { id: 'cloud1', name: 'Nuvola 1', url: '/static/assets/cloud1.svg', type: 'svg' },
-            { id: 'star1', name: 'Stella 1', url: '/static/assets/star1.svg', type: 'svg' },
-            { id: 'flower1', name: 'Fiore 1', url: '/static/assets/flower1.svg', type: 'svg' }
-        ];
-
-        this.assets.shapes = [
-            { id: 'circle', name: 'Cerchio', type: 'circle' },
-            { id: 'square', name: 'Quadrato', type: 'rectangle' },
-            { id: 'triangle', name: 'Triangolo', type: 'triangle' },
-            { id: 'hexagon', name: 'Esagono', type: 'polygon' },
-            { id: 'star', name: 'Stella', type: 'star' },
-            { id: 'heart', name: 'Cuore', type: 'heart' }
-        ];
-
-        this.assets.backgrounds = [
-            { id: 'nature', name: 'Natura', gradient: ['#87CEEB', '#98FB98'] },
-            { id: 'sunset', name: 'Tramonto', gradient: ['#FF7E5F', '#FEB47B'] },
-            { id: 'ocean', name: 'Oceano', gradient: ['#2E86AB', '#A23B72'] },
-            { id: 'space', name: 'Spazio', gradient: ['#0F0F23', '#2E1065'] },
-            { id: 'forest', name: 'Foresta', gradient: ['#134E5E', '#71B280'] },
-            { id: 'fire', name: 'Fuoco', gradient: ['#FC466B', '#3F5EFB'] }
-        ];
+    renderCustomConfigUI() {
+        const container = document.getElementById('custom-elements');
+        container.innerHTML = `
+            <div class="background-config">
+                <h5>Sfondo</h5>
+                <div class="background-type">
+                    <div class="bg-option selected" data-bg="gradient" onclick="quadroCreator.selectBackground('gradient')">
+                        🌅 Gradiente
+                    </div>
+                    <div class="bg-option" data-bg="solid" onclick="quadroCreator.selectBackground('solid')">
+                        🎨 Colore Solido
+                    </div>
+                    <div class="bg-option" data-bg="image" onclick="quadroCreator.selectBackground('image')">
+                        🖼️ Immagine
+                    </div>
+                </div>
+                <div id="background-controls">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Colore 1:</label>
+                            <input type="color" id="bg-color1" value="#667eea" onchange="quadroCreator.updateBackground()">
+                        </div>
+                        <div class="form-group">
+                            <label>Colore 2:</label>
+                            <input type="color" id="bg-color2" value="#764ba2" onchange="quadroCreator.updateBackground()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="elements-config">
+                <h5>Elementi</h5>
+                <div id="elements-list"></div>
+                <button class="add-element" onclick="quadroCreator.addCustomElement()">
+                    ➕ Aggiungi Elemento
+                </button>
+            </div>
+        `;
     }
 
-    updateSensorData(data) {
-        if (data.device_id !== this.selectedDevice) return;
+    selectBackground(type) {
+        this.customConfig.background = type;
 
-        // Update sensor values
-        this.sensorData = {
-            temperature: data.data.temperature,
-            humidity: data.data.humidity,
-            light: data.data.light,
-            audio: data.data.audio
+        // Aggiorna UI
+        document.querySelectorAll('.bg-option').forEach(option => {
+            option.classList.remove('selected');
+        });
+        document.querySelector(`[data-bg="${type}"]`).classList.add('selected');
+
+        // Aggiorna controlli
+        this.updateBackgroundControls();
+        this.updatePreview();
+    }
+
+    updateBackgroundControls() {
+        const container = document.getElementById('background-controls');
+        const type = this.customConfig.background;
+
+        let html = '';
+
+        switch (type) {
+            case 'gradient':
+                html = `
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Colore 1:</label>
+                            <input type="color" id="bg-color1" value="#667eea" onchange="quadroCreator.updateBackground()">
+                        </div>
+                        <div class="form-group">
+                            <label>Colore 2:</label>
+                            <input type="color" id="bg-color2" value="#764ba2" onchange="quadroCreator.updateBackground()">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Direzione:</label>
+                        <select id="bg-direction" onchange="quadroCreator.updateBackground()">
+                            <option value="vertical">Verticale</option>
+                            <option value="horizontal">Orizzontale</option>
+                            <option value="diagonal">Diagonale</option>
+                            <option value="radial">Radiale</option>
+                        </select>
+                    </div>
+                `;
+                break;
+            case 'solid':
+                html = `
+                    <div class="form-group">
+                        <label>Colore:</label>
+                        <input type="color" id="bg-color" value="#667eea" onchange="quadroCreator.updateBackground()">
+                    </div>
+                `;
+                break;
+            case 'image':
+                html = `
+                    <div class="form-group">
+                        <label>URL Immagine:</label>
+                        <input type="text" id="bg-image-url" placeholder="https://..." onchange="quadroCreator.updateBackground()">
+                    </div>
+                    <div class="form-group">
+                        <label>O carica file:</label>
+                        <input type="file" id="bg-image" accept="image/*" onchange="quadroCreator.updateBackground()">
+                    </div>
+                `;
+                break;
+        }
+
+        container.innerHTML = html;
+    }
+
+    addCustomElement() {
+        const element = {
+            id: Date.now(),
+            type: 'shape',
+            shape: 'circle',
+            x: 50,
+            y: 50,
+            size: 30,
+            color: '#FFFFFF',
+            sensor: 'temperature',
+            animation: 'static'
         };
 
-        // Update charts
-        this.updateCharts();
-        
-        // Check triggers
-        this.checkTriggers();
+        this.customConfig.elements.push(element);
+        this.renderCustomElements();
+        this.updatePreview();
     }
 
-    updateSimulatedSensorData(sensor, value) {
-        const sensorMap = {
+    renderCustomElements() {
+        const container = document.getElementById('elements-list');
+        container.innerHTML = this.customConfig.elements.map(element => `
+            <div class="element-config" data-element-id="${element.id}">
+                <div class="element-header">
+                    <h6>Elemento ${element.id}</h6>
+                    <button class="remove-element" onclick="quadroCreator.removeCustomElement(${element.id})">
+                        🗑️
+                    </button>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tipo:</label>
+                        <select onchange="quadroCreator.updateCustomElement(${element.id}, 'type', this.value)">
+                            <option value="shape" ${element.type === 'shape' ? 'selected' : ''}>Forma</option>
+                            <option value="svg" ${element.type === 'svg' ? 'selected' : ''}>SVG</option>
+                            <option value="text" ${element.type === 'text' ? 'selected' : ''}>Testo</option>
+                            <option value="particle" ${element.type === 'particle' ? 'selected' : ''}>Particelle</option>
+                        </select>
+                    </div>
+                    ${element.type === 'shape' ? `
+                        <div class="form-group">
+                            <label>Forma:</label>
+                            <select onchange="quadroCreator.updateCustomElement(${element.id}, 'shape', this.value)">
+                                <option value="circle" ${element.shape === 'circle' ? 'selected' : ''}>Cerchio</option>
+                                <option value="square" ${element.shape === 'square' ? 'selected' : ''}>Quadrato</option>
+                                <option value="triangle" ${element.shape === 'triangle' ? 'selected' : ''}>Triangolo</option>
+                            </select>
+                        </div>
+                    ` : element.type === 'svg' ? `
+                        <div class="form-group">
+                            <label>SVG:</label>
+                            <select onchange="quadroCreator.updateCustomElement(${element.id}, 'svg', this.value)">
+                                ${this.availableSVGs.map(svg => `
+                                    <option value="${svg}" ${element.svg === svg ? 'selected' : ''}>
+                                        ${this.getSVGIcon(svg.replace('.svg', ''))} ${this.formatSVGName(svg.replace('.svg', ''))}
+                                    </option>
+                                `).join('')}
+                            </select>
+                        </div>
+                    ` : ''}
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>X (%):</label>
+                        <input type="range" min="0" max="100" value="${element.x}" 
+                               onchange="quadroCreator.updateCustomElement(${element.id}, 'x', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label>Y (%):</label>
+                        <input type="range" min="0" max="100" value="${element.y}" 
+                               onchange="quadroCreator.updateCustomElement(${element.id}, 'y', this.value)">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Dimensione:</label>
+                        <input type="range" min="5" max="100" value="${element.size}" 
+                               onchange="quadroCreator.updateCustomElement(${element.id}, 'size', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label>Colore:</label>
+                        <input type="color" value="${element.color}" 
+                               onchange="quadroCreator.updateCustomElement(${element.id}, 'color', this.value)">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Sensore:</label>
+                        <select onchange="quadroCreator.updateCustomElement(${element.id}, 'sensor', this.value)">
+                            <option value="temperature" ${element.sensor === 'temperature' ? 'selected' : ''}>Temperatura</option>
+                            <option value="humidity" ${element.sensor === 'humidity' ? 'selected' : ''}>Umidità</option>
+                            <option value="light" ${element.sensor === 'light' ? 'selected' : ''}>Luce</option>
+                            <option value="audio" ${element.sensor === 'audio' ? 'selected' : ''}>Audio</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Animazione:</label>
+                        <select onchange="quadroCreator.updateCustomElement(${element.id}, 'animation', this.value)">
+                            <option value="static" ${element.animation === 'static' ? 'selected' : ''}>Statico</option>
+                            <option value="pulse" ${element.animation === 'pulse' ? 'selected' : ''}>Pulsazione</option>
+                            <option value="rotate" ${element.animation === 'rotate' ? 'selected' : ''}>Rotazione</option>
+                            <option value="scale" ${element.animation === 'scale' ? 'selected' : ''}>Scala</option>
+                            <option value="float" ${element.animation === 'float' ? 'selected' : ''}>Fluttuante</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    updateCustomElement(id, property, value) {
+        const element = this.customConfig.elements.find(el => el.id === id);
+        if (element) {
+            element[property] = value;
+            if (property === 'type') {
+                // Reset type-specific properties
+                if (value === 'shape') {
+                    element.shape = 'circle';
+                } else if (value === 'svg') {
+                    element.svg = this.availableSVGs[0];
+                }
+                this.renderCustomElements();
+            }
+            this.updatePreview();
+        }
+    }
+
+    removeCustomElement(id) {
+        this.customConfig.elements = this.customConfig.elements.filter(el => el.id !== id);
+        this.renderCustomElements();
+        this.updatePreview();
+    }
+
+    updateBackground() {
+        this.updatePreview();
+    }
+
+    initializeTemplates() {
+        // Inizializza le anteprime dei template
+        document.querySelectorAll('.template-card').forEach(card => {
+            const canvas = card.querySelector('canvas');
+            const ctx = canvas.getContext('2d');
+            const template = card.dataset.template;
+
+            this.drawTemplatePreview(ctx, template, 120, 80);
+        });
+
+        // Seleziona il primo template
+        this.selectTemplate('natura');
+    }
+
+    drawTemplatePreview(ctx, template, width, height) {
+        ctx.clearRect(0, 0, width, height);
+
+        switch (template) {
+            case 'natura':
+                this.drawNaturePreview(ctx, width, height);
+                break;
+            case 'spazio':
+                this.drawSpacePreview(ctx, width, height);
+                break;
+            case 'oceano':
+                this.drawOceanPreview(ctx, width, height);
+                break;
+            case 'personalizzato':
+                this.drawCustomPreview(ctx, width, height);
+                break;
+        }
+    }
+
+    drawNaturePreview(ctx, width, height) {
+        // Cielo
+        const gradient = ctx.createLinearGradient(0, 0, 0, height * 0.6);
+        gradient.addColorStop(0, '#87CEEB');
+        gradient.addColorStop(1, '#98FB98');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height * 0.6);
+
+        // Montagne
+        ctx.fillStyle = '#8B4513';
+        ctx.beginPath();
+        ctx.moveTo(0, height * 0.6);
+        ctx.lineTo(width * 0.3, height * 0.4);
+        ctx.lineTo(width * 0.7, height * 0.5);
+        ctx.lineTo(width, height * 0.45);
+        ctx.lineTo(width, height * 0.6);
+        ctx.closePath();
+        ctx.fill();
+
+        // Terra
+        ctx.fillStyle = '#228B22';
+        ctx.fillRect(0, height * 0.6, width, height * 0.4);
+
+        // Sole
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.arc(width * 0.8, height * 0.2, 8, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+
+    drawSpacePreview(ctx, width, height) {
+        // Spazio
+        ctx.fillStyle = '#000814';
+        ctx.fillRect(0, 0, width, height);
+
+        // Stelle
+        ctx.fillStyle = '#FFFFFF';
+        for (let i = 0; i < 20; i++) {
+            const x = Math.random() * width;
+            const y = Math.random() * height;
+            ctx.beginPath();
+            ctx.arc(x, y, 1, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+
+        // Pianeta
+        ctx.fillStyle = '#4A90E2';
+        ctx.beginPath();
+        ctx.arc(width * 0.3, height * 0.7, 15, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // Nebulosa
+        const nebula = ctx.createRadialGradient(width * 0.7, height * 0.3, 0, width * 0.7, height * 0.3, 20);
+        nebula.addColorStop(0, 'rgba(255, 105, 180, 0.3)');
+        nebula.addColorStop(1, 'rgba(255, 105, 180, 0)');
+        ctx.fillStyle = nebula;
+        ctx.beginPath();
+        ctx.arc(width * 0.7, height * 0.3, 20, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+
+    drawOceanPreview(ctx, width, height) {
+        // Oceano
+        const gradient = ctx.createLinearGradient(0, 0, 0, height);
+        gradient.addColorStop(0, '#87CEEB');
+        gradient.addColorStop(1, '#000080');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+
+        // Onde
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let x = 0; x < width; x++) {
+            const y = height * 0.3 + Math.sin(x * 0.1) * 5;
+            if (x === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        }
+        ctx.stroke();
+
+        // Bolle
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        for (let i = 0; i < 8; i++) {
+            const x = (width / 8) * i;
+            const y = height * 0.6 + Math.sin(i) * 10;
+            ctx.beginPath();
+            ctx.arc(x, y, 3, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+    }
+
+    drawCustomPreview(ctx, width, height) {
+        // Gradiente personalizzato
+        const gradient = ctx.createLinearGradient(0, 0, width, height);
+        gradient.addColorStop(0, '#667eea');
+        gradient.addColorStop(1, '#764ba2');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+
+        // Icona personalizzazione
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '24px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🎨', width / 2, height / 2);
+    }
+
+    toggleAnimation(checkbox) {
+        const animationConfig = checkbox.parentElement.nextElementSibling;
+        const sensor = checkbox.closest('.sensor-config').dataset.sensor;
+        const animationType = checkbox.dataset.animation;
+
+        if (checkbox.checked) {
+            animationConfig.classList.remove('hidden');
+            this.sensorsConfig[sensor].animations[animationType] = this.getDefaultAnimationConfig(animationType, sensor);
+        } else {
+            animationConfig.classList.add('hidden');
+            delete this.sensorsConfig[sensor].animations[animationType];
+        }
+
+        this.updatePreview();
+    }
+
+    getDefaultAnimationConfig(type, sensor) {
+        const defaults = {
+            color_change: {
+                type: 'variable',
+                condition: 'range',
+                threshold_min: this.getDefaultThreshold(sensor, 'min'),
+                threshold_max: this.getDefaultThreshold(sensor, 'max'),
+                color_low: this.getDefaultColor(sensor, 'low'),
+                color_high: this.getDefaultColor(sensor, 'high')
+            },
+            svg_objects: {
+                object: this.getDefaultSVG(sensor),
+                count: 5,
+                animation: 'floating',
+                condition: 'always',
+                threshold: this.getDefaultThreshold(sensor, 'mid')
+            },
+            waves: {
+                type: this.getDefaultWaveType(sensor),
+                amplitude: 5,
+                frequency: 3,
+                sensitivity: 5,
+                intensity: 5,
+                speed: 3,
+                count: 3,
+                origin: 'center'
+            }
+        };
+
+        return defaults[type] || {};
+    }
+
+    getDefaultThreshold(sensor, type) {
+        const thresholds = {
+            temperature: { min: 15, max: 30, mid: 22 },
+            humidity: { min: 40, max: 70, mid: 55 },
+            light: { min: 500, max: 3000, mid: 1750 },
+            audio: { min: 500, max: 2000, mid: 1250 }
+        };
+        return thresholds[sensor][type];
+    }
+
+    getDefaultColor(sensor, type) {
+        const colors = {
+            temperature: { low: '#4da6ff', high: '#ff4d4d' },
+            humidity: { low: '#d4b896', high: '#4ecdc4' },
+            light: { low: '#1a1a2e', high: '#ffd93d' },
+            audio: { low: '#2a2a2a', high: '#a8e6cf' }
+        };
+        return colors[sensor][type];
+    }
+
+    getDefaultSVG(sensor) {
+        const svgs = {
+            temperature: 'sun.svg',
+            humidity: 'cloud.svg',
+            light: 'star.svg',
+            audio: 'wave.svg'
+        };
+        return svgs[sensor];
+    }
+
+    getDefaultWaveType(sensor) {
+        const types = {
+            temperature: 'heat',
+            humidity: 'sea',
+            light: 'radial_waves',
+            audio: 'sound_rings'
+        };
+        return types[sensor];
+    }
+
+    updateAnimationConfig(input) {
+        const sensorConfig = input.closest('.sensor-config');
+        const animationConfig = input.closest('.animation-config');
+        const sensor = sensorConfig.dataset.sensor;
+        const animationType = animationConfig.previousElementSibling.querySelector('.animation-checkbox').dataset.animation;
+
+        if (!this.sensorsConfig[sensor].animations[animationType]) {
+            this.sensorsConfig[sensor].animations[animationType] = {};
+        }
+
+        const config = this.sensorsConfig[sensor].animations[animationType];
+        const property = this.getPropertyName(input);
+
+        config[property] = input.type === 'number' ? parseFloat(input.value) : input.value;
+
+        // Gestione condizioni e soglie
+        if (property === 'condition_type' || property === 'svg_condition') {
+            this.updateThresholdVisibility(animationConfig, input.value);
+        }
+
+        this.updatePreview();
+    }
+
+    getPropertyName(input) {
+        // Mappa le classi ai nomi delle proprietà
+        const classToProperty = {
+            'color-type': 'type',
+            'condition-type': 'condition',
+            'threshold-min': 'threshold_min',
+            'threshold-max': 'threshold_max',
+            'color-low': 'color_low',
+            'color-high': 'color_high',
+            'svg-object': 'object',
+            'object-count': 'count',
+            'animation-style': 'animation',
+            'svg-condition': 'condition',
+            'svg-threshold': 'threshold',
+            'svg-threshold-min': 'threshold_min',
+            'svg-threshold-max': 'threshold_max',
+            'wave-type': 'type',
+            'wave-amplitude': 'amplitude',
+            'wave-frequency': 'frequency',
+            'wave-sensitivity': 'sensitivity',
+            'wave-intensity': 'intensity',
+            'wave-speed': 'speed',
+            'wave-count': 'count',
+            'wave-origin': 'origin',
+            'gradual-mode': 'gradual_mode',
+            'movement-type': 'movement'
+        };
+
+        for (const [className, propertyName] of Object.entries(classToProperty)) {
+            if (input.classList.contains(className)) {
+                return propertyName;
+            }
+        }
+
+        return input.className;
+    }
+
+    updateThresholdVisibility(animationConfig, condition) {
+        const thresholdMin = animationConfig.querySelector('.threshold-min, .svg-threshold-min');
+        const thresholdMax = animationConfig.querySelector('.threshold-max, .svg-threshold-max');
+        const singleThreshold = animationConfig.querySelector('.svg-threshold');
+
+        if (thresholdMin && thresholdMax) {
+            const minGroup = thresholdMin.closest('.form-group');
+            const maxGroup = thresholdMax.closest('.form-group');
+
+            switch (condition) {
+                case 'above':
+                    if (minGroup) minGroup.style.display = 'none';
+                    if (maxGroup) maxGroup.style.display = 'block';
+                    break;
+                case 'below':
+                    if (minGroup) minGroup.style.display = 'block';
+                    if (maxGroup) maxGroup.style.display = 'none';
+                    break;
+                case 'range':
+                    if (minGroup) minGroup.style.display = 'block';
+                    if (maxGroup) maxGroup.style.display = 'block';
+                    break;
+                default:
+                    if (minGroup) minGroup.style.display = 'none';
+                    if (maxGroup) maxGroup.style.display = 'none';
+            }
+        }
+
+        if (singleThreshold) {
+            const thresholdGroup = singleThreshold.closest('.form-group');
+            if (condition === 'always') {
+                thresholdGroup.style.display = 'none';
+            } else {
+                thresholdGroup.style.display = 'block';
+            }
+        }
+    }
+
+    updateSensorValue(sensor, value) {
+        const mapping = {
             'temp': 'temperature',
             'humidity': 'humidity',
             'light': 'light',
             'audio': 'audio'
         };
 
-        this.sensorData[sensorMap[sensor]] = value;
-        this.updateCharts();
-        this.checkTriggers();
+        const sensorKey = mapping[sensor] || sensor;
+        this.sensorValues[sensorKey] = parseFloat(value);
+
+        // Aggiorna display
+        const display = document.querySelector(`#${sensor}-slider`).nextElementSibling;
+        const unit = sensor === 'temp' ? '°C' : sensor === 'humidity' ? '%' : '';
+        display.textContent = `${value}${unit}`;
+
+        // Aggiorna overlay
+        const overlayValue = document.getElementById(`${sensorKey}-value`);
+        if (overlayValue) {
+            overlayValue.textContent = `${value}${unit}`;
+        }
+
+        this.updatePreview();
     }
 
-    updateCharts() {
-        const now = new Date().toLocaleTimeString();
-        const maxDataPoints = 20;
-
-        Object.entries(this.charts).forEach(([chartId, chart]) => {
-            const sensor = chartId.split('-')[0];
-            let value;
-
-            switch(sensor) {
-                case 'temp':
-                    value = this.sensorData.temperature;
-                    break;
-                case 'humidity':
-                    value = this.sensorData.humidity;
-                    break;
-                case 'light':
-                    value = this.sensorData.light;
-                    break;
-                case 'audio':
-                    value = this.sensorData.audio;
-                    break;
-            }
-
-            chart.data.labels.push(now);
-            chart.data.datasets[0].data.push(value);
-
-            if (chart.data.labels.length > maxDataPoints) {
-                chart.data.labels.shift();
-                chart.data.datasets[0].data.shift();
-            }
-
-            chart.update('none');
-        });
-    }
-
-    checkTriggers() {
-        this.triggers.forEach(trigger => {
-            if (this.evaluateTrigger(trigger)) {
-                this.executeTrigger(trigger);
+    updateSensorValues() {
+        // Aggiorna i valori dell'overlay con i dati attuali
+        Object.entries(this.sensorValues).forEach(([sensor, value]) => {
+            const element = document.getElementById(`${sensor}-value`);
+            if (element) {
+                const unit = sensor === 'temperature' ? '°C' : sensor === 'humidity' ? '%' : '';
+                element.textContent = `${value}${unit}`;
             }
         });
     }
 
-    evaluateTrigger(trigger) {
-        const sensorValue = this.sensorData[trigger.sensor];
-        
-        switch(trigger.condition) {
-            case 'range':
-                return sensorValue >= trigger.minValue && sensorValue <= trigger.maxValue;
-            case 'above':
-                return sensorValue > trigger.minValue;
-            case 'below':
-                return sensorValue < trigger.maxValue;
-            case 'equals':
-                return Math.abs(sensorValue - trigger.minValue) < 0.1;
-            default:
-                return false;
-        }
-    }
-
-    executeTrigger(trigger) {
-        // Execute trigger action based on type
-        switch(trigger.actionType) {
-            case 'image':
-                this.executeImageAction(trigger);
-                break;
-            case 'background':
-                this.executeBackgroundAction(trigger);
-                break;
-            case 'shape':
-                this.executeShapeAction(trigger);
-                break;
-            case 'text':
-                this.executeTextAction(trigger);
-                break;
-            case 'effect':
-                this.executeEffectAction(trigger);
-                break;
-        }
-    }
-
-    executeImageAction(trigger) {
-        // Add image to canvas with specified parameters
-        const layer = {
-            id: `layer_${Date.now()}`,
-            type: 'image',
-            trigger: trigger.id,
-            asset: trigger.config.asset,
-            position: trigger.config.position,
-            size: trigger.config.size,
-            quantity: trigger.config.quantity,
-            animation: trigger.animation,
-            active: true,
-            startTime: Date.now()
+    startPreviewAnimation() {
+        const animate = () => {
+            if (this.isPlaying) {
+                this.updatePreview();
+            }
+            this.animationId = requestAnimationFrame(animate);
         };
-
-        this.addLayer(layer);
+        animate();
     }
 
-    executeBackgroundAction(trigger) {
-        const layer = {
-            id: `bg_${Date.now()}`,
-            type: 'background',
-            trigger: trigger.id,
-            background: trigger.config.background,
-            active: true,
-            startTime: Date.now()
-        };
-
-        this.addLayer(layer);
-    }
-
-    executeShapeAction(trigger) {
-        const layer = {
-            id: `shape_${Date.now()}`,
-            type: 'shape',
-            trigger: trigger.id,
-            shape: trigger.config.shape,
-            position: trigger.config.position,
-            size: trigger.config.size,
-            color: trigger.config.color,
-            animation: trigger.animation,
-            active: true,
-            startTime: Date.now()
-        };
-
-        this.addLayer(layer);
-    }
-
-    executeTextAction(trigger) {
-        const layer = {
-            id: `text_${Date.now()}`,
-            type: 'text',
-            trigger: trigger.id,
-            text: trigger.config.text,
-            position: trigger.config.position,
-            font: trigger.config.font,
-            color: trigger.config.color,
-            animation: trigger.animation,
-            active: true,
-            startTime: Date.now()
-        };
-
-        this.addLayer(layer);
-    }
-
-    executeEffectAction(trigger) {
-        // Apply visual effects to the canvas
-        const layer = {
-            id: `effect_${Date.now()}`,
-            type: 'effect',
-            trigger: trigger.id,
-            effect: trigger.config.effect,
-            intensity: trigger.config.intensity,
-            active: true,
-            startTime: Date.now()
-        };
-
-        this.addLayer(layer);
-    }
-
-    addLayer(layer) {
-        this.layers.push(layer);
-        this.updateLayersPanel();
-    }
-
-    removeLayer(layerId) {
-        this.layers = this.layers.filter(layer => layer.id !== layerId);
-        this.updateLayersPanel();
-    }
-
-    updateLayersPanel() {
-        const layersList = document.getElementById('layers-list');
-        if (!layersList) return;
-
-        layersList.innerHTML = '';
-
-        this.layers.forEach((layer, index) => {
-            const layerElement = document.createElement('div');
-            layerElement.className = 'layer-item';
-            layerElement.innerHTML = `
-                <div class="layer-info">
-                    <div class="layer-name">${this.getLayerDisplayName(layer)}</div>
-                    <div class="layer-type">${layer.type}</div>
-                </div>
-                <div class="layer-controls">
-                    <button class="layer-control-btn" onclick="quadroCreator.toggleLayerVisibility('${layer.id}')" title="Mostra/Nascondi">
-                        ${layer.active ? '👁️' : '🙈'}
-                    </button>
-                    <button class="layer-control-btn" onclick="quadroCreator.moveLayerUp('${layer.id}')" title="Sposta su">
-                        ⬆️
-                    </button>
-                    <button class="layer-control-btn" onclick="quadroCreator.moveLayerDown('${layer.id}')" title="Sposta giù">
-                        ⬇️
-                    </button>
-                    <button class="layer-control-btn" onclick="quadroCreator.removeLayer('${layer.id}')" title="Elimina">
-                        🗑️
-                    </button>
-                </div>
-            `;
-            layersList.appendChild(layerElement);
-        });
-    }
-
-    getLayerDisplayName(layer) {
-        switch(layer.type) {
-            case 'image':
-                return layer.asset?.name || 'Immagine';
-            case 'background':
-                return layer.background?.name || 'Sfondo';
-            case 'shape':
-                return layer.shape?.name || 'Forma';
-            case 'text':
-                return layer.text?.substring(0, 20) || 'Testo';
-            case 'effect':
-                return layer.effect?.name || 'Effetto';
-            default:
-                return 'Layer';
-        }
-    }
-
-    toggleLayerVisibility(layerId) {
-        const layer = this.layers.find(l => l.id === layerId);
-        if (layer) {
-            layer.active = !layer.active;
-            this.updateLayersPanel();
-        }
-    }
-
-    moveLayerUp(layerId) {
-        const index = this.layers.findIndex(l => l.id === layerId);
-        if (index > 0) {
-            [this.layers[index], this.layers[index - 1]] = [this.layers[index - 1], this.layers[index]];
-            this.updateLayersPanel();
-        }
-    }
-
-    moveLayerDown(layerId) {
-        const index = this.layers.findIndex(l => l.id === layerId);
-        if (index < this.layers.length - 1) {
-            [this.layers[index], this.layers[index + 1]] = [this.layers[index + 1], this.layers[index]];
-            this.updateLayersPanel();
-        }
-    }
-
-    renderPreview() {
+    updatePreview() {
         if (!this.previewCtx) return;
 
         const canvas = this.previewCanvas;
         const ctx = this.previewCtx;
 
-        // Clear canvas
+        // Pulisci canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Render layers in order
-        this.layers.filter(layer => layer.active).forEach(layer => {
-            this.renderLayer(ctx, layer);
+        // Disegna template base
+        this.drawTemplateBase(ctx, this.selectedTemplate, canvas.width, canvas.height);
+
+        // Applica animazioni basate sui sensori
+        this.applyAnimations(ctx, canvas.width, canvas.height);
+    }
+
+    drawTemplateBase(ctx, template, width, height) {
+        switch (template) {
+            case 'natura':
+                this.drawNatureBase(ctx, width, height);
+                break;
+            case 'spazio':
+                this.drawSpaceBase(ctx, width, height);
+                break;
+            case 'oceano':
+                this.drawOceanBase(ctx, width, height);
+                break;
+            case 'personalizzato':
+                this.drawCustomBase(ctx, width, height);
+                break;
+        }
+    }
+
+    drawNatureBase(ctx, width, height) {
+        // Cielo con gradiente basato sulla temperatura
+        const temp = this.sensorValues.temperature;
+        const tempNormalized = Math.max(0, Math.min(1, (temp - 0) / 40));
+
+        const skyColor1 = this.interpolateColor([135, 206, 235], [255, 200, 150], tempNormalized);
+        const skyColor2 = this.interpolateColor([152, 251, 152], [255, 160, 122], tempNormalized);
+
+        const gradient = ctx.createLinearGradient(0, 0, 0, height * 0.6);
+        gradient.addColorStop(0, `rgb(${skyColor1.join(',')})`);
+        gradient.addColorStop(1, `rgb(${skyColor2.join(',')})`);
+
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height * 0.6);
+
+        // Montagne
+        ctx.fillStyle = '#8B4513';
+        ctx.beginPath();
+        ctx.moveTo(0, height * 0.6);
+        ctx.lineTo(width * 0.2, height * 0.4);
+        ctx.lineTo(width * 0.5, height * 0.5);
+        ctx.lineTo(width * 0.8, height * 0.35);
+        ctx.lineTo(width, height * 0.45);
+        ctx.lineTo(width, height * 0.6);
+        ctx.closePath();
+        ctx.fill();
+
+        // Terra
+        ctx.fillStyle = '#228B22';
+        ctx.fillRect(0, height * 0.6, width, height * 0.4);
+
+        // Sole che si muove con la luce
+        const light = this.sensorValues.light;
+        const lightNormalized = Math.max(0, Math.min(1, light / 4095));
+        const sunX = width * 0.1 + (width * 0.8 * lightNormalized);
+        const sunY = height * 0.1 + (height * 0.3 * (1 - lightNormalized));
+        const sunSize = 20 + (15 * lightNormalized);
+
+        ctx.fillStyle = `rgba(255, 223, 0, ${0.5 + 0.5 * lightNormalized})`;
+        ctx.beginPath();
+        ctx.arc(sunX, sunY, sunSize, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // Nuvole che si muovono con l'umidità
+        const humidity = this.sensorValues.humidity;
+        const cloudCount = Math.floor(humidity / 25);
+        const time = Date.now() * 0.001;
+
+        ctx.fillStyle = `rgba(255, 255, 255, ${0.3 + 0.4 * humidity / 100})`;
+        for (let i = 0; i < cloudCount; i++) {
+            const x = (width * 0.2 * i + time * 20) % (width + 100) - 50;
+            const y = height * 0.2 + Math.sin(time + i) * 30;
+            this.drawCloud(ctx, x, y, 40 + i * 5);
+        }
+    }
+
+    drawSpaceBase(ctx, width, height) {
+        // Spazio profondo
+        const lightLevel = this.sensorValues.light / 4095;
+        const spaceColor = Math.floor(20 * lightLevel);
+
+        ctx.fillStyle = `rgb(${spaceColor}, ${spaceColor}, ${spaceColor + 20})`;
+        ctx.fillRect(0, 0, width, height);
+
+        // Stelle che brillano con la luce
+        const starCount = Math.floor(50 + lightLevel * 100);
+        ctx.fillStyle = `rgba(255, 255, 255, ${0.3 + 0.7 * lightLevel})`;
+
+        for (let i = 0; i < starCount; i++) {
+            const x = (width * 0.123 * i) % width;
+            const y = (height * 0.456 * i) % height;
+            const size = 1 + Math.sin(Date.now() * 0.001 + i) * 0.5;
+
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+
+        // Pianeta che cambia colore con la temperatura
+        const temp = this.sensorValues.temperature;
+        const planetColor = this.interpolateColor([100, 149, 237], [255, 69, 0], temp / 40);
+
+        ctx.fillStyle = `rgb(${planetColor.join(',')})`;
+        ctx.beginPath();
+        ctx.arc(width * 0.3, height * 0.7, 40, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // Nebulosa che pulsa con l'audio
+        const audio = this.sensorValues.audio;
+        const audioNormalized = Math.max(0, Math.min(1, audio / 4095));
+        const nebulaSize = 50 + audioNormalized * 30;
+
+        const nebula = ctx.createRadialGradient(width * 0.7, height * 0.3, 0, width * 0.7, height * 0.3, nebulaSize);
+        nebula.addColorStop(0, `rgba(255, 105, 180, ${0.3 + 0.4 * audioNormalized})`);
+        nebula.addColorStop(1, 'rgba(255, 105, 180, 0)');
+
+        ctx.fillStyle = nebula;
+        ctx.beginPath();
+        ctx.arc(width * 0.7, height * 0.3, nebulaSize, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+
+    drawOceanBase(ctx, width, height) {
+        // Oceano con gradiente di profondità
+        const humidity = this.sensorValues.humidity;
+        const humidityNormalized = Math.max(0, Math.min(1, humidity / 100));
+
+        const waterColor1 = this.interpolateColor([135, 206, 235], [0, 0, 139], humidityNormalized);
+        const waterColor2 = this.interpolateColor([0, 0, 139], [25, 25, 112], humidityNormalized);
+
+        const gradient = ctx.createLinearGradient(0, 0, 0, height);
+        gradient.addColorStop(0, `rgb(${waterColor1.join(',')})`);
+        gradient.addColorStop(1, `rgb(${waterColor2.join(',')})`);
+
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+
+        // Onde che si muovono con l'audio
+        const audio = this.sensorValues.audio;
+        const audioNormalized = Math.max(0, Math.min(1, audio / 4095));
+        const time = Date.now() * 0.001;
+
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.2 + 0.3 * audioNormalized})`;
+        ctx.lineWidth = 2;
+
+        for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            for (let x = 0; x < width; x++) {
+                const y = height * 0.2 + i * height * 0.15 +
+                    Math.sin(x * 0.01 + time + i) * (10 + audioNormalized * 20);
+                if (x === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.stroke();
+        }
+
+        // Bolle che salgono con l'umidità
+        const bubbleCount = Math.floor(humidityNormalized * 20);
+        ctx.fillStyle = `rgba(255, 255, 255, ${0.3 + 0.4 * humidityNormalized})`;
+
+        for (let i = 0; i < bubbleCount; i++) {
+            const x = (width / bubbleCount) * i + Math.sin(time + i) * 30;
+            const y = height - ((time * 30 + i * 50) % (height + 30));
+            const size = 3 + Math.sin(time + i) * 2;
+
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+    }
+
+    drawCustomBase(ctx, width, height) {
+        // Disegna lo sfondo
+        this.drawCustomBackground(ctx, width, height);
+
+        // Disegna gli elementi personalizzati
+        this.drawCustomElements(ctx, width, height);
+    }
+
+    drawCustomBackground(ctx, width, height) {
+        const bgType = this.customConfig.background;
+
+        switch (bgType) {
+            case 'gradient':
+                const color1 = document.getElementById('bg-color1')?.value || '#667eea';
+                const color2 = document.getElementById('bg-color2')?.value || '#764ba2';
+                const direction = document.getElementById('bg-direction')?.value || 'vertical';
+
+                let gradient;
+                switch (direction) {
+                    case 'horizontal':
+                        gradient = ctx.createLinearGradient(0, 0, width, 0);
+                        break;
+                    case 'diagonal':
+                        gradient = ctx.createLinearGradient(0, 0, width, height);
+                        break;
+                    case 'radial':
+                        gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height) / 2);
+                        break;
+                    default: // vertical
+                        gradient = ctx.createLinearGradient(0, 0, 0, height);
+                }
+
+                gradient.addColorStop(0, color1);
+                gradient.addColorStop(1, color2);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, width, height);
+                break;
+
+            case 'solid':
+                const color = document.getElementById('bg-color')?.value || '#667eea';
+                ctx.fillStyle = color;
+                ctx.fillRect(0, 0, width, height);
+                break;
+
+            case 'image':
+                // Per ora usa un fallback
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, width, height);
+                break;
+        }
+    }
+
+    drawCustomElements(ctx, width, height) {
+        const time = Date.now() * 0.001;
+
+        this.customConfig.elements.forEach(element => {
+            const x = (element.x / 100) * width;
+            const y = (element.y / 100) * height;
+            let size = element.size;
+
+            // Applica animazione basata sui sensori
+            const sensorValue = this.sensorValues[element.sensor];
+            const normalized = this.normalizeValue(sensorValue, 0, 100);
+
+            ctx.save();
+            ctx.translate(x, y);
+
+            switch (element.animation) {
+                case 'pulse':
+                    size *= (0.8 + 0.4 * Math.sin(time * 2 + normalized * 10));
+                    break;
+                case 'rotate':
+                    ctx.rotate(time + normalized * Math.PI * 2);
+                    break;
+                case 'scale':
+                    const scale = 0.5 + normalized * 0.5;
+                    ctx.scale(scale, scale);
+                    break;
+                case 'float':
+                    ctx.translate(0, Math.sin(time + normalized * 5) * 10);
+                    break;
+            }
+
+            ctx.fillStyle = element.color;
+
+            // Disegna l'elemento
+            if (element.type === 'shape') {
+                switch (element.shape) {
+                    case 'circle':
+                        ctx.beginPath();
+                        ctx.arc(0, 0, size / 2, 0, 2 * Math.PI);
+                        ctx.fill();
+                        break;
+                    case 'square':
+                        ctx.fillRect(-size / 2, -size / 2, size, size);
+                        break;
+                    case 'triangle':
+                        ctx.beginPath();
+                        ctx.moveTo(0, -size / 2);
+                        ctx.lineTo(-size / 2, size / 2);
+                        ctx.lineTo(size / 2, size / 2);
+                        ctx.closePath();
+                        ctx.fill();
+                        break;
+                }
+            } else if (element.type === 'svg') {
+                // Simula SVG con forme
+                this.drawSVGObject(ctx, element.svg || 'star.svg', 0, 0, size);
+            }
+
+            ctx.restore();
         });
     }
 
-    renderLayer(ctx, layer) {
-        const now = Date.now();
-        const elapsed = (now - layer.startTime) / 1000;
+    applyAnimations(ctx, width, height) {
+        // Applica le animazioni configurate per ogni sensore
+        Object.entries(this.sensorsConfig).forEach(([sensor, config]) => {
+            const sensorValue = this.sensorValues[sensor];
 
-        ctx.save();
+            Object.entries(config.animations).forEach(([animationType, animConfig]) => {
+                if (this.shouldTriggerAnimation(sensorValue, animConfig)) {
+                    this.renderAnimation(ctx, animationType, animConfig, sensorValue, sensor, width, height);
+                }
+            });
+        });
+    }
 
-        // Apply animations
-        if (layer.animation && layer.animation.type !== 'none') {
-            this.applyAnimation(ctx, layer, elapsed);
+    shouldTriggerAnimation(value, config) {
+        if (!config.condition || config.condition === 'always') return true;
+
+        switch (config.condition) {
+            case 'above':
+                return value > (config.threshold || config.threshold_max || 0);
+            case 'below':
+                return value < (config.threshold || config.threshold_min || 100);
+            case 'range':
+                return value >= (config.threshold_min || 0) && value <= (config.threshold_max || 100);
+            default:
+                return true;
+        }
+    }
+
+    renderAnimation(ctx, type, config, value, sensor, width, height) {
+        switch (type) {
+            case 'color_change':
+                this.renderColorChange(ctx, config, value, width, height);
+                break;
+            case 'svg_objects':
+                this.renderSVGObjects(ctx, config, value, sensor, width, height);
+                break;
+            case 'waves':
+                this.renderWaves(ctx, config, value, sensor, width, height);
+                break;
+        }
+    }
+
+    renderColorChange(ctx, config, value, width, height) {
+        if (config.type === 'variable') {
+            const normalized = this.normalizeValue(value, config.threshold_min, config.threshold_max);
+            const color = this.interpolateColorHex(config.color_low, config.color_high, normalized);
+
+            ctx.fillStyle = color + '40'; // Aggiunge trasparenza
+            ctx.fillRect(0, 0, width, height);
+        } else {
+            ctx.fillStyle = config.color_low + '40';
+            ctx.fillRect(0, 0, width, height);
+        }
+    }
+
+    renderSVGObjects(ctx, config, value, sensor, width, height) {
+        const count = config.count || 5;
+        const time = Date.now() * 0.001;
+
+        // Determina l'oggetto e l'animazione basati sui livelli
+        let currentObject = config.object;
+        let currentAnimation = config.animation;
+
+        if (config.levels && Array.isArray(config.levels)) {
+            // Sistema a livelli per i template
+            for (const level of config.levels) {
+                if (sensor === 'humidity') {
+                    if (value >= level.threshold) {
+                        currentObject = level.object;
+                        currentAnimation = level.animation;
+                    }
+                }
+            }
         }
 
-        // Render based on layer type
-        switch(layer.type) {
-            case 'background':
-                this.renderBackground(ctx, layer);
+        ctx.fillStyle = this.getSVGColor(currentObject);
+
+        for (let i = 0; i < count; i++) {
+            let x = (width / count) * i + (width / count) * 0.5;
+            let y = height * 0.5;
+
+            // Applica animazione specifica
+            switch (currentAnimation) {
+                case 'floating':
+                    y += Math.sin(time + i) * 20;
+                    break;
+                case 'linear':
+                    x = (x + time * 50) % width;
+                    break;
+                case 'rotation':
+                    ctx.save();
+                    ctx.translate(x, y);
+                    ctx.rotate(time + i);
+                    x = 0;
+                    y = 0;
+                    break;
+                case 'snow_fall':
+                    x = (Math.random() * width + time * 10 + i * 50) % width;
+                    y = (Math.random() * height + time * 30 + i * 30) % height;
+                    break;
+                case 'sun_rays':
+                    // Raggi solari speciali
+                    this.drawSunRays(ctx, width * 0.8, height * 0.2, 30 + value, time);
+                    continue;
+                case 'falling_leaves':
+                    x = (width / count) * i + Math.sin(time * 0.5 + i) * 50;
+                    y = ((time * 20 + i * 40) % (height + 50)) - 25;
+                    ctx.save();
+                    ctx.translate(x, y);
+                    ctx.rotate(time * 0.5 + i);
+                    x = 0;
+                    y = 0;
+                    break;
+                case 'flying_birds':
+                    x = ((time * 40 + i * 100) % (width + 100)) - 50;
+                    y = height * 0.3 + Math.sin(time * 2 + i) * 30;
+                    break;
+                case 'rain_fall':
+                    x = (width / count) * i + Math.random() * 20;
+                    y = ((time * 100 + i * 20) % (height + 20)) - 10;
+                    // Disegna goccia di pioggia
+                    ctx.strokeStyle = 'rgba(100, 149, 237, 0.8)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x - 2, y + 10);
+                    ctx.stroke();
+                    continue;
+                case 'twinkle':
+                    const twinkle = Math.sin(time * 3 + i) * 0.5 + 0.5;
+                    ctx.globalAlpha = twinkle;
+                    break;
+                case 'swim':
+                    x = ((time * 30 + i * 80) % (width + 100)) - 50;
+                    y = height * 0.5 + Math.sin(time + i) * 50;
+                    // Movimento ondulatorio per i pesci
+                    ctx.save();
+                    ctx.translate(x, y);
+                    ctx.rotate(Math.sin(time + i) * 0.2);
+                    x = 0;
+                    y = 0;
+                    break;
+            }
+
+            this.drawSVGObject(ctx, currentObject, x, y, 20);
+
+            if (currentAnimation === 'rotation' || currentAnimation === 'falling_leaves' || currentAnimation === 'swim') {
+                ctx.restore();
+            }
+            if (currentAnimation === 'twinkle') {
+                ctx.globalAlpha = 1;
+            }
+        }
+    }
+
+    renderWaves(ctx, config, value, sensor, width, height) {
+        const amplitude = (config.amplitude || config.intensity || 5) * (value / this.getMaxSensorValue(sensor));
+        const frequency = config.frequency || config.speed || 3;
+        const sensitivity = config.sensitivity || 5;
+        const count = config.count || 3;
+        const time = Date.now() * 0.001;
+
+        ctx.strokeStyle = `rgba(255, 255, 255, 0.4)`;
+        ctx.lineWidth = 2;
+
+        switch (config.type) {
+            case 'sea_waves':
+            case 'sea':
+                // Onde del mare orizzontali
+                for (let wave = 0; wave < count; wave++) {
+                    ctx.beginPath();
+                    for (let x = 0; x < width; x++) {
+                        const y = height * 0.5 + wave * 50 +
+                            Math.sin(x * 0.01 * frequency + time + wave) * amplitude;
+                        if (x === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                    ctx.stroke();
+                }
                 break;
-            case 'image':
-                this.renderImage(ctx, layer);
+
+            case 'solar_waves':
+            case 'sound_rings':
+                // Onde radiali dal centro o da un punto specifico
+                const centerX = config.origin === 'object' ? width * 0.7 : width / 2;
+                const centerY = config.origin === 'object' ? height * 0.3 : height / 2;
+
+                ctx.strokeStyle = config.color || 'rgba(255, 215, 0, 0.6)';
+
+                for (let i = 0; i < count; i++) {
+                    const radius = (time * 50 + i * 30) % 200;
+                    const alpha = Math.max(0, 1 - radius / 200);
+
+                    ctx.globalAlpha = alpha * (amplitude / 10);
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+                    ctx.stroke();
+                }
+                ctx.globalAlpha = 1;
                 break;
-            case 'shape':
-                this.renderShape(ctx, layer);
+
+            case 'currents':
+                // Correnti marine circolari
+                ctx.strokeStyle = 'rgba(100, 149, 237, 0.3)';
+                for (let i = 0; i < count; i++) {
+                    ctx.beginPath();
+                    const startAngle = time * 0.5 + i * (Math.PI * 2 / count);
+                    ctx.arc(
+                        width * 0.5 + Math.cos(startAngle) * 100,
+                        height * 0.5 + Math.sin(startAngle) * 100,
+                        50 + amplitude * 2,
+                        0, 2 * Math.PI
+                    );
+                    ctx.stroke();
+                }
                 break;
-            case 'text':
-                this.renderText(ctx, layer);
+
+            case 'heat':
+            case 'cold':
+            case 'thermal':
+                // Onde termiche verticali
+                const isHeat = config.type === 'heat';
+                ctx.strokeStyle = isHeat ? 'rgba(255, 100, 0, 0.3)' : 'rgba(100, 200, 255, 0.3)';
+
+                for (let i = 0; i < width; i += 40) {
+                    ctx.beginPath();
+                    for (let y = 0; y < height; y++) {
+                        const x = i + Math.sin(y * 0.02 + time) * amplitude;
+                        if (y === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                    ctx.stroke();
+                }
                 break;
-            case 'effect':
-                this.renderEffect(ctx, layer);
+        }
+    }
+
+    getMaxSensorValue(sensor) {
+        const maxValues = {
+            temperature: 45,
+            humidity: 100,
+            light: 4095,
+            audio: 4095
+        };
+        return maxValues[sensor] || 100;
+    }
+
+    drawSunRays(ctx, x, y, intensity, time) {
+        const rayCount = 12;
+        ctx.strokeStyle = `rgba(255, 223, 0, ${Math.min(0.8, intensity / 50)})`;
+        ctx.lineWidth = 3;
+
+        for (let i = 0; i < rayCount; i++) {
+            const angle = (i / rayCount) * Math.PI * 2 + time * 0.2;
+            const rayLength = 30 + intensity;
+
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(
+                x + Math.cos(angle) * rayLength,
+                y + Math.sin(angle) * rayLength
+            );
+            ctx.stroke();
+        }
+
+        // Disegna il sole al centro
+        ctx.fillStyle = 'rgba(255, 223, 0, 0.8)';
+        ctx.beginPath();
+        ctx.arc(x, y, 15, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+
+    // Funzioni di utilità
+    drawCloud(ctx, x, y, size) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.5, 0, 2 * Math.PI);
+        ctx.arc(size * 0.3, 0, size * 0.4, 0, 2 * Math.PI);
+        ctx.arc(size * 0.6, 0, size * 0.3, 0, 2 * Math.PI);
+        ctx.arc(size * 0.15, -size * 0.3, size * 0.35, 0, 2 * Math.PI);
+        ctx.arc(size * 0.45, -size * 0.3, size * 0.4, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    drawSVGObject(ctx, object, x, y, size) {
+        ctx.save();
+        ctx.translate(x, y);
+
+        switch (object) {
+            case 'sun.svg':
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.arc(0, 0, size * 0.5, 0, 2 * Math.PI);
+                ctx.fill();
                 break;
+            case 'snowflake.svg':
+                ctx.strokeStyle = '#FFFFFF';
+                ctx.lineWidth = 2;
+                for (let i = 0; i < 6; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(0, -size);
+                    ctx.stroke();
+                    ctx.rotate(Math.PI / 3);
+                }
+                break;
+            case 'star.svg':
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath();
+                for (let i = 0; i < 5; i++) {
+                    const angle = (i * Math.PI * 2) / 5 - Math.PI / 2;
+                    const x = Math.cos(angle) * size;
+                    const y = Math.sin(angle) * size;
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                    const innerAngle = ((i + 0.5) * Math.PI * 2) / 5 - Math.PI / 2;
+                    const innerX = Math.cos(innerAngle) * size * 0.5;
+                    const innerY = Math.sin(innerAngle) * size * 0.5;
+                    ctx.lineTo(innerX, innerY);
+                }
+                ctx.closePath();
+                ctx.fill();
+                break;
+            case 'cloud.svg':
+            case 'cloud-rain.svg':
+                ctx.fillStyle = 'rgba(200, 200, 200, 0.8)';
+                this.drawCloud(ctx, 0, 0, size);
+                break;
+            case 'leaf.svg':
+                ctx.fillStyle = '#90EE90';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, size * 0.4, size * 0.7, 0, 0, 2 * Math.PI);
+                ctx.fill();
+                break;
+            case 'bird.svg':
+                ctx.strokeStyle = '#333333';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(-size, 0);
+                ctx.quadraticCurveTo(0, -size * 0.5, size, 0);
+                ctx.stroke();
+                break;
+            case 'fish.svg':
+                ctx.fillStyle = '#4169E1';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, size * 0.7, size * 0.4, 0, 0, 2 * Math.PI);
+                ctx.fill();
+                // Coda
+                ctx.beginPath();
+                ctx.moveTo(size * 0.5, 0);
+                ctx.lineTo(size, -size * 0.3);
+                ctx.lineTo(size, size * 0.3);
+                ctx.closePath();
+                ctx.fill();
+                break;
+            case 'bubble.svg':
+            case 'droplet.svg':
+                ctx.fillStyle = 'rgba(173, 216, 230, 0.6)';
+                ctx.strokeStyle = 'rgba(100, 149, 237, 0.8)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(0, 0, size * 0.5, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.stroke();
+                break;
+            case 'wave.svg':
+                ctx.strokeStyle = '#4169E1';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(-size, 0);
+                ctx.quadraticCurveTo(-size / 2, -size / 2, 0, 0);
+                ctx.quadraticCurveTo(size / 2, size / 2, size, 0);
+                ctx.stroke();
+                break;
+            case 'moon.svg':
+                ctx.fillStyle = '#F0E68C';
+                ctx.beginPath();
+                ctx.arc(0, 0, size * 0.5, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(size * 0.2, -size * 0.1, size * 0.4, 0, 2 * Math.PI);
+                ctx.fill();
+                break;
+            case 'sparkles.svg':
+                ctx.fillStyle = '#FFD700';
+                for (let i = 0; i < 4; i++) {
+                    ctx.save();
+                    ctx.rotate(i * Math.PI / 2);
+                    ctx.beginPath();
+                    ctx.moveTo(0, -size);
+                    ctx.lineTo(-size * 0.2, 0);
+                    ctx.lineTo(0, size);
+                    ctx.lineTo(size * 0.2, 0);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                }
+                break;
+            default:
+                // Fallback - cerchio generico
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath();
+                ctx.arc(0, 0, size * 0.5, 0, 2 * Math.PI);
+                ctx.fill();
         }
 
         ctx.restore();
     }
 
-    applyAnimation(ctx, layer, elapsed) {
-        const anim = layer.animation;
-        const progress = this.calculateAnimationProgress(elapsed, anim);
-
-        switch(anim.type) {
-            case 'fade':
-                ctx.globalAlpha = this.easeValue(progress, anim.easing);
-                break;
-            case 'slide':
-                const slideX = this.easeValue(progress, anim.easing) * 100;
-                ctx.translate(slideX, 0);
-                break;
-            case 'bounce':
-                const bounceY = Math.sin(elapsed * 10) * 20 * this.easeValue(progress, anim.easing);
-                ctx.translate(0, bounceY);
-                break;
-            case 'rotate':
-                const angle = elapsed * Math.PI * 2;
-                ctx.translate(canvas.width / 2, canvas.height / 2);
-                ctx.rotate(angle);
-                ctx.translate(-canvas.width / 2, -canvas.height / 2);
-                break;
-            case 'scale':
-                const scale = 0.5 + 0.5 * this.easeValue(progress, anim.easing);
-                ctx.translate(canvas.width / 2, canvas.height / 2);
-                ctx.scale(scale, scale);
-                ctx.translate(-canvas.width / 2, -canvas.height / 2);
-                break;
-            case 'float':
-                const floatY = Math.sin(elapsed * 2) * 10;
-                const floatX = Math.cos(elapsed * 1.5) * 5;
-                ctx.translate(floatX, floatY);
-                break;
-        }
-    }
-
-    calculateAnimationProgress(elapsed, animation) {
-        const duration = animation.duration || 1;
-        let progress = elapsed / duration;
-
-        if (animation.loop === 'infinite') {
-            progress = progress % 1;
-        } else if (animation.loop === 'ping-pong') {
-            progress = progress % 2;
-            if (progress > 1) progress = 2 - progress;
-        } else if (animation.loop === 'count') {
-            const count = animation.count || 1;
-            progress = Math.min(progress, count) % 1;
-        } else {
-            progress = Math.min(progress, 1);
-        }
-
-        return progress;
-    }
-
-    easeValue(t, easing) {
-        switch(easing) {
-            case 'linear':
-                return t;
-            case 'ease-in':
-                return t * t;
-            case 'ease-out':
-                return 1 - (1 - t) * (1 - t);
-            case 'ease-in-out':
-                return t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
-            case 'bounce':
-                return this.bounceEase(t);
-            case 'elastic':
-                return this.elasticEase(t);
-            default:
-                return t;
-        }
-    }
-
-    bounceEase(t) {
-        if (t < 1/2.75) {
-            return 7.5625 * t * t;
-        } else if (t < 2/2.75) {
-            return 7.5625 * (t -= 1.5/2.75) * t + 0.75;
-        } else if (t < 2.5/2.75) {
-            return 7.5625 * (t -= 2.25/2.75) * t + 0.9375;
-        } else {
-            return 7.5625 * (t -= 2.625/2.75) * t + 0.984375;
-        }
-    }
-
-    elasticEase(t) {
-        return t === 0 ? 0 : t === 1 ? 1 : 
-            -Math.pow(2, 10 * (t - 1)) * Math.sin((t - 1.1) * 5 * Math.PI);
-    }
-
-    renderBackground(ctx, layer) {
-        const canvas = this.previewCanvas;
-        const bg = layer.background;
-
-        if (bg.gradient) {
-            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            gradient.addColorStop(0, bg.gradient[0]);
-            gradient.addColorStop(1, bg.gradient[1]);
-            ctx.fillStyle = gradient;
-        } else {
-            ctx.fillStyle = bg.color || '#000000';
-        }
-
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-
-    renderImage(ctx, layer) {
-        // Placeholder for image rendering
-        const x = layer.position?.x || 100;
-        const y = layer.position?.y || 100;
-        const size = layer.size || 50;
-
-        ctx.fillStyle = '#4A90E2';
-        ctx.fillRect(x, y, size, size);
-        
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = '12px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('IMG', x + size/2, y + size/2 + 4);
-    }
-
-    renderShape(ctx, layer) {
-        const x = layer.position?.x || 200;
-        const y = layer.position?.y || 200;
-        const size = layer.size || 30;
-        const color = layer.color || '#FF6B6B';
-
-        ctx.fillStyle = color;
-        
-        switch(layer.shape?.type) {
-            case 'circle':
-                ctx.beginPath();
-                ctx.arc(x, y, size, 0, 2 * Math.PI);
-                ctx.fill();
-                break;
-            case 'rectangle':
-                ctx.fillRect(x - size/2, y - size/2, size, size);
-                break;
-            case 'triangle':
-                ctx.beginPath();
-                ctx.moveTo(x, y - size);
-                ctx.lineTo(x - size, y + size);
-                ctx.lineTo(x + size, y + size);
-                ctx.closePath();
-                ctx.fill();
-                break;
-            default:
-                ctx.fillRect(x - size/2, y - size/2, size, size);
-        }
-    }
-
-    renderText(ctx, layer) {
-        const x = layer.position?.x || 300;
-        const y = layer.position?.y || 300;
-        const text = layer.text || 'Testo';
-        const font = layer.font || '20px Arial';
-        const color = layer.color || '#333333';
-
-        ctx.fillStyle = color;
-        ctx.font = font;
-        ctx.textAlign = 'center';
-        ctx.fillText(text, x, y);
-    }
-
-    renderEffect(ctx, layer) {
-        // Placeholder for effects
-        const intensity = layer.intensity || 0.5;
-        
-        switch(layer.effect?.type) {
-            case 'blur':
-                ctx.filter = `blur(${intensity * 10}px)`;
-                break;
-            case 'brightness':
-                ctx.filter = `brightness(${intensity * 2})`;
-                break;
-            case 'contrast':
-                ctx.filter = `contrast(${intensity * 2})`;
-                break;
-        }
-    }
-
-    // Navigation Methods
-    nextStep() {
-        if (this.currentStep < this.totalSteps && this.canProceedToNextStep()) {
-            this.currentStep++;
-            this.updateUI();
-            this.onStepChange();
-        }
-    }
-
-    previousStep() {
-        if (this.currentStep > 1) {
-            this.currentStep--;
-            this.updateUI();
-            this.onStepChange();
-        }
-    }
-
-    canProceedToNextStep() {
-        switch(this.currentStep) {
-            case 1:
-                return this.selectedDevice && document.getElementById('quadro-name').value.trim();
-            case 2:
-                return true; // Always can proceed from triggers step
-            case 3:
-                return true; // Always can proceed from preview step
-            case 4:
-                return true;
-            default:
-                return false;
-        }
-    }
-
-    onStepChange() {
-        switch(this.currentStep) {
-            case 2:
-                // Start charts and real-time data
-                break;
-            case 3:
-                // Update preview
-                this.updateLayersPanel();
-                break;
-            case 4:
-                // Generate final summary
-                this.generateFinalSummary();
-                break;
-        }
-    }
-
-    updateUI() {
-        this.updateProgressBar();
-        this.updateStepVisibility();
-        this.updateNavigationButtons();
-    }
-
-    updateProgressBar() {
-        const progressFill = document.getElementById('progress-fill');
-        const progressPercentage = (this.currentStep / this.totalSteps) * 100;
-        progressFill.style.width = `${progressPercentage}%`;
-
-        document.querySelectorAll('.step').forEach((step, index) => {
-            const stepNumber = index + 1;
-            step.classList.remove('active', 'completed');
-
-            if (stepNumber === this.currentStep) {
-                step.classList.add('active');
-            } else if (stepNumber < this.currentStep) {
-                step.classList.add('completed');
-            }
-        });
-    }
-
-    updateStepVisibility() {
-        document.querySelectorAll('.step-panel').forEach((panel, index) => {
-            panel.classList.remove('active');
-            if (index + 1 === this.currentStep) {
-                panel.classList.add('active');
-            }
-        });
-    }
-
-    updateNavigationButtons() {
-        const prevBtn = document.getElementById('prev-btn');
-        const nextBtn = document.getElementById('next-btn');
-        const saveBtn = document.getElementById('save-btn');
-
-        prevBtn.disabled = this.currentStep === 1;
-        nextBtn.disabled = !this.canProceedToNextStep();
-
-        if (this.currentStep === this.totalSteps) {
-            nextBtn.style.display = 'none';
-            saveBtn.style.display = 'block';
-        } else {
-            nextBtn.style.display = 'block';
-            saveBtn.style.display = 'none';
-        }
-    }
-
-    generateFinalSummary() {
-        const summaryContainer = document.getElementById('final-summary');
-        if (!summaryContainer) return;
-
-        const summaryHTML = `
-            <div class="summary-item">
-                <h4>📱 Dispositivo</h4>
-                <p>${this.selectedDevice || 'Nessuno selezionato'}</p>
-            </div>
-            <div class="summary-item">
-                <h4>🎯 Trigger Configurati</h4>
-                <p>${this.triggers.length} trigger attivi</p>
-            </div>
-            <div class="summary-item">
-                <h4>📚 Layer Creati</h4>
-                <p>${this.layers.length} layer nel quadro</p>
-            </div>
-            <div class="summary-item">
-                <h4>⚙️ Configurazione</h4>
-                <p>Sistema pronto per l'attivazione</p>
-            </div>
-        `;
-
-        summaryContainer.innerHTML = summaryHTML;
-    }
-
-    getSensorUnit(sensor) {
-        const units = {
-            'temp': '°C',
-            'humidity': '%',
-            'light': '',
-            'audio': ''
+    getSVGColor(object) {
+        const colors = {
+            'sun.svg': '#FFD700',
+            'snowflake.svg': '#FFFFFF',
+            'star.svg': '#FFFFFF',
+            'cloud.svg': '#C0C0C0',
+            'cloud-rain.svg': '#708090',
+            'bubble.svg': '#87CEEB',
+            'leaf.svg': '#90EE90',
+            'bird.svg': '#333333',
+            'fish.svg': '#4169E1',
+            'wave.svg': '#4169E1',
+            'moon.svg': '#F0E68C',
+            'sparkles.svg': '#FFD700'
         };
-        return units[sensor] || '';
+        return colors[object] || '#FFFFFF';
     }
 
-    // Modal Management
-    closeAllModals() {
-        document.querySelectorAll('.modal').forEach(modal => {
-            modal.style.display = 'none';
-        });
+    interpolateColor(color1, color2, factor) {
+        return color1.map((c, i) => Math.round(c + factor * (color2[i] - c)));
     }
 
-    // Public Methods for Global Access
-    selectDevice(deviceId) {
-        this.selectedDevice = deviceId;
-        document.querySelectorAll('.device-card').forEach(card => {
-            card.classList.remove('selected');
-        });
-        event.target.closest('.device-card').classList.add('selected');
-        this.updateUI();
+    interpolateColorHex(hex1, hex2, factor) {
+        const color1 = this.hexToRgb(hex1);
+        const color2 = this.hexToRgb(hex2);
+        const result = this.interpolateColor(color1, color2, factor);
+        return this.rgbToHex(result[0], result[1], result[2]);
     }
 
-    addTrigger() {
-        this.currentEditingTrigger = null;
-        this.openTriggerModal();
+    hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? [
+            parseInt(result[1], 16),
+            parseInt(result[2], 16),
+            parseInt(result[3], 16)
+        ] : [0, 0, 0];
     }
 
-    editTrigger(triggerId) {
-        this.currentEditingTrigger = this.triggers.find(t => t.id === triggerId);
-        this.openTriggerModal();
+    rgbToHex(r, g, b) {
+        return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
     }
 
-    openTriggerModal() {
-        document.getElementById('trigger-modal').style.display = 'block';
-        this.populateTriggerModal();
+    normalizeValue(value, min, max) {
+        return Math.max(0, Math.min(1, (value - min) / (max - min)));
     }
 
-    closeTriggerModal() {
-        document.getElementById('trigger-modal').style.display = 'none';
-        this.currentEditingTrigger = null;
+    handleDeviceUpdate(data) {
+        if (data.device_id === this.selectedDevice) {
+            this.sensorValues = {
+                temperature: data.data.temperature,
+                humidity: data.data.humidity,
+                light: data.data.light,
+                audio: data.data.audio
+            };
+            this.updateSensorValues();
+        }
     }
 
-    populateTriggerModal() {
-        if (this.currentEditingTrigger) {
-            // Populate with existing trigger data
-            const trigger = this.currentEditingTrigger;
-            document.getElementById('trigger-sensor').value = trigger.sensor;
-            document.getElementById('trigger-condition').value = trigger.condition;
-            document.getElementById('trigger-min').value = trigger.minValue;
-            document.getElementById('trigger-max').value = trigger.maxValue;
-            document.getElementById('trigger-duration').value = trigger.duration || 0;
+    validateName(name) {
+        const isValid = name.length > 0 && name.length <= 50;
+        this.validateForm();
+        return isValid;
+    }
+
+    validateForm() {
+        const name = document.getElementById('quadro-name').value;
+        const device = document.getElementById('device-select').value;
+        const saveBtn = document.getElementById('save-quadro-btn');
+
+        const isValid = name.length > 0 && name.length <= 50 && device !== '';
+
+        if (isValid) {
+            saveBtn.disabled = false;
+            saveBtn.classList.remove('disabled');
         } else {
-            // Reset form for new trigger
-            document.getElementById('trigger-sensor').value = 'temperature';
-            document.getElementById('trigger-condition').value = 'range';
-            document.getElementById('trigger-min').value = '';
-            document.getElementById('trigger-max').value = '';
-            document.getElementById('trigger-duration').value = 0;
+            saveBtn.disabled = true;
+            saveBtn.classList.add('disabled');
         }
-        
-        this.selectActionType('image'); // Default action type
-    }
-
-    selectActionType(type) {
-        document.querySelectorAll('.action-type-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        document.querySelector(`[data-type="${type}"]`).classList.add('active');
-        
-        this.populateActionConfig(type);
-    }
-
-    populateActionConfig(type) {
-        const configContent = document.getElementById('action-config-content');
-        
-        switch(type) {
-            case 'image':
-                configContent.innerHTML = this.getImageConfigHTML();
-                break;
-            case 'background':
-                configContent.innerHTML = this.getBackgroundConfigHTML();
-                break;
-            case 'shape':
-                configContent.innerHTML = this.getShapeConfigHTML();
-                break;
-            case 'text':
-                configContent.innerHTML = this.getTextConfigHTML();
-                break;
-            case 'effect':
-                configContent.innerHTML = this.getEffectConfigHTML();
-                break;
-        }
-    }
-
-    getImageConfigHTML() {
-        return `
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Immagine:</label>
-                    <select id="action-image">
-                        ${this.assets.images.map(img => 
-                            `<option value="${img.id}">${img.name}</option>`
-                        ).join('')}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Dimensione:</label>
-                    <input type="number" id="action-size" min="10" max="200" value="50">
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Quantità:</label>
-                    <input type="number" id="action-quantity" min="1" max="50" value="1">
-                </div>
-                <div class="form-group">
-                    <label>Posizione:</label>
-                    <select id="action-position">
-                        <option value="center">Centro</option>
-                        <option value="top">Alto</option>
-                        <option value="bottom">Basso</option>
-                        <option value="left">Sinistra</option>
-                        <option value="right">Destra</option>
-                        <option value="random">Casuale</option>
-                    </select>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" id="action-movement"> Movimento (come foglie che cadono)
-                </label>
-            </div>
-        `;
-    }
-
-    getBackgroundConfigHTML() {
-        return `
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Sfondo:</label>
-                    <select id="action-background">
-                        ${this.assets.backgrounds.map(bg => 
-                            `<option value="${bg.id}">${bg.name}</option>`
-                        ).join('')}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Modalità:</label>
-                    <select id="action-bg-mode">
-                        <option value="replace">Sostituisci</option>
-                        <option value="overlay">Sovrapponi</option>
-                        <option value="blend">Miscela</option>
-                    </select>
-                </div>
-            </div>
-        `;
-    }
-
-    getShapeConfigHTML() {
-        return `
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Forma:</label>
-                    <select id="action-shape">
-                        ${this.assets.shapes.map(shape => 
-                            `<option value="${shape.id}">${shape.name}</option>`
-                        ).join('')}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Colore:</label>
-                    <input type="color" id="action-color" value="#FF6B6B">
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Dimensione:</label>
-                    <input type="number" id="action-shape-size" min="10" max="200" value="30">
-                </div>
-                <div class="form-group">
-                    <label>Posizione:</label>
-                    <select id="action-shape-position">
-                        <option value="center">Centro</option>
-                        <option value="top">Alto</option>
-                        <option value="bottom">Basso</option>
-                        <option value="left">Sinistra</option>
-                        <option value="right">Destra</option>
-                        <option value="random">Casuale</option>
-                    </select>
-                </div>
-            </div>
-        `;
-    }
-
-    getTextConfigHTML() {
-        return `
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Testo:</label>
-                    <input type="text" id="action-text" placeholder="Inserisci il testo...">
-                </div>
-                <div class="form-group">
-                    <label>Font Size:</label>
-                    <input type="number" id="action-font-size" min="10" max="100" value="20">
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Colore:</label>
-                    <input type="color" id="action-text-color" value="#333333">
-                </div>
-                <div class="form-group">
-                    <label>Posizione:</label>
-                    <select id="action-text-position">
-                        <option value="center">Centro</option>
-                        <option value="top">Alto</option>
-                        <option value="bottom">Basso</option>
-                    </select>
-                </div>
-            </div>
-        `;
-    }
-
-    getEffectConfigHTML() {
-        return `
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Effetto:</label>
-                    <select id="action-effect">
-                        <option value="blur">Sfocatura</option>
-                        <option value="brightness">Luminosità</option>
-                        <option value="contrast">Contrasto</option>
-                        <option value="particle">Sistema Particelle</option>
-                        <option value="glitch">Effetto Glitch</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Intensità:</label>
-                    <input type="range" id="action-intensity" min="0" max="1" step="0.1" value="0.5">
-                </div>
-            </div>
-        `;
-    }
-
-    saveTrigger() {
-        const triggerData = this.collectTriggerData();
-        
-        if (this.currentEditingTrigger) {
-            // Update existing trigger
-            Object.assign(this.currentEditingTrigger, triggerData);
-        } else {
-            // Add new trigger
-            triggerData.id = `trigger_${Date.now()}`;
-            this.triggers.push(triggerData);
-        }
-        
-        this.updateTriggersDisplay();
-        this.closeTriggerModal();
-    }
-
-    collectTriggerData() {
-        const sensor = document.getElementById('trigger-sensor').value;
-        const condition = document.getElementById('trigger-condition').value;
-        const minValue = parseFloat(document.getElementById('trigger-min').value) || 0;
-        const maxValue = parseFloat(document.getElementById('trigger-max').value) || 100;
-        const duration = parseFloat(document.getElementById('trigger-duration').value) || 0;
-        
-        const actionType = document.querySelector('.action-type-btn.active').dataset.type;
-        
-        // Collect action-specific configuration
-        const config = this.collectActionConfig(actionType);
-        
-        // Collect animation settings
-        const animation = {
-            type: document.getElementById('animation-type').value,
-            easing: document.getElementById('animation-easing').value,
-            duration: parseFloat(document.getElementById('animation-duration').value) || 1,
-            loop: document.getElementById('animation-loop').value,
-            count: parseInt(document.getElementById('animation-count').value) || 1
-        };
-        
-        return {
-            sensor,
-            condition,
-            minValue,
-            maxValue,
-            duration,
-            actionType,
-            config,
-            animation
-        };
-    }
-
-    collectActionConfig(actionType) {
-        const config = {};
-        
-        switch(actionType) {
-            case 'image':
-                config.asset = this.assets.images.find(img => img.id === document.getElementById('action-image').value);
-                config.size = parseInt(document.getElementById('action-size').value);
-                config.quantity = parseInt(document.getElementById('action-quantity').value);
-                config.position = document.getElementById('action-position').value;
-                config.movement = document.getElementById('action-movement').checked;
-                break;
-                
-            case 'background':
-                config.background = this.assets.backgrounds.find(bg => bg.id === document.getElementById('action-background').value);
-                config.mode = document.getElementById('action-bg-mode').value;
-                break;
-                
-            case 'shape':
-                config.shape = this.assets.shapes.find(shape => shape.id === document.getElementById('action-shape').value);
-                config.color = document.getElementById('action-color').value;
-                config.size = parseInt(document.getElementById('action-shape-size').value);
-                config.position = document.getElementById('action-shape-position').value;
-                break;
-                
-            case 'text':
-                config.text = document.getElementById('action-text').value;
-                config.fontSize = parseInt(document.getElementById('action-font-size').value);
-                config.color = document.getElementById('action-text-color').value;
-                config.position = document.getElementById('action-text-position').value;
-                break;
-                
-            case 'effect':
-                config.effect = { type: document.getElementById('action-effect').value };
-                config.intensity = parseFloat(document.getElementById('action-intensity').value);
-                break;
-        }
-        
-        return config;
-    }
-
-    updateTriggersDisplay() {
-        const triggersList = document.getElementById('triggers-list');
-        if (!triggersList) return;
-
-        triggersList.innerHTML = '';
-
-        this.triggers.forEach(trigger => {
-            const triggerElement = document.createElement('div');
-            triggerElement.className = 'trigger-item';
-            triggerElement.innerHTML = `
-                <div class="trigger-header">
-                    <div class="trigger-title">
-                        ${this.getTriggerDisplayName(trigger)}
-                    </div>
-                    <div class="trigger-actions">
-                        <button class="btn btn-sm btn-secondary" onclick="quadroCreator.editTrigger('${trigger.id}')">
-                            ✏️ Modifica
-                        </button>
-                        <button class="btn btn-sm btn-danger" onclick="quadroCreator.deleteTrigger('${trigger.id}')">
-                            🗑️
-                        </button>
-                    </div>
-                </div>
-                <div class="trigger-summary">
-                    ${this.getTriggerSummary(trigger)}
-                </div>
-                <div class="trigger-preview">
-                    Anteprima azione: ${trigger.actionType}
-                </div>
-            `;
-            triggersList.appendChild(triggerElement);
-        });
-    }
-
-    getTriggerDisplayName(trigger) {
-        const sensorNames = {
-            'temperature': '🌡️ Temperatura',
-            'humidity': '💧 Umidità',
-            'light': '💡 Luce',
-            'audio': '🔊 Audio'
-        };
-        return sensorNames[trigger.sensor] || trigger.sensor;
-    }
-
-    getTriggerSummary(trigger) {
-        let summary = `${trigger.condition} `;
-        if (trigger.condition === 'range') {
-            summary += `${trigger.minValue} - ${trigger.maxValue}`;
-        } else if (trigger.condition === 'above') {
-            summary += `> ${trigger.minValue}`;
-        } else if (trigger.condition === 'below') {
-            summary += `< ${trigger.maxValue}`;
-        }
-        
-        if (trigger.duration > 0) {
-            summary += ` per ${trigger.duration}s`;
-        }
-        
-        return summary;
-    }
-
-    deleteTrigger(triggerId) {
-        this.triggers = this.triggers.filter(t => t.id !== triggerId);
-        this.updateTriggersDisplay();
-    }
-
-    pausePreview() {
-        this.isPreviewPlaying = !this.isPreviewPlaying;
-        const btn = event.target;
-        btn.textContent = this.isPreviewPlaying ? '⏸️ Pausa' : '▶️ Play';
-    }
-
-    resetPreview() {
-        this.layers = [];
-        this.updateLayersPanel();
-    }
-
-    testAllTriggers() {
-        this.triggers.forEach(trigger => {
-            this.executeTrigger(trigger);
-        });
     }
 
     async saveQuadro() {
-        this.quadroName = document.getElementById('quadro-name').value.trim();
-        
-        if (!this.quadroName) {
-            alert('Inserisci un nome per il quadro');
+        const name = document.getElementById('quadro-name').value;
+        const deviceId = document.getElementById('device-select').value;
+
+        if (!this.validateName(name)) {
+            alert('Inserisci un nome valido per il quadro (max 50 caratteri)');
             return;
         }
 
-        if (!this.selectedDevice) {
-            alert('Seleziona un dispositivo');
+        if (!deviceId) {
+            alert('Seleziona un dispositivo ESP32');
             return;
         }
 
-        const loadingOverlay = document.getElementById('loading-overlay');
-        loadingOverlay.style.display = 'flex';
+        // Prepara la configurazione finale
+        let finalConfig;
+        if (this.selectedTemplate === 'personalizzato') {
+            finalConfig = {
+                ...this.sensorsConfig,
+                customConfig: this.customConfig
+            };
+        } else {
+            // Per i template predefiniti, usa la configurazione del template
+            finalConfig = this.predefinedTemplates[this.selectedTemplate];
+        }
+
+        const quadroData = {
+            name: name,
+            device_id: deviceId,
+            template: this.selectedTemplate,
+            is_predefined: this.selectedTemplate !== 'personalizzato',
+            sensors_config: finalConfig,
+            created_at: new Date().toISOString(),
+            version: "3.0"
+        };
 
         try {
-            const quadroConfig = {
-                name: this.quadroName,
-                device_id: this.selectedDevice,
-                triggers: this.triggers,
-                layers: this.layers,
-                settings: {
-                    auto_start: document.getElementById('auto-start').checked,
-                    public_share: document.getElementById('public-share').checked
-                }
-            };
-
             const response = await fetch('/api/quadri', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(quadroConfig)
+                body: JSON.stringify(quadroData)
             });
 
-            const result = await response.json();
-
-            if (result.status === 'success') {
-                alert('Quadro creato con successo!');
-                window.location.href = '/';
+            if (response.ok) {
+                const result = await response.json();
+                this.createdQuadroId = result.quadro_id;
+                this.showSuccessModal();
             } else {
-                alert('Errore nella creazione del quadro: ' + result.message);
+                const error = await response.json();
+                alert('Errore nel salvataggio: ' + (error.error || 'Errore sconosciuto'));
             }
         } catch (error) {
-            console.error('Errore:', error);
-            alert('Errore di connessione al server');
-        } finally {
-            loadingOverlay.style.display = 'none';
+            console.error('Errore nel salvataggio:', error);
+            alert('Errore di connessione. Riprova più tardi.');
         }
+    }
+
+    showSuccessModal() {
+        document.getElementById('success-modal').style.display = 'block';
+    }
+
+    closeModal(modal) {
+        modal.style.display = 'none';
+    }
+
+    hideLoadingOverlay() {
+        const overlay = document.getElementById('loading-overlay');
+        overlay.classList.add('hidden');
+    }
+
+    // Controlli anteprima
+    togglePreview() {
+        this.isPlaying = !this.isPlaying;
+        const btn = document.getElementById('play-btn');
+        btn.textContent = this.isPlaying ? '⏸️ Pausa' : '▶️ Play';
+    }
+
+    resetPreview() {
+        // Reset ai valori di default
+        this.sensorValues = {
+            temperature: 20.5,
+            humidity: 65,
+            light: 1250,
+            audio: 850
+        };
+
+        // Aggiorna slider
+        document.getElementById('temp-slider').value = 20.5;
+        document.getElementById('humidity-slider').value = 65;
+        document.getElementById('light-slider').value = 1250;
+        document.getElementById('audio-slider').value = 850;
+
+        // Aggiorna display
+        document.querySelectorAll('.slider-value').forEach((el, i) => {
+            const values = ['20.5°C', '65%', '1250', '850'];
+            el.textContent = values[i];
+        });
+
+        this.updateSensorValues();
+    }
+
+    testEffects() {
+        // Simula tre scenari di test
+        const scenarios = [
+            { temperature: 35, humidity: 80, light: 3000, audio: 2000 }, // Caldo e umido
+            { temperature: 5, humidity: 30, light: 500, audio: 100 },   // Freddo e secco
+            { temperature: 22, humidity: 55, light: 1500, audio: 1200 } // Neutro
+        ];
+
+        let currentScenario = 0;
+
+        const testInterval = setInterval(() => {
+            if (currentScenario < scenarios.length) {
+                const scenario = scenarios[currentScenario];
+
+                Object.entries(scenario).forEach(([sensor, value]) => {
+                    this.sensorValues[sensor] = value;
+                    const sliderMap = {
+                        temperature: 'temp',
+                        humidity: 'humidity',
+                        light: 'light',
+                        audio: 'audio'
+                    };
+
+                    const slider = document.getElementById(`${sliderMap[sensor]}-slider`);
+                    slider.value = value;
+
+                    const unit = sensor === 'temperature' ? '°C' : sensor === 'humidity' ? '%' : '';
+                    slider.nextElementSibling.textContent = `${value}${unit}`;
+                });
+
+                this.updateSensorValues();
+                currentScenario++;
+            } else {
+                clearInterval(testInterval);
+                this.resetPreview();
+            }
+        }, 2000);
     }
 }
 
-// Initialize the creator when the DOM is ready
+// ============================================================================
+// FUNZIONI GLOBALI
+// ============================================================================
+
 let quadroCreator;
 
-document.addEventListener('DOMContentLoaded', function() {
-    quadroCreator = new AdvancedQuadroCreator();
+// Inizializzazione
+document.addEventListener('DOMContentLoaded', function () {
+    quadroCreator = new QuadroCreator();
 });
 
-// Global functions for HTML event handlers
-function selectDevice(deviceId) {
-    quadroCreator.selectDevice(deviceId);
-}
-
-function nextStep() {
-    quadroCreator.nextStep();
-}
-
-function previousStep() {
-    quadroCreator.previousStep();
-}
-
-function addTrigger() {
-    quadroCreator.addTrigger();
-}
-
-function closeTriggerModal() {
-    quadroCreator.closeTriggerModal();
-}
-
-function selectActionType(type) {
-    quadroCreator.selectActionType(type);
-}
-
-function saveTrigger() {
-    quadroCreator.saveTrigger();
-}
-
-function closeAssetModal() {
-    document.getElementById('asset-modal').style.display = 'none';
-}
-
-function pausePreview() {
-    quadroCreator.pausePreview();
-}
-
-function resetPreview() {
-    quadroCreator.resetPreview();
-}
-
-function testAllTriggers() {
-    quadroCreator.testAllTriggers();
+// Funzioni di controllo
+function goBack() {
+    window.history.back();
 }
 
 function saveQuadro() {
     quadroCreator.saveQuadro();
 }
 
-// ============================================================================
-// ADVANCED FEATURES EXTENSION
-// ============================================================================
+function togglePreview() {
+    quadroCreator.togglePreview();
+}
 
-// Add these methods to the AdvancedQuadroCreator class
-AdvancedQuadroCreator.prototype.initializeAdvancedFeatures = function() {
-    this.audioContext = null;
-    this.audioAnalyser = null;
-    this.audioData = null;
-    this.sequencer = new AnimationSequencer();
-    this.shaderEffects = new ShaderEffects();
-    this.triggerTimers = new Map();
-    
-    this.setupAudioAnalysis();
-    this.setupWebGL();
-};
+function resetPreview() {
+    quadroCreator.resetPreview();
+}
 
-// Audio Analysis for FFT/Spectrum
-AdvancedQuadroCreator.prototype.setupAudioAnalysis = function() {
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-            .then(stream => {
-                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                this.audioAnalyser = this.audioContext.createAnalyser();
-                const source = this.audioContext.createMediaStreamSource(stream);
-                
-                source.connect(this.audioAnalyser);
-                this.audioAnalyser.fftSize = 256;
-                this.audioData = new Uint8Array(this.audioAnalyser.frequencyBinCount);
-                
-                console.log('Audio analysis initialized');
-            })
-            .catch(err => {
-                console.log('Audio access denied:', err);
-            });
-    }
-};
+function testEffects() {
+    quadroCreator.testEffects();
+}
 
-// WebGL Shader Effects
-AdvancedQuadroCreator.prototype.setupWebGL = function() {
-    try {
-        const canvas = document.createElement('canvas');
-        this.webglCtx = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-        if (this.webglCtx) {
-            console.log('WebGL initialized for shader effects');
-        }
-    } catch (e) {
-        console.log('WebGL not supported');
-    }
-};
-
-// Enhanced Trigger Evaluation with Timers
-AdvancedQuadroCreator.prototype.evaluateTriggerAdvanced = function(trigger) {
-    const sensorValue = this.sensorData[trigger.sensor];
-    const conditionMet = this.evaluateBasicCondition(trigger, sensorValue);
-    
-    if (trigger.duration > 0) {
-        const triggerId = trigger.id;
-        const now = Date.now();
-        
-        if (conditionMet) {
-            if (!this.triggerTimers.has(triggerId)) {
-                this.triggerTimers.set(triggerId, now);
-                return false; // Not ready yet
-            } else {
-                const elapsed = (now - this.triggerTimers.get(triggerId)) / 1000;
-                return elapsed >= trigger.duration;
-            }
-        } else {
-            this.triggerTimers.delete(triggerId);
-            return false;
-        }
-    }
-    
-    return conditionMet;
-};
-
-AdvancedQuadroCreator.prototype.evaluateBasicCondition = function(trigger, sensorValue) {
-    switch(trigger.condition) {
-        case 'range':
-            return sensorValue >= trigger.minValue && sensorValue <= trigger.maxValue;
-        case 'above':
-            return sensorValue > trigger.minValue;
-        case 'below':
-            return sensorValue < trigger.maxValue;
-        case 'equals':
-            return Math.abs(sensorValue - trigger.minValue) < 0.1;
-        default:
-            return false;
-    }
-};
-
-// Audio-Reactive Animations
-AdvancedQuadroCreator.prototype.updateAudioReactiveElements = function() {
-    if (!this.audioAnalyser || !this.audioData) return;
-    
-    this.audioAnalyser.getByteFrequencyData(this.audioData);
-    
-    // Calculate audio features
-    const bass = this.getAverageFrequency(0, 4);
-    const mid = this.getAverageFrequency(4, 16);
-    const treble = this.getAverageFrequency(16, 32);
-    const volume = this.getAverageFrequency(0, 32);
-    
-    // Update audio-reactive layers
-    this.layers.forEach(layer => {
-        if (layer.audioReactive) {
-            this.applyAudioReactivity(layer, { bass, mid, treble, volume });
-        }
-    });
-};
-
-AdvancedQuadroCreator.prototype.getAverageFrequency = function(start, end) {
-    let sum = 0;
-    for (let i = start; i < end && i < this.audioData.length; i++) {
-        sum += this.audioData[i];
-    }
-    return sum / (end - start);
-};
-
-AdvancedQuadroCreator.prototype.applyAudioReactivity = function(layer, audioFeatures) {
-    const sensitivity = layer.audioSensitivity || 1;
-    
-    switch(layer.audioReactiveType) {
-        case 'scale':
-            layer.currentScale = 1 + (audioFeatures.volume / 255) * sensitivity;
-            break;
-        case 'rotation':
-            layer.currentRotation = (layer.currentRotation || 0) + (audioFeatures.bass / 255) * sensitivity;
-            break;
-        case 'color':
-            layer.currentHue = (audioFeatures.mid / 255) * 360;
-            break;
-        case 'movement':
-            layer.audioOffset = {
-                x: (audioFeatures.treble / 255) * 50 * sensitivity,
-                y: (audioFeatures.bass / 255) * 50 * sensitivity
-            };
-            break;
-    }
-};
-
-// Dynamic Text System
-AdvancedQuadroCreator.prototype.updateDynamicText = function(layer) {
-    if (!layer.dynamicText) return layer.text;
-    
-    let dynamicText = layer.dynamicText.template;
-    
-    // Replace sensor placeholders
-    dynamicText = dynamicText.replace(/\{temp\}/g, this.sensorData.temperature.toFixed(1));
-    dynamicText = dynamicText.replace(/\{humidity\}/g, this.sensorData.humidity.toFixed(1));
-    dynamicText = dynamicText.replace(/\{light\}/g, this.sensorData.light.toString());
-    dynamicText = dynamicText.replace(/\{audio\}/g, this.sensorData.audio.toString());
-    
-    // Replace time placeholders
-    const now = new Date();
-    dynamicText = dynamicText.replace(/\{time\}/g, now.toLocaleTimeString());
-    dynamicText = dynamicText.replace(/\{date\}/g, now.toLocaleDateString());
-    
-    // Replace computed values
-    if (dynamicText.includes('{status}')) {
-        const status = this.computeEnvironmentStatus();
-        dynamicText = dynamicText.replace(/\{status\}/g, status);
-    }
-    
-    return dynamicText;
-};
-
-AdvancedQuadroCreator.prototype.computeEnvironmentStatus = function() {
-    const temp = this.sensorData.temperature;
-    const humidity = this.sensorData.humidity;
-    
-    if (temp > 30 && humidity > 70) return 'Caldo e Umido';
-    if (temp < 10) return 'Freddo';
-    if (humidity > 80) return 'Molto Umido';
-    if (this.sensorData.light < 500) return 'Buio';
-    return 'Ottimale';
-};
-
-// Animation Sequencer Class
-class AnimationSequencer {
-    constructor() {
-        this.sequences = new Map();
-        this.activeSequences = new Map();
-    }
-    
-    createSequence(layerId, keyframes) {
-        this.sequences.set(layerId, {
-            keyframes,
-            duration: this.calculateTotalDuration(keyframes)
-        });
-    }
-    
-    calculateTotalDuration(keyframes) {
-        return keyframes.reduce((total, kf) => total + (kf.duration || 1), 0);
-    }
-    
-    startSequence(layerId) {
-        if (this.sequences.has(layerId)) {
-            this.activeSequences.set(layerId, {
-                startTime: Date.now(),
-                currentKeyframe: 0
-            });
-        }
-    }
-    
-    updateSequence(layerId, layer) {
-        if (!this.activeSequences.has(layerId)) return;
-        
-        const sequence = this.sequences.get(layerId);
-        const activeSeq = this.activeSequences.get(layerId);
-        const elapsed = (Date.now() - activeSeq.startTime) / 1000;
-        
-        const result = this.interpolateKeyframes(sequence.keyframes, elapsed);
-        
-        // Apply interpolated values to layer
-        Object.assign(layer, result);
-        
-        // Check if sequence is complete
-        if (elapsed >= sequence.duration) {
-            if (layer.sequenceLoop) {
-                this.startSequence(layerId); // Restart
-            } else {
-                this.activeSequences.delete(layerId);
-            }
-        }
-    }
-    
-    interpolateKeyframes(keyframes, elapsed) {
-        let currentTime = 0;
-        
-        for (let i = 0; i < keyframes.length - 1; i++) {
-            const current = keyframes[i];
-            const next = keyframes[i + 1];
-            const duration = next.time - current.time;
-            
-            if (elapsed >= currentTime && elapsed <= currentTime + duration) {
-                const progress = (elapsed - currentTime) / duration;
-                return this.interpolateProperties(current, next, progress);
-            }
-            
-            currentTime += duration;
-        }
-        
-        return keyframes[keyframes.length - 1];
-    }
-    
-    interpolateProperties(from, to, progress) {
-        const result = {};
-        
-        ['x', 'y', 'scale', 'rotation', 'opacity'].forEach(prop => {
-            if (from[prop] !== undefined && to[prop] !== undefined) {
-                result[prop] = from[prop] + (to[prop] - from[prop]) * progress;
-            }
-        });
-        
-        return result;
+function viewQuadro() {
+    if (quadroCreator.createdQuadroId) {
+        window.location.href = `/quadro/${quadroCreator.createdQuadroId}`;
     }
 }
 
-// Shader Effects Class
-class ShaderEffects {
-    constructor() {
-        this.effects = {
-            glitch: this.createGlitchEffect,
-            blur: this.createBlurEffect,
-            distortion: this.createDistortionEffect,
-            chromaticAberration: this.createChromaticAberrationEffect
-        };
-    }
-    
-    applyEffect(ctx, effectName, intensity, canvas) {
-        if (this.effects[effectName]) {
-            return this.effects[effectName](ctx, intensity, canvas);
-        }
-    }
-    
-    createGlitchEffect(ctx, intensity, canvas) {
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        
-        // Apply glitch effect
-        for (let i = 0; i < data.length; i += 4) {
-            if (Math.random() < intensity * 0.01) {
-                // Red channel shift
-                data[i] = data[i + Math.floor(Math.random() * 100) * 4] || data[i];
-                // Green channel shift
-                data[i + 1] = data[i + 1 + Math.floor(Math.random() * 100) * 4] || data[i + 1];
-            }
-        }
-        
-        ctx.putImageData(imageData, 0, 0);
-    }
-    
-    createBlurEffect(ctx, intensity, canvas) {
-        ctx.filter = `blur(${intensity * 10}px)`;
-    }
-    
-    createDistortionEffect(ctx, intensity, canvas) {
-        // Implement wave distortion using mathematical transformation
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const newImageData = ctx.createImageData(canvas.width, canvas.height);
-        
-        for (let y = 0; y < canvas.height; y++) {
-            for (let x = 0; x < canvas.width; x++) {
-                const wave = Math.sin(y * 0.01 + Date.now() * 0.001) * intensity * 10;
-                const sourceX = Math.floor(x + wave);
-                const sourceY = y;
-                
-                if (sourceX >= 0 && sourceX < canvas.width) {
-                    const sourceIndex = (sourceY * canvas.width + sourceX) * 4;
-                    const targetIndex = (y * canvas.width + x) * 4;
-                    
-                    newImageData.data[targetIndex] = imageData.data[sourceIndex];
-                    newImageData.data[targetIndex + 1] = imageData.data[sourceIndex + 1];
-                    newImageData.data[targetIndex + 2] = imageData.data[sourceIndex + 2];
-                    newImageData.data[targetIndex + 3] = imageData.data[sourceIndex + 3];
-                }
-            }
-        }
-        
-        ctx.putImageData(newImageData, 0, 0);
-    }
-    
-    createChromaticAberrationEffect(ctx, intensity, canvas) {
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        
-        const offset = intensity * 5;
-        
-        // Shift red and blue channels
-        for (let y = 0; y < canvas.height; y++) {
-            for (let x = 0; x < canvas.width; x++) {
-                const index = (y * canvas.width + x) * 4;
-                
-                // Red channel shift
-                const redX = Math.min(canvas.width - 1, x + offset);
-                const redIndex = (y * canvas.width + redX) * 4;
-                
-                // Blue channel shift
-                const blueX = Math.max(0, x - offset);
-                const blueIndex = (y * canvas.width + blueX) * 4;
-                
-                data[index] = imageData.data[redIndex];     // Red
-                data[index + 2] = imageData.data[blueIndex + 2]; // Blue
-            }
-        }
-        
-        ctx.putImageData(imageData, 0, 0);
-    }
+function goToHome() {
+    window.location.href = '/';
 }
 
-// Enhanced Rendering with Advanced Features
-AdvancedQuadroCreator.prototype.renderLayerAdvanced = function(ctx, layer) {
-    const now = Date.now();
-    const elapsed = (now - layer.startTime) / 1000;
-
-    ctx.save();
-
-    // Update sequenced animations
-    if (layer.useSequencer) {
-        this.sequencer.updateSequence(layer.id, layer);
+// Gestione responsive
+window.addEventListener('resize', function () {
+    if (quadroCreator && quadroCreator.previewCanvas) {
+        // Riadatta il canvas alle nuove dimensioni
+        quadroCreator.updatePreview();
     }
+});
 
-    // Apply audio reactivity
-    if (layer.audioReactive) {
-        this.updateAudioReactiveElements();
+// Gestione errori globali
+window.addEventListener('error', function (e) {
+    console.error('Errore JavaScript:', e.error);
+});
+
+// Gestione beforeunload
+window.addEventListener('beforeunload', function (e) {
+    // Avvisa l'utente se sta per lasciare la pagina con modifiche non salvate
+    const name = document.getElementById('quadro-name').value;
+    if (name && !quadroCreator.createdQuadroId) {
+        e.preventDefault();
+        e.returnValue = 'Hai modifiche non salvate. Sei sicuro di voler lasciare la pagina?';
     }
-
-    // Apply transformations
-    this.applyLayerTransformations(ctx, layer, elapsed);
-
-    // Render based on layer type with enhanced features
-    switch(layer.type) {
-        case 'background':
-            this.renderBackgroundAdvanced(ctx, layer);
-            break;
-        case 'image':
-            this.renderImageAdvanced(ctx, layer);
-            break;
-        case 'shape':
-            this.renderShapeAdvanced(ctx, layer);
-            break;
-        case 'text':
-            this.renderTextAdvanced(ctx, layer);
-            break;
-        case 'effect':
-            this.renderEffectAdvanced(ctx, layer);
-            break;
-        case 'particle':
-            this.renderParticleSystem(ctx, layer, elapsed);
-            break;
-    }
-
-    ctx.restore();
-};
-
-AdvancedQuadroCreator.prototype.applyLayerTransformations = function(ctx, layer, elapsed) {
-    const canvas = this.previewCanvas;
-    
-    // Get current transformation values
-    const x = layer.currentX || layer.x || 0;
-    const y = layer.currentY || layer.y || 0;
-    const scale = layer.currentScale || layer.scale || 1;
-    const rotation = layer.currentRotation || layer.rotation || 0;
-    const opacity = layer.currentOpacity !== undefined ? layer.currentOpacity : (layer.opacity !== undefined ? layer.opacity : 1);
-    
-    // Apply audio offset if present
-    if (layer.audioOffset) {
-        ctx.translate(layer.audioOffset.x, layer.audioOffset.y);
-    }
-    
-    // Apply transformations
-    ctx.translate(x, y);
-    ctx.scale(scale, scale);
-    ctx.rotate(rotation);
-    ctx.globalAlpha = opacity;
-};
-
-AdvancedQuadroCreator.prototype.renderTextAdvanced = function(ctx, layer) {
-    const text = layer.dynamicText ? this.updateDynamicText(layer) : layer.text;
-    const font = layer.font || '20px Arial';
-    const color = layer.currentHue !== undefined ? 
-        `hsl(${layer.currentHue}, 70%, 50%)` : (layer.color || '#333333');
-
-    ctx.fillStyle = color;
-    ctx.font = font;
-    ctx.textAlign = 'center';
-    ctx.fillText(text, 0, 0);
-};
-
-AdvancedQuadroCreator.prototype.renderParticleSystem = function(ctx, layer, elapsed) {
-    if (!layer.particles) {
-        layer.particles = this.initializeParticles(layer);
-    }
-    
-    this.updateParticles(layer.particles, elapsed);
-    this.drawParticles(ctx, layer.particles);
-};
-
-AdvancedQuadroCreator.prototype.initializeParticles = function(layer) {
-    const particles = [];
-    const count = layer.particleCount || 50;
-    
-    for (let i = 0; i < count; i++) {
-        particles.push({
-            x: Math.random() * this.previewCanvas.width,
-            y: Math.random() * this.previewCanvas.height,
-            vx: (Math.random() - 0.5) * 2,
-            vy: (Math.random() - 0.5) * 2,
-            life: 1,
-            maxLife: 1 + Math.random() * 2,
-            size: 2 + Math.random() * 4,
-            color: layer.particleColor || '#ffffff'
-        });
-    }
-    
-    return particles;
-};
-
-AdvancedQuadroCreator.prototype.updateParticles = function(particles, elapsed) {
-    particles.forEach(particle => {
-        particle.x += particle.vx;
-        particle.y += particle.vy;
-        particle.life -= 0.016; // Assuming 60fps
-        
-        if (particle.life <= 0) {
-            // Respawn particle
-            particle.x = Math.random() * this.previewCanvas.width;
-            particle.y = Math.random() * this.previewCanvas.height;
-            particle.life = particle.maxLife;
-        }
-    });
-};
-
-AdvancedQuadroCreator.prototype.drawParticles = function(ctx, particles) {
-    particles.forEach(particle => {
-        ctx.save();
-        ctx.globalAlpha = particle.life / particle.maxLife;
-        ctx.fillStyle = particle.color;
-        ctx.beginPath();
-        ctx.arc(particle.x, particle.y, particle.size, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.restore();
-    });
-};
-
-// Initialize advanced features when creator is ready
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(() => {
-        if (quadroCreator) {
-            quadroCreator.initializeAdvancedFeatures();
-        }
-    }, 1000);
 });

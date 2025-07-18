@@ -1,1 +1,82 @@
-{}
+{
+  "Esp_Simulator": {
+    "name": "Esp_Simulator",
+    "created_at": "2025-07-17T17:21:56.888333",
+    "data_history": [
+      {
+        "timestamp": "2025-07-18T09:43:56.866653",
+        "temperature": 22.4,
+        "humidity": 47.6,
+        "light": 871,
+        "audio": 189
+      },
+      {
+        "timestamp": "2025-07-18T09:43:57.114517",
+        "temperature": 22.4,
+        "humidity": 47.6,
+        "light": 907,
+        "audio": 180
+      },
+      {
+        "timestamp": "2025-07-18T09:43:57.359686",
+        "temperature": 22.4,
+        "humidity": 47.6,
+        "light": 907,
+        "audio": 970
+      },
+      {
+        "timestamp": "2025-07-18T09:43:57.406094",
+        "temperature": 22.4,
+        "humidity": 48.5,
+        "light": 907,
+        "audio": 970
+      },
+      {
+        "timestamp": "2025-07-18T09:43:57.611623",
+        "temperature": 22.4,
+        "humidity": 48.5,
+        "light": 882,
+        "audio": 1010
+      },
+      {
+        "timestamp": "2025-07-18T09:43:57.874897",
+        "temperature": 22.4,
+        "humidity": 48.5,
+        "light": 915,
+        "audio": 835
+      },
+      {
+        "timestamp": "2025-07-18T09:43:58.120824",
+        "temperature": 22.4,
+        "humidity": 48.5,
+        "light": 851,
+        "audio": 901
+      },
+      {
+        "timestamp": "2025-07-18T09:43:58.358496",
+        "temperature": 22.4,
+        "humidity": 48.5,
+        "light": 870,
+        "audio": 885
+      },
+      {
+        "timestamp": "2025-07-18T09:43:58.416366",
+        "temperature": 22.7,
+        "humidity": 47.9,
+        "light": 870,
+        "audio": 885
+      },
+      {
+        "timestamp": "2025-07-18T09:43:58.592269",
+        "temperature": 22.7,
+        "humidity": 47.9,
+        "light": 916,
+        "audio": 182
+      }
+    ],
+    "mac_address": "94:d9:9b:c2:25:c7",
+    "ip_address": "10.201.0.184",
+    "rssi": -50,
+    "last_update": "2025-07-18T09:43:58.592269"
+  }
+}

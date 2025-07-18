@@ -26,14 +26,6 @@
             </div>
         </header>
 
-        <!-- Pannello dispositivi -->
-        <div class="devices-panel" id="devices-panel">
-            <h3>📱 Dispositivi ESP32 Connessi</h3>
-            <div class="devices-status" id="devices-status">
-                <div class="loading">Caricamento dispositivi...</div>
-            </div>
-        </div>
-
         <!-- Statistiche rapide -->
         <div class="stats-section">
             <div class="stat-card">
@@ -50,30 +42,19 @@
                     <p>Dispositivi Online</p>
                 </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-icon">🔄</div>
-                <div class="stat-content">
-                    <h3 id="updates-count">0</h3>
-                    <p>Aggiornamenti/min</p>
-                </div>
+        </div>
+
+        <!-- Pannello dispositivi a scomparsa -->
+        <div class="devices-panel" id="devices-panel">
+            <h3>📱 Dispositivi ESP32 Connessi</h3>
+            <div class="devices-status" id="devices-status">
+                <div class="loading">Caricamento dispositivi...</div>
             </div>
         </div>
 
         <!-- Filtri e ricerca -->
         <div class="filters-section">
-            <div class="search-box">
-                <input type="text" id="search-input" placeholder="🔍 Cerca quadri..." oninput="filterQuadri()">
-            </div>
-            <div class="filter-buttons">
-                <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">Tutti</button>
-                <button class="filter-btn" data-filter="active" onclick="setFilter('active')">Attivi</button>
-                <button class="filter-btn" data-filter="recent" onclick="setFilter('recent')">Recenti</button>
-                <button class="filter-btn" data-filter="favorite" onclick="setFilter('favorite')">Preferiti</button>
-            </div>
-            <div class="view-options">
-                <button class="view-btn active" data-view="grid" onclick="setView('grid')">⊞ Griglia</button>
-                <button class="view-btn" data-view="list" onclick="setView('list')">☰ Lista</button>
-            </div>
+
         </div>
 
         <!-- Griglia dei quadri -->

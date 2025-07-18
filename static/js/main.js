@@ -9,16 +9,13 @@ class QuadriManager {
         this.quadri = [];
         this.devices = {};
         this.filteredQuadri = [];
-        this.currentFilter = 'all';
         this.currentView = 'grid';
         this.currentPreview = null;
-        this.updateCount = 0;
-        this.searchTerm = '';
         this.previewCanvas = null;
         this.previewCtx = null;
         this.animationId = null;
         this.favorites = this.loadFavorites();
-        
+
         this.init();
     }
 
@@ -27,13 +24,12 @@ class QuadriManager {
         this.setupEventListeners();
         this.setupPreviewCanvas();
         this.loadData();
-        this.startUpdateCounter();
         this.setupPeriodicRefresh();
     }
 
     setupSocket() {
         console.log('Inizializzazione WebSocket...');
-        
+
         // Controlla se io è definito
         if (typeof io === 'undefined') {
             console.error('Socket.IO non è caricato correttamente');
@@ -43,7 +39,7 @@ class QuadriManager {
 
         try {
             this.socket = io();
-            
+
             this.socket.on('connect', () => {
                 console.log('Connesso al server WebSocket');
             });
@@ -98,7 +94,7 @@ class QuadriManager {
     async loadData() {
         try {
             console.log('Caricamento dati...');
-            
+
             // Carica quadri e dispositivi in parallelo
             const [quadriResponse, devicesResponse] = await Promise.all([
                 fetch('/api/quadri'),
@@ -107,6 +103,7 @@ class QuadriManager {
 
             if (quadriResponse.ok) {
                 this.quadri = await quadriResponse.json();
+                this.filteredQuadri = [...this.quadri];
                 console.log('Quadri caricati:', this.quadri);
             } else {
                 console.error('Errore nel caricamento quadri:', quadriResponse.status);
@@ -122,8 +119,9 @@ class QuadriManager {
             this.updateStats();
             this.renderQuadri();
             this.renderDevices();
+            this.renderDevicesOverview();
             this.hideLoadingState();
-
+            
         } catch (error) {
             console.error('Errore nel caricamento dei dati:', error);
             this.showError('Errore nel caricamento dei dati');
@@ -140,18 +138,16 @@ class QuadriManager {
     updateStats() {
         const quadriCount = this.quadri.length;
         const devicesCount = Object.keys(this.devices).length;
-        
+
         document.getElementById('quadri-count').textContent = quadriCount;
         document.getElementById('devices-count').textContent = devicesCount;
-        document.getElementById('updates-count').textContent = this.updateCount;
     }
 
     renderQuadri() {
-        this.applyFilters();
-        
+
         const container = document.getElementById('quadri-grid');
         const emptyState = document.getElementById('empty-state');
-        
+
         if (this.filteredQuadri.length === 0) {
             container.innerHTML = '';
             emptyState.style.display = 'block';
@@ -159,9 +155,9 @@ class QuadriManager {
         }
 
         emptyState.style.display = 'none';
-        
+
         container.innerHTML = this.filteredQuadri.map(quadro => this.createQuadroCard(quadro)).join('');
-        
+
         // Aggiungi event listeners per ogni card
         this.attachQuadroEventListeners();
     }
@@ -170,7 +166,6 @@ class QuadriManager {
         const device = this.devices[quadro.device_id];
         const isOnline = device && device.data_count > 0;
         const isFavorite = this.favorites.includes(quadro.id);
-        const lastUpdate = device ? new Date(device.last_update).toLocaleString() : 'Mai';
 
         return `
             <div class="quadro-card ${isFavorite ? 'favorite' : ''}" data-quadro-id="${quadro.id}">
@@ -247,14 +242,14 @@ class QuadriManager {
 
     drawQuadroPreview(ctx, quadro) {
         const device = this.devices[quadro.device_id];
-        
+
         // Pulisci il canvas
         ctx.clearRect(0, 0, 350, 200);
-        
+
         // Sfondo
         ctx.fillStyle = '#001122';
         ctx.fillRect(0, 0, 350, 200);
-        
+
         if (device && device.data_count > 0) {
             // Simula l'anteprima del quadro con dati reali
             this.drawQuadroContent(ctx, quadro, device);
@@ -270,8 +265,8 @@ class QuadriManager {
     drawQuadroContent(ctx, quadro, device) {
         // Esempio di rendering basato sul template del quadro
         const template = quadro.template || 'naturale';
-        
-        switch(template) {
+
+        switch (template) {
             case 'naturale':
                 this.drawNaturalPreview(ctx, device);
                 break;
@@ -296,7 +291,7 @@ class QuadriManager {
         gradient.addColorStop(1, '#98FB98');
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, 350, 120);
-        
+
         // Montagne
         ctx.fillStyle = '#8B4513';
         ctx.beginPath();
@@ -309,11 +304,11 @@ class QuadriManager {
         ctx.lineTo(350, 120);
         ctx.closePath();
         ctx.fill();
-        
+
         // Terra
         ctx.fillStyle = '#228B22';
         ctx.fillRect(0, 120, 350, 80);
-        
+
         // Sole/Luna basato sulla luce
         const lightLevel = device.data_count > 0 ? 0.7 : 0.3;
         ctx.fillStyle = lightLevel > 0.5 ? '#FFD700' : '#F0F0F0';
@@ -325,21 +320,21 @@ class QuadriManager {
     drawGeometricPreview(ctx, device) {
         ctx.fillStyle = '#1a1a1a';
         ctx.fillRect(0, 0, 350, 200);
-        
+
         // Forme geometriche colorate
         const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57'];
-        
+
         for (let i = 0; i < 5; i++) {
             ctx.fillStyle = colors[i];
             const x = 50 + i * 50;
             const y = 70;
             const size = 30 + Math.sin(Date.now() * 0.001 + i) * 5;
-            
+
             if (i % 2 === 0) {
-                ctx.fillRect(x - size/2, y - size/2, size, size);
+                ctx.fillRect(x - size / 2, y - size / 2, size, size);
             } else {
                 ctx.beginPath();
-                ctx.arc(x, y, size/2, 0, 2 * Math.PI);
+                ctx.arc(x, y, size / 2, 0, 2 * Math.PI);
                 ctx.fill();
             }
         }
@@ -348,7 +343,7 @@ class QuadriManager {
     drawMinimalistPreview(ctx, device) {
         ctx.fillStyle = '#f5f5f5';
         ctx.fillRect(0, 0, 350, 200);
-        
+
         // Linee minimaliste
         ctx.strokeStyle = '#333333';
         ctx.lineWidth = 2;
@@ -356,12 +351,12 @@ class QuadriManager {
         ctx.moveTo(175, 0);
         ctx.lineTo(175, 200);
         ctx.stroke();
-        
+
         ctx.beginPath();
         ctx.moveTo(0, 100);
         ctx.lineTo(350, 100);
         ctx.stroke();
-        
+
         // Elemento centrale
         ctx.fillStyle = '#667eea';
         ctx.beginPath();
@@ -376,12 +371,12 @@ class QuadriManager {
         gradient.addColorStop(1, '#000080');
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, 350, 200);
-        
+
         // Onde
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 2;
         ctx.globalAlpha = 0.3;
-        
+
         for (let i = 0; i < 2; i++) {
             ctx.beginPath();
             for (let x = 0; x < 350; x++) {
@@ -394,9 +389,9 @@ class QuadriManager {
             }
             ctx.stroke();
         }
-        
+
         ctx.globalAlpha = 1;
-        
+
         // Bolle
         ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
         for (let i = 0; i < 5; i++) {
@@ -411,7 +406,7 @@ class QuadriManager {
     drawDefaultPreview(ctx, device) {
         ctx.fillStyle = '#2a2a2a';
         ctx.fillRect(0, 0, 350, 200);
-        
+
         ctx.fillStyle = '#ffffff';
         ctx.font = '16px Arial';
         ctx.textAlign = 'center';
@@ -420,7 +415,8 @@ class QuadriManager {
 
     renderDevices() {
         const container = document.getElementById('devices-status');
-        
+        if (!container) return;
+
         if (Object.keys(this.devices).length === 0) {
             container.innerHTML = '<div class="loading">Nessun dispositivo connesso</div>';
             return;
@@ -428,8 +424,7 @@ class QuadriManager {
 
         container.innerHTML = Object.entries(this.devices).map(([id, device]) => {
             const isOnline = device.data_count > 0;
-            const lastUpdate = device.last_update ? new Date(device.last_update).toLocaleString() : 'Mai';
-            
+
             return `
                 <div class="device-status-card">
                     <div class="device-header">
@@ -457,17 +452,43 @@ class QuadriManager {
                             <span class="sensor-value">--</span>
                         </div>
                     </div>
-                    <div style="margin-top: 10px; font-size: 0.8em; color: #718096;">
-                        Ultimo aggiornamento: ${lastUpdate}
-                    </div>
+
                 </div>
             `;
         }).join('');
     }
 
+    renderDevicesOverview() {
+        const overview = document.getElementById('devices-overview-list');
+        if (!overview) return;
+        if (Object.keys(this.devices).length === 0) {
+            overview.innerHTML = '<div class="loading">Nessun dispositivo connesso</div>';
+            return;
+        }
+        overview.innerHTML = Object.entries(this.devices).map(([id, device]) => {
+            const isOnline = device.data_count > 0;
+            const last = device.last_update
+                ? new Date(device.last_update).toLocaleString()
+                : 'Mai';
+            return `
+      <div class="device-status-card">
+        <div class="device-header">
+          <div class="device-name">${id}</div>
+          <div class="device-status ${isOnline ? 'online' : 'offline'}">
+            ${isOnline ? '🟢 Online' : '🔴 Offline'}
+          </div>
+        </div>
+        <div class="device-location">📍 ${device.location}</div>
+        <div style="margin-top:10px;font-size:0.8em;color:#718096;">
+          Ultimo aggiornamento: ${last}
+        </div>
+      </div>
+    `;
+        }).join('');
+    }
+
     handleDeviceUpdate(data) {
-        this.updateCount++;
-        
+
         // Aggiorna le letture del dispositivo nella UI
         const deviceCards = document.querySelectorAll('.device-status-card');
         deviceCards.forEach(card => {
@@ -482,50 +503,17 @@ class QuadriManager {
                 }
             }
         });
-        
+
         // Aggiorna l'anteprima se è aperta
         if (this.currentPreview) {
             this.updatePreviewCanvas();
         }
-        
+
         // Aggiorna le stats
         this.updateStats();
-    }
+        this.renderQuadri();
 
-    applyFilters() {
-        let filtered = [...this.quadri];
 
-        // Filtro per ricerca
-        if (this.searchTerm) {
-            filtered = filtered.filter(quadro => 
-                quadro.name.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-                (this.devices[quadro.device_id] && 
-                 this.devices[quadro.device_id].location.toLowerCase().includes(this.searchTerm.toLowerCase()))
-            );
-        }
-
-        // Filtro per categoria
-        switch(this.currentFilter) {
-            case 'active':
-                filtered = filtered.filter(quadro => {
-                    const device = this.devices[quadro.device_id];
-                    return device && device.data_count > 0;
-                });
-                break;
-            case 'recent':
-                filtered = filtered.filter(quadro => {
-                    const created = new Date(quadro.created_at);
-                    const now = new Date();
-                    const diffDays = (now - created) / (1000 * 60 * 60 * 24);
-                    return diffDays <= 7;
-                });
-                break;
-            case 'favorite':
-                filtered = filtered.filter(quadro => this.favorites.includes(quadro.id));
-                break;
-        }
-
-        this.filteredQuadri = filtered;
     }
 
     previewQuadro(quadroId) {
@@ -533,23 +521,23 @@ class QuadriManager {
         if (!quadro) return;
 
         this.currentPreview = quadro;
-        
+
         // Popola il modal
         document.getElementById('preview-title').textContent = quadro.name;
-        document.getElementById('preview-device').textContent = 
+        document.getElementById('preview-device').textContent =
             this.devices[quadro.device_id] ? this.devices[quadro.device_id].location : 'Dispositivo non trovato';
-        
+
         // Imposta il pulsante fullscreen
         document.getElementById('view-fullscreen-btn').onclick = () => {
             this.viewQuadroFullscreen(quadroId);
         };
-        
+
         // Aggiorna l'anteprima
         this.updatePreviewCanvas();
-        
+
         // Mostra il modal
         document.getElementById('preview-modal').style.display = 'block';
-        
+
         // Avvia l'animazione
         this.startPreviewAnimation();
     }
@@ -558,15 +546,15 @@ class QuadriManager {
         if (!this.currentPreview || !this.previewCtx) return;
 
         const device = this.devices[this.currentPreview.device_id];
-        
+
         this.previewCtx.clearRect(0, 0, 600, 400);
-        
+
         // Scala il disegno per il canvas più grande
         this.previewCtx.save();
-        this.previewCtx.scale(600/350, 400/200);
+        this.previewCtx.scale(600 / 350, 400 / 200);
         this.drawQuadroContent(this.previewCtx, this.currentPreview, device);
         this.previewCtx.restore();
-        
+
         // Aggiorna i valori dei sensori
         if (device) {
             document.getElementById('preview-temp').textContent = '20.5°C';
@@ -611,7 +599,7 @@ class QuadriManager {
 
         // Mostra modal di conferma
         document.getElementById('delete-modal').style.display = 'block';
-        
+
         document.getElementById('confirm-delete-btn').onclick = async () => {
             try {
                 const response = await fetch(`/api/quadri/${quadroId}`, {
@@ -640,7 +628,7 @@ class QuadriManager {
         } else {
             this.favorites.splice(index, 1);
         }
-        
+
         this.saveFavorites();
         this.renderQuadri();
     }
@@ -661,12 +649,6 @@ class QuadriManager {
         }
     }
 
-    startUpdateCounter() {
-        setInterval(() => {
-            this.updateCount = 0;
-            this.updateStats();
-        }, 60000); // Reset ogni minuto
-    }
 
     setupPeriodicRefresh() {
         // Ricarica i dati ogni 30 secondi
@@ -680,12 +662,12 @@ class QuadriManager {
         const date = new Date(dateString);
         const diffMs = now - date;
         const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-        
+
         if (diffDays === 0) return 'Oggi';
         if (diffDays === 1) return 'Ieri';
         if (diffDays < 7) return `${diffDays}g fa`;
-        if (diffDays < 30) return `${Math.floor(diffDays/7)}s fa`;
-        return `${Math.floor(diffDays/30)}m fa`;
+        if (diffDays < 30) return `${Math.floor(diffDays / 7)}s fa`;
+        return `${Math.floor(diffDays / 30)}m fa`;
     }
 
     showError(message) {
@@ -704,9 +686,9 @@ class QuadriManager {
             z-index: 1001;
             animation: slideIn 0.3s ease-out;
         `;
-        
+
         document.body.appendChild(errorDiv);
-        
+
         setTimeout(() => {
             errorDiv.remove();
         }, 5000);
@@ -720,45 +702,10 @@ class QuadriManager {
 let quadriManager;
 
 // Inizializzazione
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     quadriManager = new QuadriManager();
 });
 
-// Filtri e ricerca
-function setFilter(filter) {
-    quadriManager.currentFilter = filter;
-    
-    // Aggiorna l'interfaccia
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    document.querySelector(`[data-filter="${filter}"]`).classList.add('active');
-    
-    quadriManager.renderQuadri();
-}
-
-function setView(view) {
-    quadriManager.currentView = view;
-    
-    // Aggiorna l'interfaccia
-    document.querySelectorAll('.view-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    document.querySelector(`[data-view="${view}"]`).classList.add('active');
-    
-    // Aggiorna la griglia
-    const grid = document.getElementById('quadri-grid');
-    if (view === 'list') {
-        grid.classList.add('list-view');
-    } else {
-        grid.classList.remove('list-view');
-    }
-}
-
-function filterQuadri() {
-    quadriManager.searchTerm = document.getElementById('search-input').value;
-    quadriManager.renderQuadri();
-}
 
 // Gestione dispositivi
 function toggleDevicesPanel() {
@@ -775,15 +722,15 @@ function exportDevicesConfig() {
         devices: quadriManager.devices,
         timestamp: new Date().toISOString()
     };
-    
+
     const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    
+
     const a = document.createElement('a');
     a.href = url;
     a.download = 'devices_config.json';
     a.click();
-    
+
     URL.revokeObjectURL(url);
 }
 
@@ -833,11 +780,10 @@ function showDeviceModal() {
 
 function renderDetailedDevices() {
     const container = document.getElementById('device-list-detailed');
-    
+
     container.innerHTML = Object.entries(quadriManager.devices).map(([id, device]) => {
         const isOnline = device.data_count > 0;
-        const lastUpdate = device.last_update ? new Date(device.last_update).toLocaleString() : 'Mai';
-        
+
         return `
             <div class="device-detailed-card">
                 <div class="device-detailed-header">
@@ -854,10 +800,6 @@ function renderDetailedDevices() {
                     <div class="device-info-item">
                         <h5>Dati Ricevuti</h5>
                         <p>${device.data_count || 0} campioni</p>
-                    </div>
-                    <div class="device-info-item">
-                        <h5>Ultimo Aggiornamento</h5>
-                        <p>${lastUpdate}</p>
                     </div>
                     <div class="device-info-item">
                         <h5>Quadri Collegati</h5>

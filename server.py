@@ -10,6 +10,10 @@ from datetime import datetime, timedelta
 from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, send_file
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
+from datetime import datetime, timedelta
+
+# Soglia oltre cui considerare il device offline
+ONLINE_THRESHOLD = timedelta(seconds=2)
 
 # =========== CONFIG ==========
 DATA_RETENTION_MINUTES = 3
@@ -89,7 +93,7 @@ def setup_access_point():
         print("Access Point setup requires root privileges.")
         return
 
-        ap_conf = {'ssid': 'QuadroVivente_AP', 'passphrase': 'quadro2025'}
+    ap_conf = {'ssid': 'QuadroVivente_AP', 'passphrase': 'quadro2025'}
 
     hostapd_conf = f"""
 interface=wlan0
@@ -123,11 +127,7 @@ def home():
 def home_redirect():
     return redirect('/')
 
-@app.route('/favicon.ico')
-def favicon():
-    return send_from_directory('static', 'favicon.ico', mimetype='image/vnd.microsoft.icon')
-
-@app.route('/quadri_nuovi', endpoint='show_quadri_nuovi')
+@app.route('/templates/create_paint.html')
 def create_quadro():
     devices = {}
     for device_id, device_data in connected_devices.items():
@@ -135,7 +135,6 @@ def create_quadro():
             latest_data = device_data['data_history'][-1]
             devices[device_id] = {
                 'name': device_data.get('name', device_id),
-                'location': device_data.get('location', 'Posizione non specificata'),
                 'data': {
                     't': latest_data.get('temperature', 0),
                     'h': latest_data.get('humidity', 0),
@@ -144,16 +143,7 @@ def create_quadro():
                 }
             }
 
-    return render_template('/templates/create_paint.html', devices=devices)
-
-# GET dettagli di un singolo quadro
-@app.route('/api/quadri/<quadro_id>', methods=['GET'])
-def get_quadro(quadro_id):
-    quadro = quadri_config.get(quadro_id)
-    if not quadro:
-        return jsonify({'error': 'Quadro non trovato'}), 404
-    return jsonify(quadro), 200
-
+    return render_template('create_paint.html', devices=devices)
 
 @app.route('/quadro/<quadro_id>')
 def view_quadro(quadro_id):
@@ -168,7 +158,6 @@ def view_quadro(quadro_id):
                          quadro_id=quadro_id,
                          quadro_name=quadro.get('name', 'Quadro Vivente'),
                          device_id=device_id,
-                         device_location=device_data.get('location', 'Posizione non specificata'),
                          template=quadro.get('template', 'naturale'),
                          sensors_config=json.dumps(quadro.get('sensors_config', {})))
 
@@ -177,18 +166,23 @@ def config():
     return render_template('config.html')
 
 # =========== API ENDPOINTS ==========
+
 @app.route('/api/data', methods=['POST'])
+@app.route('/api/receive_data', methods=['POST'])
 def receive_data():
     try:
         data = request.get_json()
         if not data:
             return jsonify({'error': 'No data received'}), 400
-        
-        device_id = data.get('device_id') or data.get('id')  # Support both formats
+
+        device_id = data.get('device_id') or data.get('id')
         if not device_id:
             return jsonify({'error': 'Missing device_id'}), 400
-        
-        # Inizializza il dispositivo se non esiste
+
+        # ricarica dal file per avere lo storico più recente
+        connected_devices = load_json(DATA_FILE, iso_dates=True)
+
+        # se è un nuovo device, inizializza struttura
         if device_id not in connected_devices:
             connected_devices[device_id] = {
                 'name': device_id,
@@ -196,61 +190,114 @@ def receive_data():
                 'created_at': datetime.now(),
                 'data_history': []
             }
-        
-        # Aggiorna i dati del dispositivo
         device = connected_devices[device_id]
-        device['last_update'] = datetime.now()
-        
-        # Crea entry per la cronologia
+
+        # prendi l'ultimo valore da history se esiste
+        prev = device['data_history'][-1] if device['data_history'] else {}
+        prev_temp  = prev.get('temperature', 0.0)
+        prev_hum   = prev.get('humidity',    0.0)
+        prev_light = prev.get('light',       0)
+        prev_audio = prev.get('audio',       0)
+
+        # estrai campi presenti
+        raw_t = data.get('temperature', data.get('t',    None))
+        raw_h = data.get('humidity',    data.get('h',    None))
+        raw_l = data.get('light',       data.get('l',    None))
+        raw_a = data.get('audio',       data.get('a',    None))
+        if raw_a is None and 'audio_raw' in data:
+            raw_a = max(data['audio_raw'])
+
+        # mantieni valore precedente se mancante
+        temperature = float(raw_t) if raw_t is not None else prev_temp
+        humidity    = float(raw_h) if raw_h is not None else prev_hum
+        light       = int(raw_l)   if raw_l is not None else prev_light
+        audio       = int(raw_a)   if raw_a is not None else prev_audio
+
+        # crea la nuova entry
         timestamp = datetime.now()
         data_entry = {
-            'timestamp': timestamp,
-            'temperature': float(data.get('temperature', data.get('t', 0))),
-            'humidity': float(data.get('humidity', data.get('h', 0))),
-            'light': int(data.get('light', data.get('l', 0))),
-            'audio': int(data.get('audio', data.get('a', 0)))
+            'timestamp':   timestamp,
+            'temperature': temperature,
+            'humidity':    humidity,
+            'light':       light,
+            'audio':       audio
         }
-        
+
+        # aggiorna history: append e trim a ultimi 10
         device['data_history'].append(data_entry)
-        
-        # Mantieni solo gli ultimi dati (per evitare memoria piena)
-        if len(device['data_history']) > 1000:
-            device['data_history'] = device['data_history'][-500:]
-        
-        # Emetti aggiornamento via WebSocket (con timestamp serializzato)
+        device['data_history'] = device['data_history'][-10:]
+        device['last_update'] = timestamp
+
+        # salva su file
+        save_json(DATA_FILE, connected_devices, iso_dates=True)
+
+        # emetti via WebSocket
         emit_entry = {
-            'temperature': data_entry['temperature'],
-            'humidity': data_entry['humidity'],
-            'light': data_entry['light'],
-            'audio': data_entry['audio'],
-            'timestamp': timestamp.isoformat()
+            'temperature': temperature,
+            'humidity':    humidity,
+            'light':       light,
+            'audio':       audio,
+            'timestamp':   timestamp.isoformat()
         }
         socketio.emit('device_data_update', {
             'device_id': device_id,
             'data': emit_entry
         })
-            
-        print(f"Dati ricevuti da {device_id}: T={data_entry['temperature']:.1f}°C, H={data_entry['humidity']:.1f}%, L={data_entry['light']}, A={data_entry['audio']}")
-        
-        return jsonify({'status': 'success', 'message': 'Data received'}), 200
-        
+        print(f"Dati ricevuti da {device_id}: T={temperature:.1f}°C, H={humidity:.1f}%, L={light}, A={audio}")
+        return jsonify({'status': 'success'}), 200
+
     except Exception as e:
         print(f"Errore nella ricezione dati: {e}")
         return jsonify({'error': str(e)}), 500
 
+
+
+@app.route('/api/device_register', methods=['POST'])
+def api_device_register():
+    data = request.get_json() or {}
+    device_id = data.get('device_id')
+    if not device_id:
+        return jsonify({'error': 'Missing device_id'}), 400
+
+    # crea o aggiorna i metadati del device
+    d = connected_devices.get(device_id, {
+        'name': device_id,
+        'created_at': datetime.now(),
+        'data_history': []
+    })
+    # salva metadati di rete
+    for field in ('mac_address', 'ip_address', 'rssi'):
+        if field in data:
+            d[field] = data[field]
+    # se è nuovo, aggiungilo
+    connected_devices[device_id] = d
+    save_json(DATA_FILE, connected_devices, iso_dates=True)
+
+    return jsonify({'status':'success','message':'Device registered'}), 200
+
+
 @app.route('/api/devices', methods=['GET'])
 def get_devices():
-    devices = {}
+    now = datetime.now()
+    devices_out = {}
+
     for device_id, device_data in connected_devices.items():
-        devices[device_id] = {
-            'name': device_data.get('name', device_id),
-            'location': device_data.get('location', 'Posizione non specificata'),
-            'last_update': device_data.get('last_update', datetime.now()).isoformat() if device_data.get('last_update') else None,
-            'data_count': len(device_data.get('data_history', [])),
-            'created_at': device_data.get('created_at', datetime.now()).isoformat() if device_data.get('created_at') else None
+        last = device_data.get('last_update')
+        # calcola online/offline
+        is_online = False
+        if isinstance(last, datetime):
+            is_online = (now - last) <= ONLINE_THRESHOLD
+
+        devices_out[device_id] = {
+            'name':         device_data.get('name', device_id),
+            'online':       is_online,
+            'last_update':  last.isoformat() if isinstance(last, datetime) else None,
+            'data_count':   len(device_data.get('data_history', [])),
+            'created_at':   device_data.get('created_at').isoformat() if isinstance(device_data.get('created_at'), datetime) else None
         }
-    
-    return jsonify(devices)
+
+    return jsonify(devices_out), 200
+
 
 @app.route('/api/quadri', methods=['GET'])
 def get_quadri():
@@ -267,8 +314,8 @@ def get_quadri():
     
     return jsonify(quadri)
 
-@app.route('/api/quadri', methods=['POST'], endpoint='api_create_quadro')
-def create_quadro():
+@app.route('/api/quadri', methods=['POST'])
+def create_quadro_api():
     try:
         data = request.get_json()
         if not data:
@@ -280,7 +327,10 @@ def create_quadro():
             'name': data.get('name', 'Quadro Senza Nome'),
             'device_id': data.get('device_id', ''),
             'template': data.get('template', 'naturale'),
+            'triggers': data.get('triggers', []),
+            'layers': data.get('layers', []),
             'sensors_config': data.get('sensors_config', {}),
+            'settings': data.get('settings', {}),
             'created_at': datetime.now().isoformat()
         }
         
@@ -297,6 +347,13 @@ def create_quadro():
         print(f"Errore nella creazione del quadro: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/quadri/<quadro_id>', methods=['GET'])
+def get_quadro(quadro_id):
+    quadro = quadri_config.get(quadro_id)
+    if not quadro:
+        return jsonify({'error': 'Quadro non trovato'}), 404
+    return jsonify(quadro), 200
+
 @app.route('/api/quadri/<quadro_id>', methods=['DELETE'])
 def delete_quadro(quadro_id):
     try:
@@ -310,74 +367,6 @@ def delete_quadro(quadro_id):
         print(f"Errore nell'eliminazione del quadro: {e}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/templates', methods=['GET'])
-def get_templates():
-    templates = {
-        'naturale': {
-            'name': 'Paesaggio Naturale',
-            'description': 'Un paesaggio naturale con cielo, montagne e vegetazione'
-        },
-        'geometrico': {
-            'name': 'Forme Geometriche',
-            'description': 'Forme geometriche colorate e animate'
-        },
-        'minimalista': {
-            'name': 'Stile Minimalista',
-            'description': 'Design pulito e minimalista'
-        },
-        'acquatico': {
-            'name': 'Mondo Acquatico',
-            'description': 'Ambiente acquatico con onde e bolle'
-        }
-    }
-    return jsonify(templates)
-
-@app.route('/api/animations', methods=['GET'])
-def get_animations():
-    animations = {
-        'temperature': {
-            'color_change': {
-                'name': 'Cambio Colore',
-                'description': 'Cambia colore in base alla temperatura'
-            },
-            'flame_effect': {
-                'name': 'Effetto Fiamma',
-                'description': 'Particelle di fuoco che si intensificano'
-            }
-        },
-        'humidity': {
-            'water_drops': {
-                'name': 'Gocce d\'Acqua',
-                'description': 'Gocce che cadono in base all\'umidità'
-            },
-            'mist_effect': {
-                'name': 'Effetto Nebbia',
-                'description': 'Nebbia che si intensifica'
-            }
-        },
-        'light': {
-            'brightness_change': {
-                'name': 'Cambio Luminosità',
-                'description': 'Cambia luminosità generale'
-            },
-            'day_night_cycle': {
-                'name': 'Ciclo Giorno/Notte',
-                'description': 'Simula il passaggio tra giorno e notte'
-            }
-        },
-        'audio': {
-            'pulse_effect': {
-                'name': 'Effetto Pulsazione',
-                'description': 'Pulsazione sincronizzata con l\'audio'
-            },
-            'wave_animation': {
-                'name': 'Animazione Onde',
-                'description': 'Onde che si muovono con l\'audio'
-            }
-        }
-    }
-    return jsonify(animations)
-
 # =========== SOCKET.IO ==========
 @socketio.on('connect')
 def handle_connect():
@@ -387,11 +376,6 @@ def handle_connect():
 def handle_disconnect():
     print(f"Client disconnected: {request.sid}")
 
-# =========== TEMPLATES ==========
-@app.route('/templates/<path:filename>')
-def serve_template(filename):
-    return send_from_directory('templates', filename)
-
 # =========== STATIC FILES ==========
 @app.route('/static/<path:filename>')
 def serve_static(filename):
@@ -399,9 +383,6 @@ def serve_static(filename):
 
 # =========== SERVER START ==========
 if __name__ == '__main__':
-    # Commenta questa riga se non sei root
-    # setup_access_point()
-
     # Carica i dati esistenti
     connected_devices = load_json(DATA_FILE, iso_dates=True)
     quadri_config = load_json(QUADRI_FILE, iso_dates=False)
