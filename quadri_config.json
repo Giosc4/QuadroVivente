@@ -1,150 +1,203 @@
 {
-  "79e05e48-afd3-4ea6-b820-bdd0327d4c32": {
-    "id": "79e05e48-afd3-4ea6-b820-bdd0327d4c32",
-    "name": "SPAZIO 2",
+  "2e55a78d-41a5-4f37-ae9b-175b88c0d414": {
+    "id": "2e55a78d-41a5-4f37-ae9b-175b88c0d414",
+    "name": "test 1",
     "device_id": "Esp_Giovanni",
-    "template": "naturale",
-    "triggers": [],
-    "layers": [],
-    "sensors_config": {
-      "temperature": {
-        "option": "spazio",
-        "config": {
-          "effects": [
+    "template": "personalizzato",
+    "triggers": {
+      "temperature": [
+        {
+          "sensor": "temperature",
+          "condition": "range",
+          "params": {
+            "min": 0,
+            "max": 15
+          },
+          "actions": [
             {
-              "condition": "below",
-              "threshold": 18,
-              "effect": "dark_nebula",
-              "intensity": "inverse"
-            },
+              "type": "change-background",
+              "backgroundType": "solid",
+              "color1": "#2148f2",
+              "color2": "#e8d559",
+              "direction": "horizontal",
+              "color": "#4b2ce8"
+            }
+          ]
+        },
+        {
+          "sensor": "temperature",
+          "condition": "range",
+          "params": {
+            "min": 15,
+            "max": 35
+          },
+          "actions": [
             {
-              "condition": "above",
-              "threshold": 25,
-              "effect": "bright_galaxy",
-              "intensity": "direct"
+              "type": "change-background",
+              "backgroundType": "solid",
+              "color": "#e3de35"
+            }
+          ]
+        },
+        {
+          "sensor": "temperature",
+          "condition": "range",
+          "params": {
+            "min": 35,
+            "max": 100
+          },
+          "actions": [
+            {
+              "type": "change-background",
+              "backgroundType": "solid",
+              "color": "#d00b0b"
             }
           ]
         }
-      },
-      "humidity": {
-        "option": "spazio",
-        "config": {
-          "effects": [
+      ],
+      "humidity": [
+        {
+          "sensor": "humidity",
+          "condition": "range",
+          "params": {
+            "min": 0,
+            "max": 40
+          },
+          "actions": [
             {
-              "condition": "any",
-              "effect": "cosmic_dust",
-              "intensity": "direct"
+              "type": "add-svg",
+              "svgObject": "leaf.svg",
+              "quantity": 16,
+              "size": 100,
+              "opacity": 100,
+              "rotation": 0
+            }
+          ]
+        },
+        {
+          "sensor": "humidity",
+          "condition": "range",
+          "params": {
+            "min": 41,
+            "max": 70
+          },
+          "actions": [
+            {
+              "type": "add-svg",
+              "svgObject": "cloud.svg",
+              "quantity": 12,
+              "size": 100,
+              "opacity": 100,
+              "rotation": 0
+            }
+          ]
+        },
+        {
+          "sensor": "humidity",
+          "condition": "range",
+          "params": {
+            "min": 70,
+            "max": 100
+          },
+          "actions": [
+            {
+              "type": "add-svg",
+              "svgObject": "cloud-rain.svg",
+              "quantity": 23,
+              "size": 43,
+              "opacity": 100,
+              "rotation": 124
             }
           ]
         }
-      },
-      "light": {
-        "option": "spazio",
-        "config": {
-          "effects": [
+      ],
+      "light": [
+        {
+          "sensor": "light",
+          "condition": "range",
+          "params": {
+            "min": 0,
+            "max": 1300
+          },
+          "actions": [
             {
-              "condition": "below",
-              "threshold": 500,
-              "effect": "deep_space",
-              "intensity": "inverse"
-            },
+              "type": "add-filter",
+              "filter": "brightness",
+              "intensity": 47
+            }
+          ]
+        },
+        {
+          "sensor": "light",
+          "condition": "range",
+          "params": {
+            "min": 1301,
+            "max": 2000
+          },
+          "actions": [
             {
-              "condition": "above",
-              "threshold": 1500,
-              "effect": "star_burst",
-              "intensity": "direct"
+              "type": "add-filter",
+              "filter": "brightness",
+              "intensity": 100
+            }
+          ]
+        },
+        {
+          "sensor": "light",
+          "condition": "range",
+          "params": {
+            "min": 2000,
+            "max": 5000
+          },
+          "actions": [
+            {
+              "type": "add-filter",
+              "filter": "brightness",
+              "intensity": 158
             }
           ]
         }
-      },
-      "audio": {
-        "option": "spazio",
-        "config": {
-          "effects": [
+      ],
+      "audio": [
+        {
+          "sensor": "audio",
+          "condition": "range",
+          "params": {
+            "min": 0,
+            "max": 1300
+          },
+          "actions": [
             {
-              "condition": "any",
-              "effect": "shooting_comets",
-              "intensity": "direct"
+              "type": "add-animation",
+              "animation": "wave",
+              "duration": 1000,
+              "easing": "ease",
+              "loop": true
+            }
+          ]
+        },
+        {
+          "sensor": "audio",
+          "condition": "range",
+          "params": {
+            "min": 1300,
+            "max": 2000
+          },
+          "actions": [
+            {
+              "type": "add-animation",
+              "animation": "pulse",
+              "duration": 1000,
+              "easing": "ease-in",
+              "loop": true
             }
           ]
         }
-      }
+      ]
     },
-    "settings": {},
-    "created_at": "2025-07-17T11:05:48.074270"
-  },
-  "80f53b1e-819d-45d4-9b78-488f228af57b": {
-    "id": "80f53b1e-819d-45d4-9b78-488f228af57b",
-    "name": "33",
-    "device_id": "Esp_Giovanni",
-    "template": "naturale",
-    "triggers": [],
     "layers": [],
-    "sensors_config": {
-      "temperature": {
-        "option": "oceano",
-        "config": {
-          "effects": [
-            {
-              "condition": "below",
-              "threshold": 18,
-              "effect": "cold_fish",
-              "intensity": "inverse"
-            },
-            {
-              "condition": "above",
-              "threshold": 25,
-              "effect": "warm_fish",
-              "intensity": "direct"
-            }
-          ]
-        }
-      },
-      "humidity": {
-        "option": "oceano",
-        "config": {
-          "effects": [
-            {
-              "condition": "any",
-              "effect": "water_bubbles",
-              "intensity": "direct"
-            }
-          ]
-        }
-      },
-      "light": {
-        "option": "oceano",
-        "config": {
-          "effects": [
-            {
-              "condition": "below",
-              "threshold": 500,
-              "effect": "deep_ocean",
-              "intensity": "inverse"
-            },
-            {
-              "condition": "above",
-              "threshold": 1500,
-              "effect": "surface_light",
-              "intensity": "direct"
-            }
-          ]
-        }
-      },
-      "audio": {
-        "option": "oceano",
-        "config": {
-          "effects": [
-            {
-              "condition": "any",
-              "effect": "swimming_fish",
-              "intensity": "direct"
-            }
-          ]
-        }
-      }
-    },
+    "sensors_config": {},
     "settings": {},
-    "created_at": "2025-07-17T11:50:07.966415"
+    "created_at": "2025-07-18T13:41:05.374430"
   }
 }

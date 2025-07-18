@@ -8,7 +8,6 @@ class QuadroCreator {
         this.socket = null;
         this.devices = {};
         this.selectedDevice = null;
-        this.selectedTemplate = 'natura';
         this.previewCanvas = null;
         this.previewCtx = null;
         this.animationId = null;
@@ -23,217 +22,52 @@ class QuadroCreator {
             audio: 850
         };
 
-        // Configurazione sensori
-        this.sensorsConfig = {
-            temperature: { animations: {} },
-            humidity: { animations: {} },
-            light: { animations: {} },
-            audio: { animations: {} }
+        // Configurazione triggers e azioni
+        this.triggers = {
+            temperature: [],
+            humidity: [],
+            light: [],
+            audio: []
         };
 
-        // Configurazione personalizzata
-        this.customConfig = {
-            background: 'gradient',
-            elements: []
-        };
+        // File caricati
+        this.uploadedFiles = [];
 
-        // Templates predefiniti
-        this.predefinedTemplates = {
-            natura: this.getNaturaTemplate(),
-            spazio: this.getSpazioTemplate(),
-            oceano: this.getOceanoTemplate()
-        };
+        // Oggetti SVG predefiniti disponibili
+        this.availableSVGs = [
+            'bubble.svg', 'cloud-rain.svg', 'cloud.svg', 'comet.svg', 'coral.svg',
+            'fish.svg', 'galaxy.svg', 'leaf.svg', 'planet.svg', 'rocket.svg',
+            'seaweed.svg', 'snowflake.svg', 'sparkles.svg', 'star.svg', 'sun.svg',
+            'wave.svg', 'waves.svg'
+        ];
 
-        // Oggetti SVG disponibili
-        this.availableSVGs = [];
+        // Animazioni disponibili
+        this.availableAnimations = [
+            'fade', 'slide', 'bounce', 'rotate', 'scale', 'float',
+            'pulse', 'wave', 'morph', 'sparkle', 'spiral'
+        ];
+
+        // Filtri visivi disponibili
+        this.availableFilters = [
+            'blur', 'brightness', 'contrast', 'saturation', 'hue-rotate',
+            'sepia', 'grayscale', 'invert'
+        ];
+
+        // Modal state
+        this.currentTrigger = null;
+        this.currentAction = null;
+        this.editingTriggerIndex = -1;
+        this.editingActionIndex = -1;
 
         this.init();
-    }
-
-    // Templates predefiniti
-    getNaturaTemplate() {
-        return {
-            temperature: {
-                animations: {
-                    svg_objects: {
-                        object: 'snowflake.svg',
-                        count: 15,
-                        animation: 'snow_fall',
-                        condition: 'below',
-                        threshold: 15,
-                        alternativeObject: 'sun.svg',
-                        alternativeAnimation: 'sun_rays',
-                        alternativeCondition: 'above',
-                        alternativeThreshold: 25
-                    }
-                }
-            },
-            humidity: {
-                animations: {
-                    svg_objects: {
-                        object: 'leaf.svg',
-                        count: 10,
-                        animation: 'falling_leaves',
-                        condition: 'below',
-                        threshold: 40,
-                        levels: [
-                            { threshold: 40, object: 'leaf.svg', animation: 'falling_leaves' },
-                            { threshold: 60, object: 'bird.svg', animation: 'flying_birds' },
-                            { threshold: 80, object: 'cloud-rain.svg', animation: 'rain_fall' }
-                        ]
-                    }
-                }
-            },
-            light: {
-                animations: {
-                    color_change: {
-                        type: 'variable',
-                        condition: 'range',
-                        threshold_min: 0,
-                        threshold_max: 4095,
-                        color_low: '#0a0a1e',
-                        color_high: '#87ceeb',
-                        gradient: true,
-                        levels: ['#0a0a1e', '#4a5568', '#87ceeb', '#ffd93d']
-                    },
-                    svg_objects: {
-                        object: 'star.svg',
-                        count: 20,
-                        animation: 'twinkle',
-                        condition: 'below',
-                        threshold: 500
-                    }
-                }
-            },
-            audio: {
-                animations: {
-                    waves: {
-                        type: 'sea_waves',
-                        sensitivity: 5,
-                        count: 3,
-                        origin: 'bottom'
-                    }
-                }
-            }
-        };
-    }
-
-    getSpazioTemplate() {
-        return {
-            temperature: {
-                animations: {
-                    color_change: {
-                        type: 'variable',
-                        condition: 'range',
-                        threshold_min: 0,
-                        threshold_max: 40,
-                        color_low: '#001f3f',
-                        color_high: '#ff6b6b'
-                    }
-                }
-            },
-            humidity: {
-                animations: {
-                    svg_objects: {
-                        object: 'asteroid.svg',
-                        count: 5,
-                        animation: 'floating',
-                        condition: 'range',
-                        threshold_min: 30,
-                        threshold_max: 70,
-                        countVariable: true
-                    }
-                }
-            },
-            light: {
-                animations: {
-                    color_change: {
-                        type: 'variable',
-                        condition: 'range',
-                        threshold_min: 0,
-                        threshold_max: 4095,
-                        color_low: '#000814',
-                        color_high: '#1e3c72',
-                        opacity: true
-                    }
-                }
-            },
-            audio: {
-                animations: {
-                    waves: {
-                        type: 'solar_waves',
-                        sensitivity: 7,
-                        count: 5,
-                        origin: 'object',
-                        objectId: 'sun',
-                        color: '#ffd700'
-                    }
-                }
-            }
-        };
-    }
-
-    getOceanoTemplate() {
-        return {
-            temperature: {
-                animations: {
-                    svg_objects: {
-                        object: 'fish.svg',
-                        count: 8,
-                        animation: 'swim',
-                        speedVariable: true,
-                        speedRange: [0.5, 3],
-                        temperatureMapping: true
-                    }
-                }
-            },
-            humidity: {
-                animations: {
-                    svg_objects: {
-                        object: 'fish.svg',
-                        count: 5,
-                        animation: 'swim',
-                        sizeVariable: true,
-                        condition: 'levels',
-                        levels: [
-                            { threshold: 30, size: 'small', count: 3 },
-                            { threshold: 60, size: 'medium', count: 5 },
-                            { threshold: 80, size: 'large', count: 8 }
-                        ]
-                    }
-                }
-            },
-            light: {
-                animations: {
-                    color_change: {
-                        type: 'variable',
-                        condition: 'gradient',
-                        gradient: ['#000428', '#004e92', '#009ffd', '#2a2a72'],
-                        opacity: false
-                    }
-                }
-            },
-            audio: {
-                animations: {
-                    waves: {
-                        type: 'currents',
-                        sensitivity: 6,
-                        count: 4,
-                        origin: 'multi',
-                        pattern: 'circular'
-                    }
-                }
-            }
-        };
     }
 
     init() {
         this.setupSocket();
         this.setupEventListeners();
         this.setupCanvas();
+        this.setupDragAndDrop();
         this.loadDevices();
-        this.loadAvailableSVGs();
-        this.initializeTemplates();
         this.startPreviewAnimation();
         this.hideLoadingOverlay();
     }
@@ -253,13 +87,17 @@ class QuadroCreator {
         this.socket.on('device_data_update', (data) => {
             this.handleDeviceUpdate(data);
         });
+
+        this.socket.on('disconnect', () => {
+            console.log('Disconnesso dal server');
+        });
     }
 
     setupEventListeners() {
         // Nome quadro
         const nameInput = document.getElementById('quadro-name');
         nameInput.addEventListener('input', (e) => {
-            this.validateName(e.target.value);
+            this.validateForm();
         });
 
         // Selezione dispositivo
@@ -268,18 +106,10 @@ class QuadroCreator {
             this.selectDevice(e.target.value);
         });
 
-        // Selezione template
-        document.querySelectorAll('.template-card').forEach(card => {
-            card.addEventListener('click', () => {
-                this.selectTemplate(card.dataset.template);
-            });
-        });
-
-        // Checkbox animazioni
-        document.querySelectorAll('.animation-checkbox').forEach(checkbox => {
-            checkbox.addEventListener('change', (e) => {
-                this.toggleAnimation(e.target);
-            });
+        // File input
+        const fileInput = document.getElementById('file-input');
+        fileInput.addEventListener('change', (e) => {
+            this.handleFileSelect(e.target.files);
         });
 
         // Slider di simulazione
@@ -291,18 +121,16 @@ class QuadroCreator {
             });
         });
 
-        // Gestione input di configurazione
-        document.querySelectorAll('.animation-config input, .animation-config select').forEach(input => {
-            input.addEventListener('change', (e) => {
-                this.updateAnimationConfig(e.target);
-            });
-        });
-
         // Gestione modali
         window.addEventListener('click', (e) => {
             if (e.target.classList.contains('modal')) {
                 this.closeModal(e.target);
             }
+        });
+
+        // Gestione resize
+        window.addEventListener('resize', () => {
+            this.resizeCanvas();
         });
     }
 
@@ -313,6 +141,59 @@ class QuadroCreator {
         // Ottimizzazioni rendering
         this.previewCtx.imageSmoothingEnabled = true;
         this.previewCtx.textBaseline = 'middle';
+
+        this.resizeCanvas();
+    }
+
+    resizeCanvas() {
+        const container = this.previewCanvas.parentElement;
+        const rect = container.getBoundingClientRect();
+
+        // Mantieni proporzioni 4:3
+        const aspectRatio = 4 / 3;
+        let width = rect.width - 4; // bordo
+        let height = width / aspectRatio;
+
+        if (height > rect.height - 4) {
+            height = rect.height - 4;
+            width = height * aspectRatio;
+        }
+
+        this.previewCanvas.width = Math.floor(width);
+        this.previewCanvas.height = Math.floor(height);
+
+        this.updatePreview();
+    }
+
+    setupDragAndDrop() {
+        const uploadArea = document.getElementById('upload-area');
+        const uploadPlaceholder = uploadArea.querySelector('.upload-placeholder');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadPlaceholder.addEventListener(eventName, this.preventDefaults, false);
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadPlaceholder.addEventListener(eventName, () => {
+                uploadPlaceholder.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadPlaceholder.addEventListener(eventName, () => {
+                uploadPlaceholder.classList.remove('dragover');
+            }, false);
+        });
+
+        uploadPlaceholder.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            this.handleFileSelect(files);
+        }, false);
+    }
+
+    preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
     }
 
     async loadDevices() {
@@ -322,65 +203,17 @@ class QuadroCreator {
                 this.devices = await response.json();
                 this.populateDeviceSelect();
             } else {
-                console.error('Errore nel caricamento dispositivi');
+                console.error('Errore nel caricamento dispositivi:', response.status);
+                // Fallback per testing locale
+                this.devices = {};
+                this.populateDeviceSelect();
             }
         } catch (error) {
             console.error('Errore nella richiesta dispositivi:', error);
+            // Fallback per testing locale
+            this.devices = {};
+            this.populateDeviceSelect();
         }
-    }
-
-    async loadAvailableSVGs() {
-        // Simula il caricamento degli SVG disponibili
-        this.availableSVGs = [
-            'sun.svg', 'snowflake.svg', 'cloud.svg', 'cloud-rain.svg',
-            'star.svg', 'moon.svg', 'leaf.svg', 'bird.svg',
-            'fish.svg', 'bubble.svg', 'wave.svg', 'droplet.svg',
-            'thermometer.svg', 'sparkles.svg', 'asteroid.svg',
-            'galaxy.svg', 'butterfly.svg', 'music-note.svg'
-        ];
-
-        // Aggiorna le opzioni nei select
-        this.updateSVGOptions();
-    }
-
-    updateSVGOptions() {
-        document.querySelectorAll('.svg-object').forEach(select => {
-            const currentValue = select.value;
-            select.innerHTML = this.availableSVGs.map(svg => {
-                const name = svg.replace('.svg', '');
-                const icon = this.getSVGIcon(name);
-                return `<option value="${svg}">${icon} ${this.formatSVGName(name)}</option>`;
-            }).join('');
-            select.value = currentValue;
-        });
-    }
-
-    getSVGIcon(name) {
-        const icons = {
-            'sun': '☀️',
-            'snowflake': '❄️',
-            'cloud': '☁️',
-            'cloud-rain': '🌧️',
-            'star': '⭐',
-            'moon': '🌙',
-            'leaf': '🍃',
-            'bird': '🐦',
-            'fish': '🐟',
-            'bubble': '💧',
-            'wave': '🌊',
-            'droplet': '💧',
-            'thermometer': '🌡️',
-            'sparkles': '✨',
-            'asteroid': '☄️',
-            'galaxy': '🌌',
-            'butterfly': '🦋',
-            'music-note': '🎵'
-        };
-        return icons[name] || '📄';
-    }
-
-    formatSVGName(name) {
-        return name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, ' ');
     }
 
     populateDeviceSelect() {
@@ -390,7 +223,8 @@ class QuadroCreator {
         Object.entries(this.devices).forEach(([id, device]) => {
             const option = document.createElement('option');
             option.value = id;
-            option.textContent = `${device.name}`;
+            const statusIcon = device.online ? '🟢' : '🔴';
+            option.textContent = `${device.name} ${statusIcon}`;
             select.appendChild(option);
         });
     }
@@ -416,718 +250,921 @@ class QuadroCreator {
         }
 
         const device = this.devices[this.selectedDevice];
-        const isOnline = device && device.data_count > 0;
+        const isOnline = device && device.online;
 
         statusIndicator.className = `status-indicator ${isOnline ? 'online' : 'offline'}`;
-        statusText.textContent = isOnline ?
-            `Online` :
-            `Offline`;
+        statusText.textContent = isOnline ? 'Online' : 'Offline';
     }
 
-    selectTemplate(template) {
-        this.selectedTemplate = template;
+    handleFileSelect(files) {
+        Array.from(files).forEach(file => {
+            if (file.type.startsWith('image/') || file.name.endsWith('.svg')) {
+                const fileObj = {
+                    id: Date.now() + Math.random(),
+                    file: file,
+                    name: file.name,
+                    type: file.type,
+                    url: URL.createObjectURL(file)
+                };
 
-        // Aggiorna UI
-        document.querySelectorAll('.template-card').forEach(card => {
-            card.classList.remove('selected');
-        });
-        document.querySelector(`[data-template="${template}"]`).classList.add('selected');
-
-        // Mostra/nascondi configurazione personalizzata
-        this.toggleCustomConfig(template === 'personalizzato');
-
-        // Se template predefinito, carica la configurazione
-        if (template !== 'personalizzato' && this.predefinedTemplates[template]) {
-            this.loadTemplateConfig(this.predefinedTemplates[template]);
-        }
-
-        this.updatePreview();
-    }
-
-    loadTemplateConfig(config) {
-        // Reset configurazione
-        this.sensorsConfig = {
-            temperature: { animations: {} },
-            humidity: { animations: {} },
-            light: { animations: {} },
-            audio: { animations: {} }
-        };
-
-        // Deseleziona tutti i checkbox
-        document.querySelectorAll('.animation-checkbox').forEach(checkbox => {
-            checkbox.checked = false;
-            const animConfig = checkbox.parentElement.nextElementSibling;
-            if (animConfig) animConfig.classList.add('hidden');
-        });
-
-        // Applica configurazione template
-        Object.entries(config).forEach(([sensor, sensorConfig]) => {
-            Object.entries(sensorConfig.animations).forEach(([animationType, animConfig]) => {
-                // Trova e attiva il checkbox corrispondente
-                const checkbox = document.querySelector(
-                    `.sensor-config[data-sensor="${sensor}"] .animation-checkbox[data-animation="${animationType}"]`
-                );
-
-                if (checkbox) {
-                    checkbox.checked = true;
-                    const configDiv = checkbox.parentElement.nextElementSibling;
-                    if (configDiv) {
-                        configDiv.classList.remove('hidden');
-                        // Applica i valori della configurazione
-                        this.applyAnimationConfig(configDiv, animConfig);
-                    }
-                }
-
-                // Salva configurazione
-                this.sensorsConfig[sensor].animations[animationType] = animConfig;
-            });
-        });
-    }
-
-    applyAnimationConfig(configDiv, config) {
-        Object.entries(config).forEach(([key, value]) => {
-            const input = configDiv.querySelector(`.${key.replace(/_/g, '-')}`);
-            if (input) {
-                if (input.type === 'checkbox') {
-                    input.checked = value;
-                } else {
-                    input.value = value;
-                }
+                this.uploadedFiles.push(fileObj);
+                this.renderUploadedFiles();
             }
         });
     }
 
-    toggleCustomConfig(show) {
-        const customConfig = document.getElementById('custom-config');
-        if (show) {
-            customConfig.classList.remove('hidden');
-            this.initializeCustomConfig();
-        } else {
-            customConfig.classList.add('hidden');
+    renderUploadedFiles() {
+        const container = document.getElementById('uploaded-files');
+        container.innerHTML = this.uploadedFiles.map(file => `
+            <div class="uploaded-file" data-file-id="${file.id}">
+                <div class="file-info">
+                    <div class="file-preview">
+                        ${file.type.startsWith('image/') ?
+                `<img src="${file.url}" alt="${file.name}" style="width:100%;height:100%;object-fit:cover;">` :
+                '📄'
+            }
+                    </div>
+                    <span class="file-name">${file.name}</span>
+                </div>
+                <button class="remove-file" onclick="quadroCreator.removeFile('${file.id}')">
+                    🗑️
+                </button>
+            </div>
+        `).join('');
+    }
+
+    removeFile(fileId) {
+        this.uploadedFiles = this.uploadedFiles.filter(file => file.id !== fileId);
+        this.renderUploadedFiles();
+    }
+
+    // ============================================================================
+    // GESTIONE TRIGGERS
+    // ============================================================================
+
+    addTrigger(sensor) {
+        this.currentTrigger = {
+            sensor: sensor,
+            condition: 'range',
+            params: {},
+            actions: []
+        };
+        this.editingTriggerIndex = -1;
+        this.showTriggerModal();
+    }
+
+    editTrigger(sensor, index) {
+        this.currentTrigger = JSON.parse(JSON.stringify(this.triggers[sensor][index]));
+        this.editingTriggerIndex = index;
+        this.showTriggerModal();
+    }
+
+    deleteTrigger(sensor, index) {
+        if (confirm('Sei sicuro di voler eliminare questo trigger?')) {
+            this.triggers[sensor].splice(index, 1);
+            this.renderTriggers();
+            this.updatePreview();
         }
     }
 
-    initializeCustomConfig() {
-        this.customConfig = {
-            background: 'gradient',
-            elements: []
-        };
-        this.renderCustomConfigUI();
+    showTriggerModal() {
+        const modal = document.getElementById('trigger-modal');
+        const sensorSelect = document.getElementById('trigger-sensor');
+        const conditionSelect = document.getElementById('trigger-condition');
+
+        sensorSelect.value = this.currentTrigger.sensor;
+        conditionSelect.value = this.currentTrigger.condition;
+
+        this.updateTriggerCondition();
+        this.renderTriggerActions();
+
+        modal.style.display = 'block';
     }
 
-    renderCustomConfigUI() {
-        const container = document.getElementById('custom-elements');
-        container.innerHTML = `
-            <div class="background-config">
-                <h5>Sfondo</h5>
-                <div class="background-type">
-                    <div class="bg-option selected" data-bg="gradient" onclick="quadroCreator.selectBackground('gradient')">
-                        🌅 Gradiente
-                    </div>
-                    <div class="bg-option" data-bg="solid" onclick="quadroCreator.selectBackground('solid')">
-                        🎨 Colore Solido
-                    </div>
-                    <div class="bg-option" data-bg="image" onclick="quadroCreator.selectBackground('image')">
-                        🖼️ Immagine
-                    </div>
-                </div>
-                <div id="background-controls">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Colore 1:</label>
-                            <input type="color" id="bg-color1" value="#667eea" onchange="quadroCreator.updateBackground()">
-                        </div>
-                        <div class="form-group">
-                            <label>Colore 2:</label>
-                            <input type="color" id="bg-color2" value="#764ba2" onchange="quadroCreator.updateBackground()">
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="elements-config">
-                <h5>Elementi</h5>
-                <div id="elements-list"></div>
-                <button class="add-element" onclick="quadroCreator.addCustomElement()">
-                    ➕ Aggiungi Elemento
-                </button>
-            </div>
-        `;
+    closeTriggerModal() {
+        const modal = document.getElementById('trigger-modal');
+        modal.style.display = 'none';
+        this.currentTrigger = null;
+        this.editingTriggerIndex = -1;
     }
 
-    selectBackground(type) {
-        this.customConfig.background = type;
-
-        // Aggiorna UI
-        document.querySelectorAll('.bg-option').forEach(option => {
-            option.classList.remove('selected');
-        });
-        document.querySelector(`[data-bg="${type}"]`).classList.add('selected');
-
-        // Aggiorna controlli
-        this.updateBackgroundControls();
-        this.updatePreview();
-    }
-
-    updateBackgroundControls() {
-        const container = document.getElementById('background-controls');
-        const type = this.customConfig.background;
+    updateTriggerCondition() {
+        const condition = document.getElementById('trigger-condition').value;
+        const paramsContainer = document.getElementById('condition-params');
 
         let html = '';
 
-        switch (type) {
-            case 'gradient':
+        switch (condition) {
+            case 'range':
                 html = `
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Colore 1:</label>
-                            <input type="color" id="bg-color1" value="#667eea" onchange="quadroCreator.updateBackground()">
+                    <div class="param-row">
+                        <div class="param-group">
+                            <label>Valore Minimo:</label>
+                            <input type="number" id="param-min" value="${this.currentTrigger.params.min || 0}">
                         </div>
-                        <div class="form-group">
-                            <label>Colore 2:</label>
-                            <input type="color" id="bg-color2" value="#764ba2" onchange="quadroCreator.updateBackground()">
+                        <div class="param-group">
+                            <label>Valore Massimo:</label>
+                            <input type="number" id="param-max" value="${this.currentTrigger.params.max || 100}">
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Direzione:</label>
-                        <select id="bg-direction" onchange="quadroCreator.updateBackground()">
-                            <option value="vertical">Verticale</option>
-                            <option value="horizontal">Orizzontale</option>
-                            <option value="diagonal">Diagonale</option>
-                            <option value="radial">Radiale</option>
-                        </select>
                     </div>
                 `;
                 break;
-            case 'solid':
+            case 'above':
                 html = `
-                    <div class="form-group">
-                        <label>Colore:</label>
-                        <input type="color" id="bg-color" value="#667eea" onchange="quadroCreator.updateBackground()">
+                    <div class="param-group">
+                        <label>Soglia:</label>
+                        <input type="number" id="param-threshold" value="${this.currentTrigger.params.threshold || 50}">
                     </div>
                 `;
                 break;
-            case 'image':
+            case 'below':
                 html = `
-                    <div class="form-group">
-                        <label>URL Immagine:</label>
-                        <input type="text" id="bg-image-url" placeholder="https://..." onchange="quadroCreator.updateBackground()">
+                    <div class="param-group">
+                        <label>Soglia:</label>
+                        <input type="number" id="param-threshold" value="${this.currentTrigger.params.threshold || 50}">
                     </div>
-                    <div class="form-group">
-                        <label>O carica file:</label>
-                        <input type="file" id="bg-image" accept="image/*" onchange="quadroCreator.updateBackground()">
+                `;
+                break;
+            case 'change':
+                html = `
+                    <div class="param-row">
+                        <div class="param-group">
+                            <label>Variazione Minima:</label>
+                            <input type="number" id="param-change" value="${this.currentTrigger.params.change || 5}">
+                        </div>
+                        <div class="param-group">
+                            <label>Tempo (secondi):</label>
+                            <input type="number" id="param-time" value="${this.currentTrigger.params.time || 10}">
+                        </div>
+                    </div>
+                `;
+                break;
+            case 'duration':
+                html = `
+                    <div class="param-row">
+                        <div class="param-group">
+                            <label>Valore Target:</label>
+                            <input type="number" id="param-target" value="${this.currentTrigger.params.target || 50}">
+                        </div>
+                        <div class="param-group">
+                            <label>Durata (secondi):</label>
+                            <input type="number" id="param-duration" value="${this.currentTrigger.params.duration || 30}">
+                        </div>
                     </div>
                 `;
                 break;
         }
 
-        container.innerHTML = html;
+        paramsContainer.innerHTML = html;
     }
 
-    addCustomElement() {
-        const element = {
-            id: Date.now(),
-            type: 'shape',
-            shape: 'circle',
-            x: 50,
-            y: 50,
-            size: 30,
-            color: '#FFFFFF',
-            sensor: 'temperature',
-            animation: 'static'
-        };
-
-        this.customConfig.elements.push(element);
-        this.renderCustomElements();
-        this.updatePreview();
-    }
-
-    renderCustomElements() {
-        const container = document.getElementById('elements-list');
-        container.innerHTML = this.customConfig.elements.map(element => `
-            <div class="element-config" data-element-id="${element.id}">
-                <div class="element-header">
-                    <h6>Elemento ${element.id}</h6>
-                    <button class="remove-element" onclick="quadroCreator.removeCustomElement(${element.id})">
+    renderTriggerActions() {
+        const container = document.getElementById('actions-list');
+        container.innerHTML = this.currentTrigger.actions.map((action, index) => `
+            <div class="action-item">
+                <div>
+                    <div class="action-description">${this.getActionDescription(action)}</div>
+                    <div class="action-params">${this.getActionParams(action)}</div>
+                </div>
+                <div style="display: flex; gap: 5px;">
+                    <button class="btn btn-small btn-secondary" onclick="quadroCreator.editAction(${index})">
+                        ✏️
+                    </button>
+                    <button class="remove-action" onclick="quadroCreator.removeAction(${index})">
                         🗑️
                     </button>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Tipo:</label>
-                        <select onchange="quadroCreator.updateCustomElement(${element.id}, 'type', this.value)">
-                            <option value="shape" ${element.type === 'shape' ? 'selected' : ''}>Forma</option>
-                            <option value="svg" ${element.type === 'svg' ? 'selected' : ''}>SVG</option>
-                            <option value="text" ${element.type === 'text' ? 'selected' : ''}>Testo</option>
-                            <option value="particle" ${element.type === 'particle' ? 'selected' : ''}>Particelle</option>
-                        </select>
-                    </div>
-                    ${element.type === 'shape' ? `
-                        <div class="form-group">
-                            <label>Forma:</label>
-                            <select onchange="quadroCreator.updateCustomElement(${element.id}, 'shape', this.value)">
-                                <option value="circle" ${element.shape === 'circle' ? 'selected' : ''}>Cerchio</option>
-                                <option value="square" ${element.shape === 'square' ? 'selected' : ''}>Quadrato</option>
-                                <option value="triangle" ${element.shape === 'triangle' ? 'selected' : ''}>Triangolo</option>
-                            </select>
-                        </div>
-                    ` : element.type === 'svg' ? `
-                        <div class="form-group">
-                            <label>SVG:</label>
-                            <select onchange="quadroCreator.updateCustomElement(${element.id}, 'svg', this.value)">
-                                ${this.availableSVGs.map(svg => `
-                                    <option value="${svg}" ${element.svg === svg ? 'selected' : ''}>
-                                        ${this.getSVGIcon(svg.replace('.svg', ''))} ${this.formatSVGName(svg.replace('.svg', ''))}
-                                    </option>
-                                `).join('')}
-                            </select>
-                        </div>
-                    ` : ''}
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>X (%):</label>
-                        <input type="range" min="0" max="100" value="${element.x}" 
-                               onchange="quadroCreator.updateCustomElement(${element.id}, 'x', this.value)">
-                    </div>
-                    <div class="form-group">
-                        <label>Y (%):</label>
-                        <input type="range" min="0" max="100" value="${element.y}" 
-                               onchange="quadroCreator.updateCustomElement(${element.id}, 'y', this.value)">
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Dimensione:</label>
-                        <input type="range" min="5" max="100" value="${element.size}" 
-                               onchange="quadroCreator.updateCustomElement(${element.id}, 'size', this.value)">
-                    </div>
-                    <div class="form-group">
-                        <label>Colore:</label>
-                        <input type="color" value="${element.color}" 
-                               onchange="quadroCreator.updateCustomElement(${element.id}, 'color', this.value)">
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Sensore:</label>
-                        <select onchange="quadroCreator.updateCustomElement(${element.id}, 'sensor', this.value)">
-                            <option value="temperature" ${element.sensor === 'temperature' ? 'selected' : ''}>Temperatura</option>
-                            <option value="humidity" ${element.sensor === 'humidity' ? 'selected' : ''}>Umidità</option>
-                            <option value="light" ${element.sensor === 'light' ? 'selected' : ''}>Luce</option>
-                            <option value="audio" ${element.sensor === 'audio' ? 'selected' : ''}>Audio</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Animazione:</label>
-                        <select onchange="quadroCreator.updateCustomElement(${element.id}, 'animation', this.value)">
-                            <option value="static" ${element.animation === 'static' ? 'selected' : ''}>Statico</option>
-                            <option value="pulse" ${element.animation === 'pulse' ? 'selected' : ''}>Pulsazione</option>
-                            <option value="rotate" ${element.animation === 'rotate' ? 'selected' : ''}>Rotazione</option>
-                            <option value="scale" ${element.animation === 'scale' ? 'selected' : ''}>Scala</option>
-                            <option value="float" ${element.animation === 'float' ? 'selected' : ''}>Fluttuante</option>
-                        </select>
-                    </div>
                 </div>
             </div>
         `).join('');
     }
 
-    updateCustomElement(id, property, value) {
-        const element = this.customConfig.elements.find(el => el.id === id);
-        if (element) {
-            element[property] = value;
-            if (property === 'type') {
-                // Reset type-specific properties
-                if (value === 'shape') {
-                    element.shape = 'circle';
-                } else if (value === 'svg') {
-                    element.svg = this.availableSVGs[0];
-                }
-                this.renderCustomElements();
-            }
-            this.updatePreview();
+    getActionDescription(action) {
+        const descriptions = {
+            'load-image': '📷 Carica Immagine/SVG',
+            'change-background': '🎨 Modifica Sfondo',
+            'add-svg': '🌟 Aggiungi Oggetti SVG',
+            'add-animation': '✨ Aggiungi Animazione',
+            'add-filter': '🎭 Filtri Visivi'
+        };
+        return descriptions[action.type] || action.type;
+    }
+
+    getActionParams(action) {
+        switch (action.type) {
+            case 'load-image':
+                return `${action.image || 'N/A'} - Pos: ${action.x || 0},${action.y || 0} - Dim: ${action.size || 100}`;
+            case 'change-background':
+                return `${action.backgroundType || 'solid'} - ${action.color || '#ffffff'}`;
+            case 'add-svg':
+                return `${action.svgObject || 'N/A'} - Quantità: ${action.quantity || 1} - Animazione: ${action.svgAnimation || 'static'}`;
+            case 'add-animation':
+                return `${action.animation || 'fade'} - Durata: ${action.duration || 1000}ms`;
+            case 'add-filter':
+                return `${action.filter || 'blur'} - Intensità: ${action.intensity || 50}%`;
+            default:
+                return 'Configurazione personalizzata';
         }
     }
 
-    removeCustomElement(id) {
-        this.customConfig.elements = this.customConfig.elements.filter(el => el.id !== id);
-        this.renderCustomElements();
-        this.updatePreview();
-    }
+    saveTrigger() {
+        // Raccogli parametri condizione
+        const condition = document.getElementById('trigger-condition').value;
+        this.currentTrigger.condition = condition;
+        this.currentTrigger.params = {};
 
-    updateBackground() {
-        this.updatePreview();
-    }
-
-    initializeTemplates() {
-        // Inizializza le anteprime dei template
-        document.querySelectorAll('.template-card').forEach(card => {
-            const canvas = card.querySelector('canvas');
-            const ctx = canvas.getContext('2d');
-            const template = card.dataset.template;
-
-            this.drawTemplatePreview(ctx, template, 120, 80);
-        });
-
-        // Seleziona il primo template
-        this.selectTemplate('natura');
-    }
-
-    drawTemplatePreview(ctx, template, width, height) {
-        ctx.clearRect(0, 0, width, height);
-
-        switch (template) {
-            case 'natura':
-                this.drawNaturePreview(ctx, width, height);
+        switch (condition) {
+            case 'range':
+                this.currentTrigger.params.min = parseFloat(document.getElementById('param-min').value);
+                this.currentTrigger.params.max = parseFloat(document.getElementById('param-max').value);
                 break;
-            case 'spazio':
-                this.drawSpacePreview(ctx, width, height);
+            case 'above':
+            case 'below':
+                this.currentTrigger.params.threshold = parseFloat(document.getElementById('param-threshold').value);
                 break;
-            case 'oceano':
-                this.drawOceanPreview(ctx, width, height);
+            case 'change':
+                this.currentTrigger.params.change = parseFloat(document.getElementById('param-change').value);
+                this.currentTrigger.params.time = parseFloat(document.getElementById('param-time').value);
                 break;
-            case 'personalizzato':
-                this.drawCustomPreview(ctx, width, height);
+            case 'duration':
+                this.currentTrigger.params.target = parseFloat(document.getElementById('param-target').value);
+                this.currentTrigger.params.duration = parseFloat(document.getElementById('param-duration').value);
                 break;
         }
-    }
 
-    drawNaturePreview(ctx, width, height) {
-        // Cielo
-        const gradient = ctx.createLinearGradient(0, 0, 0, height * 0.6);
-        gradient.addColorStop(0, '#87CEEB');
-        gradient.addColorStop(1, '#98FB98');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, width, height * 0.6);
-
-        // Montagne
-        ctx.fillStyle = '#8B4513';
-        ctx.beginPath();
-        ctx.moveTo(0, height * 0.6);
-        ctx.lineTo(width * 0.3, height * 0.4);
-        ctx.lineTo(width * 0.7, height * 0.5);
-        ctx.lineTo(width, height * 0.45);
-        ctx.lineTo(width, height * 0.6);
-        ctx.closePath();
-        ctx.fill();
-
-        // Terra
-        ctx.fillStyle = '#228B22';
-        ctx.fillRect(0, height * 0.6, width, height * 0.4);
-
-        // Sole
-        ctx.fillStyle = '#FFD700';
-        ctx.beginPath();
-        ctx.arc(width * 0.8, height * 0.2, 8, 0, 2 * Math.PI);
-        ctx.fill();
-    }
-
-    drawSpacePreview(ctx, width, height) {
-        // Spazio
-        ctx.fillStyle = '#000814';
-        ctx.fillRect(0, 0, width, height);
-
-        // Stelle
-        ctx.fillStyle = '#FFFFFF';
-        for (let i = 0; i < 20; i++) {
-            const x = Math.random() * width;
-            const y = Math.random() * height;
-            ctx.beginPath();
-            ctx.arc(x, y, 1, 0, 2 * Math.PI);
-            ctx.fill();
-        }
-
-        // Pianeta
-        ctx.fillStyle = '#4A90E2';
-        ctx.beginPath();
-        ctx.arc(width * 0.3, height * 0.7, 15, 0, 2 * Math.PI);
-        ctx.fill();
-
-        // Nebulosa
-        const nebula = ctx.createRadialGradient(width * 0.7, height * 0.3, 0, width * 0.7, height * 0.3, 20);
-        nebula.addColorStop(0, 'rgba(255, 105, 180, 0.3)');
-        nebula.addColorStop(1, 'rgba(255, 105, 180, 0)');
-        ctx.fillStyle = nebula;
-        ctx.beginPath();
-        ctx.arc(width * 0.7, height * 0.3, 20, 0, 2 * Math.PI);
-        ctx.fill();
-    }
-
-    drawOceanPreview(ctx, width, height) {
-        // Oceano
-        const gradient = ctx.createLinearGradient(0, 0, 0, height);
-        gradient.addColorStop(0, '#87CEEB');
-        gradient.addColorStop(1, '#000080');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, width, height);
-
-        // Onde
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        for (let x = 0; x < width; x++) {
-            const y = height * 0.3 + Math.sin(x * 0.1) * 5;
-            if (x === 0) {
-                ctx.moveTo(x, y);
-            } else {
-                ctx.lineTo(x, y);
-            }
-        }
-        ctx.stroke();
-
-        // Bolle
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-        for (let i = 0; i < 8; i++) {
-            const x = (width / 8) * i;
-            const y = height * 0.6 + Math.sin(i) * 10;
-            ctx.beginPath();
-            ctx.arc(x, y, 3, 0, 2 * Math.PI);
-            ctx.fill();
-        }
-    }
-
-    drawCustomPreview(ctx, width, height) {
-        // Gradiente personalizzato
-        const gradient = ctx.createLinearGradient(0, 0, width, height);
-        gradient.addColorStop(0, '#667eea');
-        gradient.addColorStop(1, '#764ba2');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, width, height);
-
-        // Icona personalizzazione
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = '24px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('🎨', width / 2, height / 2);
-    }
-
-    toggleAnimation(checkbox) {
-        const animationConfig = checkbox.parentElement.nextElementSibling;
-        const sensor = checkbox.closest('.sensor-config').dataset.sensor;
-        const animationType = checkbox.dataset.animation;
-
-        if (checkbox.checked) {
-            animationConfig.classList.remove('hidden');
-            this.sensorsConfig[sensor].animations[animationType] = this.getDefaultAnimationConfig(animationType, sensor);
+        // Salva o aggiorna trigger
+        if (this.editingTriggerIndex >= 0) {
+            this.triggers[this.currentTrigger.sensor][this.editingTriggerIndex] = this.currentTrigger;
         } else {
-            animationConfig.classList.add('hidden');
-            delete this.sensorsConfig[sensor].animations[animationType];
+            this.triggers[this.currentTrigger.sensor].push(this.currentTrigger);
         }
 
+        this.renderTriggers();
+        this.closeTriggerModal();
         this.updatePreview();
     }
 
-    getDefaultAnimationConfig(type, sensor) {
-        const defaults = {
-            color_change: {
-                type: 'variable',
-                condition: 'range',
-                threshold_min: this.getDefaultThreshold(sensor, 'min'),
-                threshold_max: this.getDefaultThreshold(sensor, 'max'),
-                color_low: this.getDefaultColor(sensor, 'low'),
-                color_high: this.getDefaultColor(sensor, 'high')
-            },
-            svg_objects: {
-                object: this.getDefaultSVG(sensor),
-                count: 5,
-                animation: 'floating',
-                condition: 'always',
-                threshold: this.getDefaultThreshold(sensor, 'mid')
-            },
-            waves: {
-                type: this.getDefaultWaveType(sensor),
-                amplitude: 5,
-                frequency: 3,
-                sensitivity: 5,
-                intensity: 5,
-                speed: 3,
-                count: 3,
-                origin: 'center'
-            }
-        };
-
-        return defaults[type] || {};
-    }
-
-    getDefaultThreshold(sensor, type) {
-        const thresholds = {
-            temperature: { min: 15, max: 30, mid: 22 },
-            humidity: { min: 40, max: 70, mid: 55 },
-            light: { min: 500, max: 3000, mid: 1750 },
-            audio: { min: 500, max: 2000, mid: 1250 }
-        };
-        return thresholds[sensor][type];
-    }
-
-    getDefaultColor(sensor, type) {
-        const colors = {
-            temperature: { low: '#4da6ff', high: '#ff4d4d' },
-            humidity: { low: '#d4b896', high: '#4ecdc4' },
-            light: { low: '#1a1a2e', high: '#ffd93d' },
-            audio: { low: '#2a2a2a', high: '#a8e6cf' }
-        };
-        return colors[sensor][type];
-    }
-
-    getDefaultSVG(sensor) {
-        const svgs = {
-            temperature: 'sun.svg',
-            humidity: 'cloud.svg',
-            light: 'star.svg',
-            audio: 'wave.svg'
-        };
-        return svgs[sensor];
-    }
-
-    getDefaultWaveType(sensor) {
-        const types = {
-            temperature: 'heat',
-            humidity: 'sea',
-            light: 'radial_waves',
-            audio: 'sound_rings'
-        };
-        return types[sensor];
-    }
-
-    updateAnimationConfig(input) {
-        const sensorConfig = input.closest('.sensor-config');
-        const animationConfig = input.closest('.animation-config');
-        const sensor = sensorConfig.dataset.sensor;
-        const animationType = animationConfig.previousElementSibling.querySelector('.animation-checkbox').dataset.animation;
-
-        if (!this.sensorsConfig[sensor].animations[animationType]) {
-            this.sensorsConfig[sensor].animations[animationType] = {};
-        }
-
-        const config = this.sensorsConfig[sensor].animations[animationType];
-        const property = this.getPropertyName(input);
-
-        config[property] = input.type === 'number' ? parseFloat(input.value) : input.value;
-
-        // Gestione condizioni e soglie
-        if (property === 'condition_type' || property === 'svg_condition') {
-            this.updateThresholdVisibility(animationConfig, input.value);
-        }
-
-        this.updatePreview();
-    }
-
-    getPropertyName(input) {
-        // Mappa le classi ai nomi delle proprietà
-        const classToProperty = {
-            'color-type': 'type',
-            'condition-type': 'condition',
-            'threshold-min': 'threshold_min',
-            'threshold-max': 'threshold_max',
-            'color-low': 'color_low',
-            'color-high': 'color_high',
-            'svg-object': 'object',
-            'object-count': 'count',
-            'animation-style': 'animation',
-            'svg-condition': 'condition',
-            'svg-threshold': 'threshold',
-            'svg-threshold-min': 'threshold_min',
-            'svg-threshold-max': 'threshold_max',
-            'wave-type': 'type',
-            'wave-amplitude': 'amplitude',
-            'wave-frequency': 'frequency',
-            'wave-sensitivity': 'sensitivity',
-            'wave-intensity': 'intensity',
-            'wave-speed': 'speed',
-            'wave-count': 'count',
-            'wave-origin': 'origin',
-            'gradual-mode': 'gradual_mode',
-            'movement-type': 'movement'
-        };
-
-        for (const [className, propertyName] of Object.entries(classToProperty)) {
-            if (input.classList.contains(className)) {
-                return propertyName;
-            }
-        }
-
-        return input.className;
-    }
-
-    updateThresholdVisibility(animationConfig, condition) {
-        const thresholdMin = animationConfig.querySelector('.threshold-min, .svg-threshold-min');
-        const thresholdMax = animationConfig.querySelector('.threshold-max, .svg-threshold-max');
-        const singleThreshold = animationConfig.querySelector('.svg-threshold');
-
-        if (thresholdMin && thresholdMax) {
-            const minGroup = thresholdMin.closest('.form-group');
-            const maxGroup = thresholdMax.closest('.form-group');
-
-            switch (condition) {
-                case 'above':
-                    if (minGroup) minGroup.style.display = 'none';
-                    if (maxGroup) maxGroup.style.display = 'block';
-                    break;
-                case 'below':
-                    if (minGroup) minGroup.style.display = 'block';
-                    if (maxGroup) maxGroup.style.display = 'none';
-                    break;
-                case 'range':
-                    if (minGroup) minGroup.style.display = 'block';
-                    if (maxGroup) maxGroup.style.display = 'block';
-                    break;
-                default:
-                    if (minGroup) minGroup.style.display = 'none';
-                    if (maxGroup) maxGroup.style.display = 'none';
-            }
-        }
-
-        if (singleThreshold) {
-            const thresholdGroup = singleThreshold.closest('.form-group');
-            if (condition === 'always') {
-                thresholdGroup.style.display = 'none';
-            } else {
-                thresholdGroup.style.display = 'block';
-            }
-        }
-    }
-
-    updateSensorValue(sensor, value) {
-        const mapping = {
-            'temp': 'temperature',
-            'humidity': 'humidity',
-            'light': 'light',
-            'audio': 'audio'
-        };
-
-        const sensorKey = mapping[sensor] || sensor;
-        this.sensorValues[sensorKey] = parseFloat(value);
-
-        // Aggiorna display
-        const display = document.querySelector(`#${sensor}-slider`).nextElementSibling;
-        const unit = sensor === 'temp' ? '°C' : sensor === 'humidity' ? '%' : '';
-        display.textContent = `${value}${unit}`;
-
-        // Aggiorna overlay
-        const overlayValue = document.getElementById(`${sensorKey}-value`);
-        if (overlayValue) {
-            overlayValue.textContent = `${value}${unit}`;
-        }
-
-        this.updatePreview();
-    }
-
-    updateSensorValues() {
-        // Aggiorna i valori dell'overlay con i dati attuali
-        Object.entries(this.sensorValues).forEach(([sensor, value]) => {
-            const element = document.getElementById(`${sensor}-value`);
-            if (element) {
-                const unit = sensor === 'temperature' ? '°C' : sensor === 'humidity' ? '%' : '';
-                element.textContent = `${value}${unit}`;
-            }
+    renderTriggers() {
+        Object.keys(this.triggers).forEach(sensor => {
+            const container = document.getElementById(`${sensor}-triggers`);
+            container.innerHTML = this.triggers[sensor].map((trigger, index) => `
+                <div class="trigger-item">
+                    <div class="trigger-header">
+                        <div class="trigger-title">Trigger ${index + 1}</div>
+                        <div class="trigger-actions">
+                            <button class="btn btn-small btn-secondary" onclick="quadroCreator.editTrigger('${sensor}', ${index})">
+                                ✏️
+                            </button>
+                            <button class="btn btn-small btn-danger" onclick="quadroCreator.deleteTrigger('${sensor}', ${index})">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                    <div class="trigger-summary">
+                        <div class="trigger-condition">${this.getTriggerConditionText(trigger)}</div>
+                        <div class="trigger-actions-count">${trigger.actions.length} azioni configurate</div>
+                    </div>
+                </div>
+            `).join('');
         });
     }
+
+    getTriggerConditionText(trigger) {
+        switch (trigger.condition) {
+            case 'range':
+                return `Tra ${trigger.params.min} e ${trigger.params.max}`;
+            case 'above':
+                return `Sopra ${trigger.params.threshold}`;
+            case 'below':
+                return `Sotto ${trigger.params.threshold}`;
+            case 'change':
+                return `Variazione di ${trigger.params.change} in ${trigger.params.time}s`;
+            case 'duration':
+                return `Mantiene ${trigger.params.target} per ${trigger.params.duration}s`;
+            default:
+                return 'Condizione personalizzata';
+        }
+    }
+
+    // ============================================================================
+    // GESTIONE AZIONI
+    // ============================================================================
+
+    addAction() {
+        this.currentAction = {
+            type: 'load-image'
+        };
+        this.editingActionIndex = -1;
+        this.showActionModal();
+    }
+
+    editAction(index) {
+        this.currentAction = JSON.parse(JSON.stringify(this.currentTrigger.actions[index]));
+        this.editingActionIndex = index;
+        this.showActionModal();
+    }
+
+    removeAction(index) {
+        this.currentTrigger.actions.splice(index, 1);
+        this.renderTriggerActions();
+    }
+
+    showActionModal() {
+        const modal = document.getElementById('action-modal');
+        const typeSelect = document.getElementById('action-type');
+
+        typeSelect.value = this.currentAction.type;
+        this.updateActionParams();
+
+        modal.style.display = 'block';
+    }
+
+    closeActionModal() {
+        const modal = document.getElementById('action-modal');
+        modal.style.display = 'none';
+        this.currentAction = null;
+        this.editingActionIndex = -1;
+    }
+
+    updateActionParams() {
+        const type = document.getElementById('action-type').value;
+        const paramsContainer = document.getElementById('action-params');
+
+        let html = '';
+
+        switch (type) {
+            case 'load-image':
+                html = this.renderLoadImageParams();
+                break;
+            case 'change-background':
+                html = this.renderChangeBackgroundParams();
+                break;
+            case 'add-svg':
+                html = this.renderAddSVGParams();
+                break;
+            case 'add-animation':
+                html = this.renderAddAnimationParams();
+                break;
+            case 'add-filter':
+                html = this.renderAddFilterParams();
+                break;
+        }
+
+        paramsContainer.innerHTML = html;
+    }
+
+    renderLoadImageParams() {
+        return `
+            <div class="param-section">
+                <h5>📷 Immagine/SVG</h5>
+                <div class="form-group">
+                    <label>Fonte:</label>
+                    <select id="image-source" onchange="quadroCreator.updateImageSource()">
+                        <option value="uploaded">File Caricati</option>
+                        <option value="url">URL Esterno</option>
+                    </select>
+                </div>
+                <div id="image-source-params">
+                    ${this.renderImageSourceParams()}
+                </div>
+            </div>
+            
+            <div class="param-section">
+                <h5>📍 Posizione e Dimensioni</h5>
+                <div class="position-controls">
+                    <div class="position-group">
+                        <label>X (%):</label>
+                        <div class="range-input-group">
+                            <input type="range" id="image-x" min="0" max="100" value="${this.currentAction.x || 50}">
+                            <span class="range-value">${this.currentAction.x || 50}%</span>
+                        </div>
+                    </div>
+                    <div class="position-group">
+                        <label>Y (%):</label>
+                        <div class="range-input-group">
+                            <input type="range" id="image-y" min="0" max="100" value="${this.currentAction.y || 50}">
+                            <span class="range-value">${this.currentAction.y || 50}%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Dimensione (%):</label>
+                        <div class="range-input-group">
+                            <input type="range" id="image-size" min="10" max="200" value="${this.currentAction.size || 100}">
+                            <span class="range-value">${this.currentAction.size || 100}%</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Opacità (%):</label>
+                        <div class="range-input-group">
+                            <input type="range" id="image-opacity" min="0" max="100" value="${this.currentAction.opacity || 100}">
+                            <span class="range-value">${this.currentAction.opacity || 100}%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Rotazione (°):</label>
+                        <div class="range-input-group">
+                            <input type="range" id="image-rotation" min="0" max="360" value="${this.currentAction.rotation || 0}">
+                            <span class="range-value">${this.currentAction.rotation || 0}°</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Quantità:</label>
+                        <div class="range-input-group">
+                            <input type="range" id="image-quantity" min="1" max="20" value="${this.currentAction.quantity || 1}">
+                            <span class="range-value">${this.currentAction.quantity || 1}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    renderImageSourceParams() {
+        const source = document.getElementById('image-source')?.value || 'uploaded';
+
+        if (source === 'uploaded') {
+            return `
+                <div class="form-group">
+                    <label>Seleziona File:</label>
+                    <select id="selected-file">
+                        <option value="">Nessun file selezionato</option>
+                        ${this.uploadedFiles.map(file => `
+                            <option value="${file.id}" ${this.currentAction.fileId === file.id ? 'selected' : ''}>
+                                ${file.name}
+                            </option>
+                        `).join('')}
+                    </select>
+                </div>
+            `;
+        } else {
+            return `
+                <div class="form-group">
+                    <label>URL Immagine:</label>
+                    <input type="url" id="image-url" value="${this.currentAction.url || ''}" placeholder="https://...">
+                </div>
+            `;
+        }
+    }
+
+    updateImageSource() {
+        const paramsContainer = document.getElementById('image-source-params');
+        if (paramsContainer) {
+            paramsContainer.innerHTML = this.renderImageSourceParams();
+        }
+    }
+
+    renderChangeBackgroundParams() {
+        return `
+            <div class="param-section">
+                <h5>🎨 Tipo di Sfondo</h5>
+                <div class="background-types-grid">
+                    <div class="background-type-item ${this.currentAction.backgroundType === 'solid' ? 'selected' : ''}" 
+                         onclick="quadroCreator.selectBackgroundType('solid')">
+                        <div class="bg-type-icon">🎨</div>
+                        <div class="bg-type-name">Colore Solido</div>
+                        <div class="bg-type-desc">Un colore uniforme</div>
+                    </div>
+                    <div class="background-type-item ${this.currentAction.backgroundType === 'gradient' ? 'selected' : ''}" 
+                         onclick="quadroCreator.selectBackgroundType('gradient')">
+                        <div class="bg-type-icon">🌅</div>
+                        <div class="bg-type-name">Gradiente</div>
+                        <div class="bg-type-desc">Sfumatura tra colori</div>
+                    </div>
+                    <div class="background-type-item ${this.currentAction.backgroundType === 'overlay' ? 'selected' : ''}" 
+                         onclick="quadroCreator.selectBackgroundType('overlay')">
+                        <div class="bg-type-icon">📐</div>
+                        <div class="bg-type-name">Overlay</div>
+                        <div class="bg-type-desc">Sovrappone al corrente</div>
+                    </div>
+                    <div class="background-type-item ${this.currentAction.backgroundType === 'blend' ? 'selected' : ''}" 
+                         onclick="quadroCreator.selectBackgroundType('blend')">
+                        <div class="bg-type-icon">🔀</div>
+                        <div class="bg-type-name">Miscela</div>
+                        <div class="bg-type-desc">Mescola i colori</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="param-section" id="background-color-params">
+                ${this.renderBackgroundColorParams()}
+            </div>
+        `;
+    }
+
+    renderBackgroundColorParams() {
+        const type = this.currentAction.backgroundType || 'solid';
+
+        switch (type) {
+            case 'solid':
+            case 'overlay':
+                return `
+                    <h5>🎨 Colore</h5>
+                    <div class="color-picker-group">
+                        <input type="color" id="bg-color" value="${this.currentAction.color || '#ffffff'}">
+                        <span class="color-label">Colore principale</span>
+                    </div>
+                `;
+            case 'gradient':
+                return `
+                    <h5>🌅 Gradiente</h5>
+                    <div class="form-row">
+                        <div class="color-picker-group">
+                            <input type="color" id="bg-color1" value="${this.currentAction.color1 || '#667eea'}">
+                            <span class="color-label">Colore 1</span>
+                        </div>
+                        <div class="color-picker-group">
+                            <input type="color" id="bg-color2" value="${this.currentAction.color2 || '#764ba2'}">
+                            <span class="color-label">Colore 2</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Direzione:</label>
+                        <select id="gradient-direction">
+                            <option value="vertical" ${this.currentAction.direction === 'vertical' ? 'selected' : ''}>Verticale</option>
+                            <option value="horizontal" ${this.currentAction.direction === 'horizontal' ? 'selected' : ''}>Orizzontale</option>
+                            <option value="diagonal" ${this.currentAction.direction === 'diagonal' ? 'selected' : ''}>Diagonale</option>
+                            <option value="radial" ${this.currentAction.direction === 'radial' ? 'selected' : ''}>Radiale</option>
+                        </select>
+                    </div>
+                `;
+            case 'blend':
+                return `
+                    <h5>🔀 Miscela</h5>
+                    <div class="color-picker-group">
+                        <input type="color" id="blend-color" value="${this.currentAction.color || '#ffffff'}">
+                        <span class="color-label">Colore da mescolare</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Modalità miscela:</label>
+                        <select id="blend-mode">
+                            <option value="multiply" ${this.currentAction.blendMode === 'multiply' ? 'selected' : ''}>Moltiplica</option>
+                            <option value="screen" ${this.currentAction.blendMode === 'screen' ? 'selected' : ''}>Scolora</option>
+                            <option value="overlay" ${this.currentAction.blendMode === 'overlay' ? 'selected' : ''}>Sovrapponi</option>
+                            <option value="soft-light" ${this.currentAction.blendMode === 'soft-light' ? 'selected' : ''}>Luce soffusa</option>
+                        </select>
+                    </div>
+                `;
+        }
+    }
+
+    selectBackgroundType(type) {
+        this.currentAction.backgroundType = type;
+
+        // Aggiorna UI
+        document.querySelectorAll('.background-type-item').forEach(item => {
+            item.classList.remove('selected');
+        });
+        event.target.closest('.background-type-item').classList.add('selected');
+
+        // Aggiorna parametri colore
+        const container = document.getElementById('background-color-params');
+        container.innerHTML = this.renderBackgroundColorParams();
+    }
+
+    renderAddSVGParams() {
+        return `
+            <div class="param-section">
+                <h5>🌟 Oggetti SVG</h5>
+                <div class="svg-objects-grid">
+                    ${this.availableSVGs.map(svg => `
+                        <div class="svg-object-item ${this.currentAction.svgObject === svg ? 'selected' : ''}" 
+                             onclick="quadroCreator.selectSVGObject('${svg}')">
+                            <div class="svg-icon">
+                                <img src="/static/images/${svg}" alt="${this.formatSVGName(svg)}" style="width: 24px; height: 24px; object-fit: contain;">
+                            </div>
+                            <div class="svg-name">${this.formatSVGName(svg)}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            
+            <div class="param-section">
+                <h5>✨ Tipo di Animazione</h5>
+                <div class="animation-types-grid">
+                    ${this.availableAnimations.map(anim => `
+                        <div class="animation-type-item ${this.currentAction.svgAnimation === anim ? 'selected' : ''}" 
+                             onclick="quadroCreator.selectSVGAnimation('${anim}')">
+                            <div class="animation-icon">${this.getAnimationIcon(anim)}</div>
+                            <div class="animation-name">${this.formatAnimationName(anim)}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            
+            <div class="param-section">
+                <h5>📊 Parametri</h5>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Quantità:</label>
+                        <div class="range-input-group">
+                            <input type="range" id="svg-quantity" min="1" max="30" value="${this.currentAction.quantity || 5}">
+                            <span class="range-value">${this.currentAction.quantity || 5}</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Dimensione (%):</label>
+                        <div class="range-input-group">
+                            <input type="range" id="svg-size" min="10" max="200" value="${this.currentAction.size || 100}">
+                            <span class="range-value">${this.currentAction.size || 100}%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Opacità (%):</label>
+                        <div class="range-input-group">
+                            <input type="range" id="svg-opacity" min="0" max="100" value="${this.currentAction.opacity || 100}">
+                            <span class="range-value">${this.currentAction.opacity || 100}%</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Velocità Animazione:</label>
+                        <div class="range-input-group">
+                            <input type="range" id="svg-speed" min="0.1" max="5" step="0.1" value="${this.currentAction.animationSpeed || 1}">
+                            <span class="range-value">${this.currentAction.animationSpeed || 1}x</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    selectSVGObject(svg) {
+        this.currentAction.svgObject = svg;
+
+        // Aggiorna UI
+        document.querySelectorAll('.svg-object-item').forEach(item => {
+            item.classList.remove('selected');
+        });
+        event.target.closest('.svg-object-item').classList.add('selected');
+    }
+
+    renderAddAnimationParams() {
+        return `
+            <div class="param-section">
+                <h5>✨ Tipo di Animazione</h5>
+                <div class="animation-types-grid">
+                    ${this.availableAnimations.map(anim => `
+                        <div class="animation-type-item ${this.currentAction.animation === anim ? 'selected' : ''}" 
+                             onclick="quadroCreator.selectAnimation('${anim}')">
+                            <div class="animation-icon">${this.getAnimationIcon(anim)}</div>
+                            <div class="animation-name">${this.formatAnimationName(anim)}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            
+            <div class="param-section">
+                <h5>⏱️ Controlli Animazione</h5>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Durata (ms):</label>
+                        <div class="range-input-group">
+                            <input type="range" id="anim-duration" min="100" max="5000" step="100" value="${this.currentAction.duration || 1000}">
+                            <span class="range-value">${this.currentAction.duration || 1000}ms</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Easing:</label>
+                        <select id="anim-easing">
+                            <option value="linear" ${this.currentAction.easing === 'linear' ? 'selected' : ''}>Lineare</option>
+                            <option value="ease" ${this.currentAction.easing === 'ease' ? 'selected' : ''}>Naturale</option>
+                            <option value="ease-in" ${this.currentAction.easing === 'ease-in' ? 'selected' : ''}>Accelera</option>
+                            <option value="ease-out" ${this.currentAction.easing === 'ease-out' ? 'selected' : ''}>Decelera</option>
+                            <option value="ease-in-out" ${this.currentAction.easing === 'ease-in-out' ? 'selected' : ''}>Acc/Dec</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="anim-loop" ${this.currentAction.loop ? 'checked' : ''}>
+                            Loop infinito
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label>Ripetizioni:</label>
+                        <input type="number" id="anim-iterations" min="1" max="100" value="${this.currentAction.iterations || 1}" 
+                               ${this.currentAction.loop ? 'disabled' : ''}>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    selectAnimation(animation) {
+        this.currentAction.animation = animation;
+
+        // Aggiorna UI
+        document.querySelectorAll('.animation-type-item').forEach(item => {
+            item.classList.remove('selected');
+        });
+        event.target.closest('.animation-type-item').classList.add('selected');
+    }
+
+    renderAddFilterParams() {
+        return `
+            <div class="param-section">
+                <h5>🎭 Filtri Visivi</h5>
+                <div class="filter-types-grid">
+                    ${this.availableFilters.map(filter => `
+                        <div class="filter-type-item ${this.currentAction.filter === filter ? 'selected' : ''}" 
+                             onclick="quadroCreator.selectFilter('${filter}')">
+                            <div class="filter-name">${this.formatFilterName(filter)}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            
+            <div class="param-section">
+                <h5>🎚️ Intensità</h5>
+                <div class="form-group">
+                    <label>Intensità (%):</label>
+                    <div class="range-input-group">
+                        <input type="range" id="filter-intensity" min="0" max="200" value="${this.currentAction.intensity || 100}">
+                        <span class="range-value">${this.currentAction.intensity || 100}%</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    selectFilter(filter) {
+        this.currentAction.filter = filter;
+
+        // Aggiorna UI
+        document.querySelectorAll('.filter-type-item').forEach(item => {
+            item.classList.remove('selected');
+        });
+        event.target.closest('.filter-type-item').classList.add('selected');
+    }
+
+    saveAction() {
+        // Raccogli tutti i parametri in base al tipo di azione
+        const type = document.getElementById('action-type').value;
+        this.currentAction.type = type;
+
+        switch (type) {
+            case 'load-image':
+                this.saveLoadImageAction();
+                break;
+            case 'change-background':
+                this.saveChangeBackgroundAction();
+                break;
+            case 'add-svg':
+                this.saveAddSVGAction();
+                break;
+            case 'add-animation':
+                this.saveAddAnimationAction();
+                break;
+            case 'add-filter':
+                this.saveAddFilterAction();
+                break;
+        }
+
+        // Salva o aggiorna azione
+        if (this.editingActionIndex >= 0) {
+            this.currentTrigger.actions[this.editingActionIndex] = this.currentAction;
+        } else {
+            this.currentTrigger.actions.push(this.currentAction);
+        }
+
+        this.renderTriggerActions();
+        this.closeActionModal();
+    }
+
+    saveLoadImageAction() {
+        const source = document.getElementById('image-source').value;
+
+        if (source === 'uploaded') {
+            this.currentAction.fileId = document.getElementById('selected-file').value;
+        } else {
+            this.currentAction.url = document.getElementById('image-url').value;
+        }
+
+        this.currentAction.x = parseInt(document.getElementById('image-x').value);
+        this.currentAction.y = parseInt(document.getElementById('image-y').value);
+        this.currentAction.size = parseInt(document.getElementById('image-size').value);
+        this.currentAction.opacity = parseInt(document.getElementById('image-opacity').value);
+        this.currentAction.rotation = parseInt(document.getElementById('image-rotation').value);
+        this.currentAction.quantity = parseInt(document.getElementById('image-quantity').value);
+    }
+
+    saveChangeBackgroundAction() {
+        const type = this.currentAction.backgroundType || 'solid';
+
+        switch (type) {
+            case 'solid':
+            case 'overlay':
+                this.currentAction.color = document.getElementById('bg-color').value;
+                break;
+            case 'gradient':
+                this.currentAction.color1 = document.getElementById('bg-color1').value;
+                this.currentAction.color2 = document.getElementById('bg-color2').value;
+                this.currentAction.direction = document.getElementById('gradient-direction').value;
+                break;
+            case 'blend':
+                this.currentAction.color = document.getElementById('blend-color').value;
+                this.currentAction.blendMode = document.getElementById('blend-mode').value;
+                break;
+        }
+    }
+
+    saveAddSVGAction() {
+        this.currentAction.quantity = parseInt(document.getElementById('svg-quantity').value);
+        this.currentAction.size = parseInt(document.getElementById('svg-size').value);
+        this.currentAction.opacity = parseInt(document.getElementById('svg-opacity').value);
+        this.currentAction.animationSpeed = parseFloat(document.getElementById('svg-speed').value);
+        // svgObject e svgAnimation sono già salvati nelle funzioni select
+    }
+
+    saveAddAnimationAction() {
+        this.currentAction.duration = parseInt(document.getElementById('anim-duration').value);
+        this.currentAction.easing = document.getElementById('anim-easing').value;
+        this.currentAction.loop = document.getElementById('anim-loop').checked;
+        if (!this.currentAction.loop) {
+            this.currentAction.iterations = parseInt(document.getElementById('anim-iterations').value);
+        }
+    }
+
+    saveAddFilterAction() {
+        this.currentAction.intensity = parseInt(document.getElementById('filter-intensity').value);
+    }
+
+    // ============================================================================
+    // UTILITY FUNCTIONS
+    // ============================================================================
+
+    getSVGIcon(svg) {
+        const icons = {
+            'bubble.svg': '💧',
+            'cloud-rain.svg': '🌧️',
+            'cloud.svg': '☁️',
+            'comet.svg': '☄️',
+            'coral.svg': '🪸',
+            'fish.svg': '🐟',
+            'galaxy.svg': '🌌',
+            'leaf.svg': '🍃',
+            'planet.svg': '🪐',
+            'rocket.svg': '🚀',
+            'seaweed.svg': '🌿',
+            'snowflake.svg': '❄️',
+            'sparkles.svg': '✨',
+            'star.svg': '⭐',
+            'sun.svg': '☀️',
+            'wave.svg': '🌊',
+            'waves.svg': '🌊'
+        };
+        return icons[svg] || '📄';
+    }
+
+    formatSVGName(svg) {
+        return svg.replace('.svg', '').replace('-', ' ').split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    }
+
+    getAnimationIcon(animation) {
+        const icons = {
+            'fade': '🌅',
+            'slide': '↔️',
+            'bounce': '⏬',
+            'rotate': '🔄',
+            'scale': '📏',
+            'float': '🎈',
+            'pulse': '💓',
+            'wave': '🌊',
+            'morph': '🔄',
+            'sparkle': '✨',
+            'spiral': '🌀'
+        };
+        return icons[animation] || '✨';
+    }
+
+    formatAnimationName(animation) {
+        return animation.charAt(0).toUpperCase() + animation.slice(1);
+    }
+
+    formatFilterName(filter) {
+        const names = {
+            'blur': 'Sfocatura',
+            'brightness': 'Luminosità',
+            'contrast': 'Contrasto',
+            'saturation': 'Saturazione',
+            'hue-rotate': 'Tonalità',
+            'sepia': 'Seppia',
+            'grayscale': 'Scala Grigio',
+            'invert': 'Inverti'
+        };
+        return names[filter] || filter;
+    }
+
+    // ============================================================================
+    // PREVIEW AND RENDERING
+    // ============================================================================
 
     startPreviewAnimation() {
         const animate = () => {
@@ -1145,785 +1182,758 @@ class QuadroCreator {
         const canvas = this.previewCanvas;
         const ctx = this.previewCtx;
 
-        // Pulisci canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // Pulisci canvas con sfondo bianco
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Disegna template base
-        this.drawTemplateBase(ctx, this.selectedTemplate, canvas.width, canvas.height);
-
-        // Applica animazioni basate sui sensori
-        this.applyAnimations(ctx, canvas.width, canvas.height);
+        // Applica triggers attivi
+        this.applyActiveTriggers(ctx, canvas.width, canvas.height);
     }
 
-    drawTemplateBase(ctx, template, width, height) {
-        switch (template) {
-            case 'natura':
-                this.drawNatureBase(ctx, width, height);
-                break;
-            case 'spazio':
-                this.drawSpaceBase(ctx, width, height);
-                break;
-            case 'oceano':
-                this.drawOceanBase(ctx, width, height);
-                break;
-            case 'personalizzato':
-                this.drawCustomBase(ctx, width, height);
-                break;
-        }
-    }
-
-    drawNatureBase(ctx, width, height) {
-        // Cielo con gradiente basato sulla temperatura
-        const temp = this.sensorValues.temperature;
-        const tempNormalized = Math.max(0, Math.min(1, (temp - 0) / 40));
-
-        const skyColor1 = this.interpolateColor([135, 206, 235], [255, 200, 150], tempNormalized);
-        const skyColor2 = this.interpolateColor([152, 251, 152], [255, 160, 122], tempNormalized);
-
-        const gradient = ctx.createLinearGradient(0, 0, 0, height * 0.6);
-        gradient.addColorStop(0, `rgb(${skyColor1.join(',')})`);
-        gradient.addColorStop(1, `rgb(${skyColor2.join(',')})`);
-
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, width, height * 0.6);
-
-        // Montagne
-        ctx.fillStyle = '#8B4513';
-        ctx.beginPath();
-        ctx.moveTo(0, height * 0.6);
-        ctx.lineTo(width * 0.2, height * 0.4);
-        ctx.lineTo(width * 0.5, height * 0.5);
-        ctx.lineTo(width * 0.8, height * 0.35);
-        ctx.lineTo(width, height * 0.45);
-        ctx.lineTo(width, height * 0.6);
-        ctx.closePath();
-        ctx.fill();
-
-        // Terra
-        ctx.fillStyle = '#228B22';
-        ctx.fillRect(0, height * 0.6, width, height * 0.4);
-
-        // Sole che si muove con la luce
-        const light = this.sensorValues.light;
-        const lightNormalized = Math.max(0, Math.min(1, light / 4095));
-        const sunX = width * 0.1 + (width * 0.8 * lightNormalized);
-        const sunY = height * 0.1 + (height * 0.3 * (1 - lightNormalized));
-        const sunSize = 20 + (15 * lightNormalized);
-
-        ctx.fillStyle = `rgba(255, 223, 0, ${0.5 + 0.5 * lightNormalized})`;
-        ctx.beginPath();
-        ctx.arc(sunX, sunY, sunSize, 0, 2 * Math.PI);
-        ctx.fill();
-
-        // Nuvole che si muovono con l'umidità
-        const humidity = this.sensorValues.humidity;
-        const cloudCount = Math.floor(humidity / 25);
-        const time = Date.now() * 0.001;
-
-        ctx.fillStyle = `rgba(255, 255, 255, ${0.3 + 0.4 * humidity / 100})`;
-        for (let i = 0; i < cloudCount; i++) {
-            const x = (width * 0.2 * i + time * 20) % (width + 100) - 50;
-            const y = height * 0.2 + Math.sin(time + i) * 30;
-            this.drawCloud(ctx, x, y, 40 + i * 5);
-        }
-    }
-
-    drawSpaceBase(ctx, width, height) {
-        // Spazio profondo
-        const lightLevel = this.sensorValues.light / 4095;
-        const spaceColor = Math.floor(20 * lightLevel);
-
-        ctx.fillStyle = `rgb(${spaceColor}, ${spaceColor}, ${spaceColor + 20})`;
-        ctx.fillRect(0, 0, width, height);
-
-        // Stelle che brillano con la luce
-        const starCount = Math.floor(50 + lightLevel * 100);
-        ctx.fillStyle = `rgba(255, 255, 255, ${0.3 + 0.7 * lightLevel})`;
-
-        for (let i = 0; i < starCount; i++) {
-            const x = (width * 0.123 * i) % width;
-            const y = (height * 0.456 * i) % height;
-            const size = 1 + Math.sin(Date.now() * 0.001 + i) * 0.5;
-
-            ctx.beginPath();
-            ctx.arc(x, y, size, 0, 2 * Math.PI);
-            ctx.fill();
-        }
-
-        // Pianeta che cambia colore con la temperatura
-        const temp = this.sensorValues.temperature;
-        const planetColor = this.interpolateColor([100, 149, 237], [255, 69, 0], temp / 40);
-
-        ctx.fillStyle = `rgb(${planetColor.join(',')})`;
-        ctx.beginPath();
-        ctx.arc(width * 0.3, height * 0.7, 40, 0, 2 * Math.PI);
-        ctx.fill();
-
-        // Nebulosa che pulsa con l'audio
-        const audio = this.sensorValues.audio;
-        const audioNormalized = Math.max(0, Math.min(1, audio / 4095));
-        const nebulaSize = 50 + audioNormalized * 30;
-
-        const nebula = ctx.createRadialGradient(width * 0.7, height * 0.3, 0, width * 0.7, height * 0.3, nebulaSize);
-        nebula.addColorStop(0, `rgba(255, 105, 180, ${0.3 + 0.4 * audioNormalized})`);
-        nebula.addColorStop(1, 'rgba(255, 105, 180, 0)');
-
-        ctx.fillStyle = nebula;
-        ctx.beginPath();
-        ctx.arc(width * 0.7, height * 0.3, nebulaSize, 0, 2 * Math.PI);
-        ctx.fill();
-    }
-
-    drawOceanBase(ctx, width, height) {
-        // Oceano con gradiente di profondità
-        const humidity = this.sensorValues.humidity;
-        const humidityNormalized = Math.max(0, Math.min(1, humidity / 100));
-
-        const waterColor1 = this.interpolateColor([135, 206, 235], [0, 0, 139], humidityNormalized);
-        const waterColor2 = this.interpolateColor([0, 0, 139], [25, 25, 112], humidityNormalized);
-
-        const gradient = ctx.createLinearGradient(0, 0, 0, height);
-        gradient.addColorStop(0, `rgb(${waterColor1.join(',')})`);
-        gradient.addColorStop(1, `rgb(${waterColor2.join(',')})`);
-
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, width, height);
-
-        // Onde che si muovono con l'audio
-        const audio = this.sensorValues.audio;
-        const audioNormalized = Math.max(0, Math.min(1, audio / 4095));
-        const time = Date.now() * 0.001;
-
-        ctx.strokeStyle = `rgba(255, 255, 255, ${0.2 + 0.3 * audioNormalized})`;
-        ctx.lineWidth = 2;
-
-        for (let i = 0; i < 3; i++) {
-            ctx.beginPath();
-            for (let x = 0; x < width; x++) {
-                const y = height * 0.2 + i * height * 0.15 +
-                    Math.sin(x * 0.01 + time + i) * (10 + audioNormalized * 20);
-                if (x === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
-                }
-            }
-            ctx.stroke();
-        }
-
-        // Bolle che salgono con l'umidità
-        const bubbleCount = Math.floor(humidityNormalized * 20);
-        ctx.fillStyle = `rgba(255, 255, 255, ${0.3 + 0.4 * humidityNormalized})`;
-
-        for (let i = 0; i < bubbleCount; i++) {
-            const x = (width / bubbleCount) * i + Math.sin(time + i) * 30;
-            const y = height - ((time * 30 + i * 50) % (height + 30));
-            const size = 3 + Math.sin(time + i) * 2;
-
-            ctx.beginPath();
-            ctx.arc(x, y, size, 0, 2 * Math.PI);
-            ctx.fill();
-        }
-    }
-
-    drawCustomBase(ctx, width, height) {
-        // Disegna lo sfondo
-        this.drawCustomBackground(ctx, width, height);
-
-        // Disegna gli elementi personalizzati
-        this.drawCustomElements(ctx, width, height);
-    }
-
-    drawCustomBackground(ctx, width, height) {
-        const bgType = this.customConfig.background;
-
-        switch (bgType) {
-            case 'gradient':
-                const color1 = document.getElementById('bg-color1')?.value || '#667eea';
-                const color2 = document.getElementById('bg-color2')?.value || '#764ba2';
-                const direction = document.getElementById('bg-direction')?.value || 'vertical';
-
-                let gradient;
-                switch (direction) {
-                    case 'horizontal':
-                        gradient = ctx.createLinearGradient(0, 0, width, 0);
-                        break;
-                    case 'diagonal':
-                        gradient = ctx.createLinearGradient(0, 0, width, height);
-                        break;
-                    case 'radial':
-                        gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height) / 2);
-                        break;
-                    default: // vertical
-                        gradient = ctx.createLinearGradient(0, 0, 0, height);
-                }
-
-                gradient.addColorStop(0, color1);
-                gradient.addColorStop(1, color2);
-                ctx.fillStyle = gradient;
-                ctx.fillRect(0, 0, width, height);
-                break;
-
-            case 'solid':
-                const color = document.getElementById('bg-color')?.value || '#667eea';
-                ctx.fillStyle = color;
-                ctx.fillRect(0, 0, width, height);
-                break;
-
-            case 'image':
-                // Per ora usa un fallback
-                ctx.fillStyle = '#000000';
-                ctx.fillRect(0, 0, width, height);
-                break;
-        }
-    }
-
-    drawCustomElements(ctx, width, height) {
-        const time = Date.now() * 0.001;
-
-        this.customConfig.elements.forEach(element => {
-            const x = (element.x / 100) * width;
-            const y = (element.y / 100) * height;
-            let size = element.size;
-
-            // Applica animazione basata sui sensori
-            const sensorValue = this.sensorValues[element.sensor];
-            const normalized = this.normalizeValue(sensorValue, 0, 100);
-
-            ctx.save();
-            ctx.translate(x, y);
-
-            switch (element.animation) {
-                case 'pulse':
-                    size *= (0.8 + 0.4 * Math.sin(time * 2 + normalized * 10));
-                    break;
-                case 'rotate':
-                    ctx.rotate(time + normalized * Math.PI * 2);
-                    break;
-                case 'scale':
-                    const scale = 0.5 + normalized * 0.5;
-                    ctx.scale(scale, scale);
-                    break;
-                case 'float':
-                    ctx.translate(0, Math.sin(time + normalized * 5) * 10);
-                    break;
-            }
-
-            ctx.fillStyle = element.color;
-
-            // Disegna l'elemento
-            if (element.type === 'shape') {
-                switch (element.shape) {
-                    case 'circle':
-                        ctx.beginPath();
-                        ctx.arc(0, 0, size / 2, 0, 2 * Math.PI);
-                        ctx.fill();
-                        break;
-                    case 'square':
-                        ctx.fillRect(-size / 2, -size / 2, size, size);
-                        break;
-                    case 'triangle':
-                        ctx.beginPath();
-                        ctx.moveTo(0, -size / 2);
-                        ctx.lineTo(-size / 2, size / 2);
-                        ctx.lineTo(size / 2, size / 2);
-                        ctx.closePath();
-                        ctx.fill();
-                        break;
-                }
-            } else if (element.type === 'svg') {
-                // Simula SVG con forme
-                this.drawSVGObject(ctx, element.svg || 'star.svg', 0, 0, size);
-            }
-
-            ctx.restore();
-        });
-    }
-
-    applyAnimations(ctx, width, height) {
-        // Applica le animazioni configurate per ogni sensore
-        Object.entries(this.sensorsConfig).forEach(([sensor, config]) => {
+    applyActiveTriggers(ctx, width, height) {
+        // Verifica ogni trigger per ogni sensore
+        Object.entries(this.triggers).forEach(([sensor, triggers]) => {
             const sensorValue = this.sensorValues[sensor];
 
-            Object.entries(config.animations).forEach(([animationType, animConfig]) => {
-                if (this.shouldTriggerAnimation(sensorValue, animConfig)) {
-                    this.renderAnimation(ctx, animationType, animConfig, sensorValue, sensor, width, height);
+            triggers.forEach(trigger => {
+                if (this.isTriggerActive(trigger, sensorValue)) {
+                    // Esegui tutte le azioni del trigger
+                    trigger.actions.forEach(action => {
+                        this.executeAction(ctx, action, width, height, sensorValue);
+                    });
                 }
             });
         });
     }
 
-    shouldTriggerAnimation(value, config) {
-        if (!config.condition || config.condition === 'always') return true;
-
-        switch (config.condition) {
-            case 'above':
-                return value > (config.threshold || config.threshold_max || 0);
-            case 'below':
-                return value < (config.threshold || config.threshold_min || 100);
+    isTriggerActive(trigger, value) {
+        switch (trigger.condition) {
             case 'range':
-                return value >= (config.threshold_min || 0) && value <= (config.threshold_max || 100);
+                return value >= trigger.params.min && value <= trigger.params.max;
+            case 'above':
+                return value > trigger.params.threshold;
+            case 'below':
+                return value < trigger.params.threshold;
+            case 'change':
+                // Per ora semplificato - in un'app reale tracceremmo i valori storici
+                return Math.random() > 0.7; // Simula variazione
+            case 'duration':
+                // Per ora semplificato - in un'app reale tracceremmo il tempo
+                return Math.abs(value - trigger.params.target) < 5;
             default:
-                return true;
+                return false;
         }
     }
 
-    renderAnimation(ctx, type, config, value, sensor, width, height) {
+    executeAction(ctx, action, width, height, sensorValue) {
+        switch (action.type) {
+            case 'load-image':
+                this.renderLoadImageAction(ctx, action, width, height);
+                break;
+            case 'change-background':
+                this.renderChangeBackgroundAction(ctx, action, width, height);
+                break;
+            case 'add-svg':
+                this.renderAddSVGAction(ctx, action, width, height, sensorValue);
+                break;
+            case 'add-animation':
+                this.renderAddAnimationAction(ctx, action, width, height);
+                break;
+            case 'add-filter':
+                this.renderAddFilterAction(ctx, action, width, height);
+                break;
+        }
+    }
+
+    renderLoadImageAction(ctx, action, width, height) {
+        // Simulazione caricamento immagine
+        const quantity = action.quantity || 1;
+        const size = (action.size || 100) / 100 * Math.min(width, height) * 0.2;
+        const opacity = (action.opacity || 100) / 100;
+
+        ctx.globalAlpha = opacity;
+
+        for (let i = 0; i < quantity; i++) {
+            const x = (action.x || 50) / 100 * width + (i * 30) % width;
+            const y = (action.y || 50) / 100 * height + Math.sin(Date.now() * 0.001 + i) * 20;
+
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate((action.rotation || 0) * Math.PI / 180);
+
+            // Simula immagine con un rettangolo colorato
+            ctx.fillStyle = '#4ecdc4';
+            ctx.fillRect(-size / 2, -size / 2, size, size);
+
+            ctx.restore();
+        }
+
+        ctx.globalAlpha = 1;
+    }
+
+    renderChangeBackgroundAction(ctx, action, width, height) {
+        const type = action.backgroundType || 'solid';
+
         switch (type) {
-            case 'color_change':
-                this.renderColorChange(ctx, config, value, width, height);
+            case 'solid':
+                ctx.fillStyle = action.color || '#ffffff';
+                ctx.fillRect(0, 0, width, height);
                 break;
-            case 'svg_objects':
-                this.renderSVGObjects(ctx, config, value, sensor, width, height);
+
+            case 'gradient':
+                const gradient = this.createGradient(ctx, action, width, height);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, width, height);
                 break;
-            case 'waves':
-                this.renderWaves(ctx, config, value, sensor, width, height);
+
+            case 'overlay':
+                ctx.fillStyle = action.color || '#ffffff';
+                ctx.globalAlpha = 0.5;
+                ctx.fillRect(0, 0, width, height);
+                ctx.globalAlpha = 1;
+                break;
+
+            case 'blend':
+                ctx.globalCompositeOperation = action.blendMode || 'multiply';
+                ctx.fillStyle = action.color || '#ffffff';
+                ctx.fillRect(0, 0, width, height);
+                ctx.globalCompositeOperation = 'source-over';
                 break;
         }
     }
 
-    renderColorChange(ctx, config, value, width, height) {
-        if (config.type === 'variable') {
-            const normalized = this.normalizeValue(value, config.threshold_min, config.threshold_max);
-            const color = this.interpolateColorHex(config.color_low, config.color_high, normalized);
+    createGradient(ctx, action, width, height) {
+        const direction = action.direction || 'vertical';
+        let gradient;
 
-            ctx.fillStyle = color + '40'; // Aggiunge trasparenza
-            ctx.fillRect(0, 0, width, height);
-        } else {
-            ctx.fillStyle = config.color_low + '40';
-            ctx.fillRect(0, 0, width, height);
+        switch (direction) {
+            case 'horizontal':
+                gradient = ctx.createLinearGradient(0, 0, width, 0);
+                break;
+            case 'diagonal':
+                gradient = ctx.createLinearGradient(0, 0, width, height);
+                break;
+            case 'radial':
+                gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height) / 2);
+                break;
+            default: // vertical
+                gradient = ctx.createLinearGradient(0, 0, 0, height);
         }
+
+        gradient.addColorStop(0, action.color1 || '#667eea');
+        gradient.addColorStop(1, action.color2 || '#764ba2');
+
+        return gradient;
     }
 
-    renderSVGObjects(ctx, config, value, sensor, width, height) {
-        const count = config.count || 5;
-        const time = Date.now() * 0.001;
+    renderAddSVGAction(ctx, action, width, height, sensorValue) {
+        const quantity = action.quantity || 5;
+        const baseSize = (action.size || 100) / 100 * 30;
+        const opacity = (action.opacity || 100) / 100;
+        const speed = action.animationSpeed || 1;
+        const time = Date.now() * 0.001 * speed;
 
-        // Determina l'oggetto e l'animazione basati sui livelli
-        let currentObject = config.object;
-        let currentAnimation = config.animation;
+        ctx.globalAlpha = opacity;
 
-        if (config.levels && Array.isArray(config.levels)) {
-            // Sistema a livelli per i template
-            for (const level of config.levels) {
-                if (sensor === 'humidity') {
-                    if (value >= level.threshold) {
-                        currentObject = level.object;
-                        currentAnimation = level.animation;
-                    }
-                }
-            }
-        }
-
-        ctx.fillStyle = this.getSVGColor(currentObject);
-
-        for (let i = 0; i < count; i++) {
-            let x = (width / count) * i + (width / count) * 0.5;
+        for (let i = 0; i < quantity; i++) {
+            let x = (width / quantity) * i + (width / quantity) * 0.5;
             let y = height * 0.5;
+            let size = baseSize;
+            let rotation = 0;
 
-            // Applica animazione specifica
-            switch (currentAnimation) {
-                case 'floating':
-                    y += Math.sin(time + i) * 20;
-                    break;
-                case 'linear':
-                    x = (x + time * 50) % width;
-                    break;
-                case 'rotation':
-                    ctx.save();
-                    ctx.translate(x, y);
-                    ctx.rotate(time + i);
-                    x = 0;
-                    y = 0;
-                    break;
-                case 'snow_fall':
-                    x = (Math.random() * width + time * 10 + i * 50) % width;
-                    y = (Math.random() * height + time * 30 + i * 30) % height;
-                    break;
-                case 'sun_rays':
-                    // Raggi solari speciali
-                    this.drawSunRays(ctx, width * 0.8, height * 0.2, 30 + value, time);
-                    continue;
-                case 'falling_leaves':
-                    x = (width / count) * i + Math.sin(time * 0.5 + i) * 50;
-                    y = ((time * 20 + i * 40) % (height + 50)) - 25;
-                    ctx.save();
-                    ctx.translate(x, y);
-                    ctx.rotate(time * 0.5 + i);
-                    x = 0;
-                    y = 0;
-                    break;
-                case 'flying_birds':
-                    x = ((time * 40 + i * 100) % (width + 100)) - 50;
-                    y = height * 0.3 + Math.sin(time * 2 + i) * 30;
-                    break;
-                case 'rain_fall':
-                    x = (width / count) * i + Math.random() * 20;
-                    y = ((time * 100 + i * 20) % (height + 20)) - 10;
-                    // Disegna goccia di pioggia
-                    ctx.strokeStyle = 'rgba(100, 149, 237, 0.8)';
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.moveTo(x, y);
-                    ctx.lineTo(x - 2, y + 10);
-                    ctx.stroke();
-                    continue;
-                case 'twinkle':
-                    const twinkle = Math.sin(time * 3 + i) * 0.5 + 0.5;
-                    ctx.globalAlpha = twinkle;
-                    break;
-                case 'swim':
-                    x = ((time * 30 + i * 80) % (width + 100)) - 50;
-                    y = height * 0.5 + Math.sin(time + i) * 50;
-                    // Movimento ondulatorio per i pesci
-                    ctx.save();
-                    ctx.translate(x, y);
-                    ctx.rotate(Math.sin(time + i) * 0.2);
-                    x = 0;
-                    y = 0;
-                    break;
-            }
+            // Modifica in base al valore del sensore
+            const intensity = Math.max(0, Math.min(1, sensorValue / 100));
+            size *= (0.5 + intensity * 0.5);
 
-            this.drawSVGObject(ctx, currentObject, x, y, 20);
-
-            if (currentAnimation === 'rotation' || currentAnimation === 'falling_leaves' || currentAnimation === 'swim') {
-                ctx.restore();
-            }
-            if (currentAnimation === 'twinkle') {
-                ctx.globalAlpha = 1;
-            }
-        }
-    }
-
-    renderWaves(ctx, config, value, sensor, width, height) {
-        const amplitude = (config.amplitude || config.intensity || 5) * (value / this.getMaxSensorValue(sensor));
-        const frequency = config.frequency || config.speed || 3;
-        const sensitivity = config.sensitivity || 5;
-        const count = config.count || 3;
-        const time = Date.now() * 0.001;
-
-        ctx.strokeStyle = `rgba(255, 255, 255, 0.4)`;
-        ctx.lineWidth = 2;
-
-        switch (config.type) {
-            case 'sea_waves':
-            case 'sea':
-                // Onde del mare orizzontali
-                for (let wave = 0; wave < count; wave++) {
-                    ctx.beginPath();
-                    for (let x = 0; x < width; x++) {
-                        const y = height * 0.5 + wave * 50 +
-                            Math.sin(x * 0.01 * frequency + time + wave) * amplitude;
-                        if (x === 0) {
-                            ctx.moveTo(x, y);
-                        } else {
-                            ctx.lineTo(x, y);
-                        }
+            // Applica l'animazione scelta
+            switch (action.svgAnimation) {
+                case 'float':
+                    y += Math.sin(time + i) * 30;
+                    break;
+                case 'rotate':
+                    rotation = time + i;
+                    break;
+                case 'pulse':
+                    size *= (0.8 + 0.4 * Math.sin(time * 2 + i));
+                    break;
+                case 'bounce':
+                    y += Math.abs(Math.sin(time + i)) * 40;
+                    break;
+                case 'wave':
+                    x += Math.sin(time + i * 0.5) * 20;
+                    y += Math.cos(time + i * 0.5) * 10;
+                    break;
+                case 'spiral':
+                    const angle = time + i * 0.5;
+                    const radius = 30 + Math.sin(time) * 20;
+                    x += Math.cos(angle) * radius;
+                    y += Math.sin(angle) * radius;
+                    break;
+                case 'scale':
+                    size *= (0.5 + 0.5 * Math.sin(time + i));
+                    break;
+                case 'slide':
+                    x = ((x + time * 50) % (width + 100)) - 50;
+                    break;
+                case 'fade':
+                    ctx.globalAlpha = opacity * (0.3 + 0.7 * Math.sin(time + i));
+                    break;
+                case 'morph':
+                    size *= (0.7 + 0.6 * Math.sin(time * 0.5 + i));
+                    rotation = Math.sin(time * 0.3 + i) * 0.5;
+                    break;
+                case 'sparkle':
+                    if (Math.sin(time * 3 + i) > 0.5) {
+                        size *= 1.5;
+                        ctx.globalAlpha = opacity * Math.random();
                     }
-                    ctx.stroke();
-                }
-                break;
+                    break;
+                default: // 'static' o nessuna animazione
+                    break;
+            }
 
-            case 'solar_waves':
-            case 'sound_rings':
-                // Onde radiali dal centro o da un punto specifico
-                const centerX = config.origin === 'object' ? width * 0.7 : width / 2;
-                const centerY = config.origin === 'object' ? height * 0.3 : height / 2;
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(rotation);
 
-                ctx.strokeStyle = config.color || 'rgba(255, 215, 0, 0.6)';
+            // Carica e disegna l'SVG reale
+            this.drawRealSVG(ctx, action.svgObject || 'star.svg', size);
 
-                for (let i = 0; i < count; i++) {
-                    const radius = (time * 50 + i * 30) % 200;
-                    const alpha = Math.max(0, 1 - radius / 200);
-
-                    ctx.globalAlpha = alpha * (amplitude / 10);
-                    ctx.beginPath();
-                    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-                    ctx.stroke();
-                }
-                ctx.globalAlpha = 1;
-                break;
-
-            case 'currents':
-                // Correnti marine circolari
-                ctx.strokeStyle = 'rgba(100, 149, 237, 0.3)';
-                for (let i = 0; i < count; i++) {
-                    ctx.beginPath();
-                    const startAngle = time * 0.5 + i * (Math.PI * 2 / count);
-                    ctx.arc(
-                        width * 0.5 + Math.cos(startAngle) * 100,
-                        height * 0.5 + Math.sin(startAngle) * 100,
-                        50 + amplitude * 2,
-                        0, 2 * Math.PI
-                    );
-                    ctx.stroke();
-                }
-                break;
-
-            case 'heat':
-            case 'cold':
-            case 'thermal':
-                // Onde termiche verticali
-                const isHeat = config.type === 'heat';
-                ctx.strokeStyle = isHeat ? 'rgba(255, 100, 0, 0.3)' : 'rgba(100, 200, 255, 0.3)';
-
-                for (let i = 0; i < width; i += 40) {
-                    ctx.beginPath();
-                    for (let y = 0; y < height; y++) {
-                        const x = i + Math.sin(y * 0.02 + time) * amplitude;
-                        if (y === 0) {
-                            ctx.moveTo(x, y);
-                        } else {
-                            ctx.lineTo(x, y);
-                        }
-                    }
-                    ctx.stroke();
-                }
-                break;
-        }
-    }
-
-    getMaxSensorValue(sensor) {
-        const maxValues = {
-            temperature: 45,
-            humidity: 100,
-            light: 4095,
-            audio: 4095
-        };
-        return maxValues[sensor] || 100;
-    }
-
-    drawSunRays(ctx, x, y, intensity, time) {
-        const rayCount = 12;
-        ctx.strokeStyle = `rgba(255, 223, 0, ${Math.min(0.8, intensity / 50)})`;
-        ctx.lineWidth = 3;
-
-        for (let i = 0; i < rayCount; i++) {
-            const angle = (i / rayCount) * Math.PI * 2 + time * 0.2;
-            const rayLength = 30 + intensity;
-
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(
-                x + Math.cos(angle) * rayLength,
-                y + Math.sin(angle) * rayLength
-            );
-            ctx.stroke();
+            ctx.restore();
         }
 
-        // Disegna il sole al centro
-        ctx.fillStyle = 'rgba(255, 223, 0, 0.8)';
-        ctx.beginPath();
-        ctx.arc(x, y, 15, 0, 2 * Math.PI);
-        ctx.fill();
+        ctx.globalAlpha = 1;
     }
 
-    // Funzioni di utilità
-    drawCloud(ctx, x, y, size) {
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.beginPath();
-        ctx.arc(0, 0, size * 0.5, 0, 2 * Math.PI);
-        ctx.arc(size * 0.3, 0, size * 0.4, 0, 2 * Math.PI);
-        ctx.arc(size * 0.6, 0, size * 0.3, 0, 2 * Math.PI);
-        ctx.arc(size * 0.15, -size * 0.3, size * 0.35, 0, 2 * Math.PI);
-        ctx.arc(size * 0.45, -size * 0.3, size * 0.4, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.restore();
-    }
-
-    drawSVGObject(ctx, object, x, y, size) {
-        ctx.save();
-        ctx.translate(x, y);
-
-        switch (object) {
+    drawSVGObject(ctx, svgType, size) {
+        switch (svgType) {
+            case 'star.svg':
+                this.drawStar(ctx, size);
+                break;
             case 'sun.svg':
-                ctx.fillStyle = '#FFD700';
-                ctx.beginPath();
-                ctx.arc(0, 0, size * 0.5, 0, 2 * Math.PI);
-                ctx.fill();
+                this.drawSun(ctx, size);
                 break;
             case 'snowflake.svg':
-                ctx.strokeStyle = '#FFFFFF';
-                ctx.lineWidth = 2;
-                for (let i = 0; i < 6; i++) {
-                    ctx.beginPath();
-                    ctx.moveTo(0, 0);
-                    ctx.lineTo(0, -size);
-                    ctx.stroke();
-                    ctx.rotate(Math.PI / 3);
-                }
-                break;
-            case 'star.svg':
-                ctx.fillStyle = '#FFFFFF';
-                ctx.beginPath();
-                for (let i = 0; i < 5; i++) {
-                    const angle = (i * Math.PI * 2) / 5 - Math.PI / 2;
-                    const x = Math.cos(angle) * size;
-                    const y = Math.sin(angle) * size;
-                    if (i === 0) {
-                        ctx.moveTo(x, y);
-                    } else {
-                        ctx.lineTo(x, y);
-                    }
-                    const innerAngle = ((i + 0.5) * Math.PI * 2) / 5 - Math.PI / 2;
-                    const innerX = Math.cos(innerAngle) * size * 0.5;
-                    const innerY = Math.sin(innerAngle) * size * 0.5;
-                    ctx.lineTo(innerX, innerY);
-                }
-                ctx.closePath();
-                ctx.fill();
-                break;
-            case 'cloud.svg':
-            case 'cloud-rain.svg':
-                ctx.fillStyle = 'rgba(200, 200, 200, 0.8)';
-                this.drawCloud(ctx, 0, 0, size);
-                break;
-            case 'leaf.svg':
-                ctx.fillStyle = '#90EE90';
-                ctx.beginPath();
-                ctx.ellipse(0, 0, size * 0.4, size * 0.7, 0, 0, 2 * Math.PI);
-                ctx.fill();
-                break;
-            case 'bird.svg':
-                ctx.strokeStyle = '#333333';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.moveTo(-size, 0);
-                ctx.quadraticCurveTo(0, -size * 0.5, size, 0);
-                ctx.stroke();
-                break;
-            case 'fish.svg':
-                ctx.fillStyle = '#4169E1';
-                ctx.beginPath();
-                ctx.ellipse(0, 0, size * 0.7, size * 0.4, 0, 0, 2 * Math.PI);
-                ctx.fill();
-                // Coda
-                ctx.beginPath();
-                ctx.moveTo(size * 0.5, 0);
-                ctx.lineTo(size, -size * 0.3);
-                ctx.lineTo(size, size * 0.3);
-                ctx.closePath();
-                ctx.fill();
+                this.drawSnowflake(ctx, size);
                 break;
             case 'bubble.svg':
-            case 'droplet.svg':
-                ctx.fillStyle = 'rgba(173, 216, 230, 0.6)';
-                ctx.strokeStyle = 'rgba(100, 149, 237, 0.8)';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.arc(0, 0, size * 0.5, 0, 2 * Math.PI);
-                ctx.fill();
-                ctx.stroke();
+                this.drawBubble(ctx, size);
                 break;
-            case 'wave.svg':
-                ctx.strokeStyle = '#4169E1';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.moveTo(-size, 0);
-                ctx.quadraticCurveTo(-size / 2, -size / 2, 0, 0);
-                ctx.quadraticCurveTo(size / 2, size / 2, size, 0);
-                ctx.stroke();
+            case 'leaf.svg':
+                this.drawLeaf(ctx, size);
                 break;
-            case 'moon.svg':
-                ctx.fillStyle = '#F0E68C';
-                ctx.beginPath();
-                ctx.arc(0, 0, size * 0.5, 0, 2 * Math.PI);
-                ctx.fill();
-                ctx.fillStyle = '#000';
-                ctx.beginPath();
-                ctx.arc(size * 0.2, -size * 0.1, size * 0.4, 0, 2 * Math.PI);
-                ctx.fill();
-                break;
-            case 'sparkles.svg':
-                ctx.fillStyle = '#FFD700';
-                for (let i = 0; i < 4; i++) {
-                    ctx.save();
-                    ctx.rotate(i * Math.PI / 2);
-                    ctx.beginPath();
-                    ctx.moveTo(0, -size);
-                    ctx.lineTo(-size * 0.2, 0);
-                    ctx.lineTo(0, size);
-                    ctx.lineTo(size * 0.2, 0);
-                    ctx.closePath();
-                    ctx.fill();
-                    ctx.restore();
-                }
+            case 'fish.svg':
+                this.drawFish(ctx, size);
                 break;
             default:
-                // Fallback - cerchio generico
-                ctx.fillStyle = '#FFFFFF';
-                ctx.beginPath();
-                ctx.arc(0, 0, size * 0.5, 0, 2 * Math.PI);
-                ctx.fill();
+                this.drawDefault(ctx, size);
         }
-
-        ctx.restore();
     }
 
-    getSVGColor(object) {
-        const colors = {
-            'sun.svg': '#FFD700',
-            'snowflake.svg': '#FFFFFF',
-            'star.svg': '#FFFFFF',
-            'cloud.svg': '#C0C0C0',
-            'cloud-rain.svg': '#708090',
-            'bubble.svg': '#87CEEB',
-            'leaf.svg': '#90EE90',
-            'bird.svg': '#333333',
-            'fish.svg': '#4169E1',
-            'wave.svg': '#4169E1',
-            'moon.svg': '#F0E68C',
-            'sparkles.svg': '#FFD700'
+    drawStar(ctx, size) {
+        ctx.fillStyle = '#ffd700';
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+            const angle = (i * Math.PI * 2) / 5 - Math.PI / 2;
+            const x = Math.cos(angle) * size;
+            const y = Math.sin(angle) * size;
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+            const innerAngle = ((i + 0.5) * Math.PI * 2) / 5 - Math.PI / 2;
+            const innerX = Math.cos(innerAngle) * size * 0.5;
+            const innerY = Math.sin(innerAngle) * size * 0.5;
+            ctx.lineTo(innerX, innerY);
+        }
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    drawSun(ctx, size) {
+        // Centro
+        ctx.fillStyle = '#ffd700';
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.6, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // Raggi
+        ctx.strokeStyle = '#ffd700';
+        ctx.lineWidth = 3;
+        for (let i = 0; i < 8; i++) {
+            const angle = (i * Math.PI * 2) / 8;
+            ctx.beginPath();
+            ctx.moveTo(Math.cos(angle) * size * 0.7, Math.sin(angle) * size * 0.7);
+            ctx.lineTo(Math.cos(angle) * size, Math.sin(angle) * size);
+            ctx.stroke();
+        }
+    }
+
+    drawSnowflake(ctx, size) {
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+
+        for (let i = 0; i < 6; i++) {
+            ctx.save();
+            ctx.rotate((i * Math.PI) / 3);
+
+            // Linea principale
+            ctx.beginPath();
+            ctx.moveTo(0, -size);
+            ctx.lineTo(0, size);
+            ctx.stroke();
+
+            // Braccia
+            ctx.beginPath();
+            ctx.moveTo(0, -size * 0.7);
+            ctx.lineTo(-size * 0.3, -size * 0.4);
+            ctx.moveTo(0, -size * 0.7);
+            ctx.lineTo(size * 0.3, -size * 0.4);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+    }
+
+    drawBubble(ctx, size) {
+        ctx.fillStyle = 'rgba(173, 216, 230, 0.6)';
+        ctx.strokeStyle = 'rgba(100, 149, 237, 0.8)';
+        ctx.lineWidth = 2;
+
+        ctx.beginPath();
+        ctx.arc(0, 0, size, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+
+        // Riflesso
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.beginPath();
+        ctx.arc(-size * 0.3, -size * 0.3, size * 0.3, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+
+    drawLeaf(ctx, size) {
+        ctx.fillStyle = '#90ee90';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, size * 0.6, size, 0, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // Nervatura
+        ctx.strokeStyle = '#228b22';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, -size);
+        ctx.lineTo(0, size);
+        ctx.stroke();
+    }
+
+    drawFish(ctx, size) {
+        ctx.fillStyle = '#4169e1';
+
+        // Corpo
+        ctx.beginPath();
+        ctx.ellipse(0, 0, size * 0.8, size * 0.5, 0, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // Coda
+        ctx.beginPath();
+        ctx.moveTo(size * 0.6, 0);
+        ctx.lineTo(size * 1.2, -size * 0.4);
+        ctx.lineTo(size * 1.2, size * 0.4);
+        ctx.closePath();
+        ctx.fill();
+
+        // Occhio
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(-size * 0.3, -size * 0.1, size * 0.2, 0, 2 * Math.PI);
+        ctx.fill();
+
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.arc(-size * 0.3, -size * 0.1, size * 0.1, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+
+    drawRealSVG(ctx, svgFile, size) {
+        // Per ora disegnamo una rappresentazione semplificata
+        // In un'implementazione completa, caricheremmo l'SVG reale
+        const svgPath = `/static/images/${svgFile}`;
+
+        // Fallback: disegna una rappresentazione basata sul nome del file
+        switch (svgFile) {
+            case 'star.svg':
+                this.drawStar(ctx, size);
+                break;
+            case 'sun.svg':
+                this.drawSun(ctx, size);
+                break;
+            case 'snowflake.svg':
+                this.drawSnowflake(ctx, size);
+                break;
+            case 'bubble.svg':
+                this.drawBubble(ctx, size);
+                break;
+            case 'leaf.svg':
+                this.drawLeaf(ctx, size);
+                break;
+            case 'fish.svg':
+                this.drawFish(ctx, size);
+                break;
+            case 'cloud.svg':
+                this.drawCloud(ctx, size);
+                break;
+            case 'cloud-rain.svg':
+                this.drawCloudRain(ctx, size);
+                break;
+            case 'wave.svg':
+            case 'waves.svg':
+                this.drawWave(ctx, size);
+                break;
+            case 'comet.svg':
+                this.drawComet(ctx, size);
+                break;
+            case 'rocket.svg':
+                this.drawRocket(ctx, size);
+                break;
+            case 'planet.svg':
+                this.drawPlanet(ctx, size);
+                break;
+            case 'galaxy.svg':
+                this.drawGalaxy(ctx, size);
+                break;
+            case 'coral.svg':
+                this.drawCoral(ctx, size);
+                break;
+            case 'seaweed.svg':
+                this.drawSeaweed(ctx, size);
+                break;
+            case 'sparkles.svg':
+                this.drawSparkles(ctx, size);
+                break;
+            default:
+                this.drawDefault(ctx, size);
+        }
+    }
+
+    // Nuove funzioni per disegnare gli SVG aggiuntivi
+    drawCloud(ctx, size) {
+        ctx.fillStyle = 'rgba(220, 220, 220, 0.9)';
+        ctx.beginPath();
+        ctx.arc(-size * 0.5, 0, size * 0.4, 0, 2 * Math.PI);
+        ctx.arc(0, 0, size * 0.5, 0, 2 * Math.PI);
+        ctx.arc(size * 0.5, 0, size * 0.4, 0, 2 * Math.PI);
+        ctx.arc(size * 0.2, -size * 0.3, size * 0.35, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+
+    drawCloudRain(ctx, size) {
+        // Disegna la nuvola
+        this.drawCloud(ctx, size);
+
+        // Disegna la pioggia
+        ctx.strokeStyle = 'rgba(100, 149, 237, 0.8)';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 5; i++) {
+            const x = -size * 0.5 + (size * i / 4);
+            ctx.beginPath();
+            ctx.moveTo(x, size * 0.3);
+            ctx.lineTo(x - size * 0.1, size * 0.7);
+            ctx.stroke();
+        }
+    }
+
+    drawWave(ctx, size) {
+        ctx.strokeStyle = '#4169E1';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        for (let x = -size; x <= size; x += 5) {
+            const y = Math.sin(x * 0.1) * size * 0.3;
+            if (x === -size) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        }
+        ctx.stroke();
+    }
+
+    drawComet(ctx, size) {
+        // Testa della cometa
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.arc(size * 0.3, 0, size * 0.3, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // Coda della cometa
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
+        ctx.beginPath();
+        ctx.moveTo(size * 0.3, 0);
+        ctx.lineTo(-size, -size * 0.2);
+        ctx.lineTo(-size, size * 0.2);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    drawRocket(ctx, size) {
+        ctx.fillStyle = '#FF4500';
+
+        // Corpo del razzo
+        ctx.fillRect(-size * 0.2, -size * 0.6, size * 0.4, size * 1.2);
+
+        // Punta del razzo
+        ctx.beginPath();
+        ctx.moveTo(-size * 0.2, -size * 0.6);
+        ctx.lineTo(0, -size);
+        ctx.lineTo(size * 0.2, -size * 0.6);
+        ctx.closePath();
+        ctx.fill();
+
+        // Fiamma
+        ctx.fillStyle = '#FF6347';
+        ctx.beginPath();
+        ctx.moveTo(-size * 0.15, size * 0.6);
+        ctx.lineTo(0, size);
+        ctx.lineTo(size * 0.15, size * 0.6);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    drawPlanet(ctx, size) {
+        // Pianeta
+        ctx.fillStyle = '#4169E1';
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.8, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // Anelli
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, size * 1.2, size * 0.3, 0, 0, 2 * Math.PI);
+        ctx.stroke();
+    }
+
+    drawGalaxy(ctx, size) {
+        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, size);
+        gradient.addColorStop(0, '#FF69B4');
+        gradient.addColorStop(0.5, '#9370DB');
+        gradient.addColorStop(1, '#000080');
+
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, size, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // Stelle
+        ctx.fillStyle = '#FFFFFF';
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const radius = size * 0.3 + Math.random() * size * 0.4;
+            const x = Math.cos(angle) * radius;
+            const y = Math.sin(angle) * radius;
+            ctx.beginPath();
+            ctx.arc(x, y, 2, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+    }
+
+    drawCoral(ctx, size) {
+        ctx.fillStyle = '#FF7F50';
+        ctx.strokeStyle = '#FF6347';
+        ctx.lineWidth = 2;
+
+        // Rami del corallo
+        for (let i = 0; i < 5; i++) {
+            const angle = (i / 5) * Math.PI * 2;
+            const length = size * 0.8;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.cos(angle) * length, Math.sin(angle) * length);
+            ctx.stroke();
+
+            // Piccoli rami
+            ctx.beginPath();
+            ctx.arc(Math.cos(angle) * length * 0.6, Math.sin(angle) * length * 0.6, size * 0.1, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+    }
+
+    drawSeaweed(ctx, size) {
+        ctx.strokeStyle = '#228B22';
+        ctx.lineWidth = 4;
+
+        for (let i = 0; i < 3; i++) {
+            const x = -size * 0.3 + i * size * 0.3;
+            ctx.beginPath();
+            ctx.moveTo(x, size);
+
+            for (let y = size; y >= -size; y -= 10) {
+                const wave = Math.sin(y * 0.1 + Date.now() * 0.001) * size * 0.2;
+                ctx.lineTo(x + wave, y);
+            }
+            ctx.stroke();
+        }
+    }
+
+    drawSparkles(ctx, size) {
+        ctx.fillStyle = '#FFD700';
+
+        for (let i = 0; i < 6; i++) {
+            const angle = (i / 6) * Math.PI * 2;
+            const radius = size * 0.5;
+            const x = Math.cos(angle) * radius;
+            const y = Math.sin(angle) * radius;
+
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+
+            // Forma a stella piccola
+            ctx.beginPath();
+            ctx.moveTo(0, -size * 0.15);
+            ctx.lineTo(-size * 0.05, 0);
+            ctx.lineTo(0, size * 0.15);
+            ctx.lineTo(size * 0.05, 0);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+        }
+    }
+
+    renderAddAnimationAction(ctx, action, width, height) {
+        // Le animazioni sono gestite a livello di CSS/transform
+        // Qui possiamo simulare alcuni effetti base
+        const time = Date.now() * 0.001;
+
+        switch (action.animation) {
+            case 'pulse':
+                const scale = 0.8 + 0.4 * Math.sin(time * 2);
+                ctx.scale(scale, scale);
+                break;
+            case 'rotate':
+                ctx.rotate(time);
+                break;
+            case 'wave':
+                // Effetto ondulatorio sull'intero canvas
+                const imageData = ctx.getImageData(0, 0, width, height);
+                // Simulazione semplificata
+                break;
+        }
+    }
+
+    renderAddFilterAction(ctx, action, width, height) {
+        // I filtri CSS sono più complessi da simulare in canvas
+        // Qui possiamo applicare alcuni effetti base
+        const intensity = (action.intensity || 100) / 100;
+
+        switch (action.filter) {
+            case 'blur':
+                ctx.filter = `blur(${intensity * 5}px)`;
+                break;
+            case 'brightness':
+                ctx.filter = `brightness(${intensity})`;
+                break;
+            case 'contrast':
+                ctx.filter = `contrast(${intensity})`;
+                break;
+            case 'saturation':
+                ctx.filter = `saturate(${intensity})`;
+                break;
+            case 'grayscale':
+                ctx.filter = `grayscale(${intensity})`;
+                break;
+            case 'sepia':
+                ctx.filter = `sepia(${intensity})`;
+                break;
+            default:
+                ctx.filter = 'none';
+        }
+    }
+
+    // ============================================================================
+    // SENSOR SIMULATION AND CONTROLS
+    // ============================================================================
+
+    updateSensorValue(sensor, value) {
+        const mapping = {
+            'temp': 'temperature',
+            'humidity': 'humidity',
+            'light': 'light',
+            'audio': 'audio'
         };
-        return colors[object] || '#FFFFFF';
+
+        const sensorKey = mapping[sensor] || sensor;
+        this.sensorValues[sensorKey] = parseFloat(value);
+
+        // Aggiorna display
+        const slider = document.getElementById(`${sensor}-slider`);
+        const display = slider.nextElementSibling;
+        const unit = sensor === 'temp' ? '°C' : sensor === 'humidity' ? '%' : '';
+        display.textContent = `${value}${unit}`;
+
+        // Aggiorna overlay
+        const overlayValue = document.getElementById(`${sensorKey}-value`);
+        if (overlayValue) {
+            overlayValue.textContent = `${value}${unit}`;
+        }
     }
 
-    interpolateColor(color1, color2, factor) {
-        return color1.map((c, i) => Math.round(c + factor * (color2[i] - c)));
-    }
-
-    interpolateColorHex(hex1, hex2, factor) {
-        const color1 = this.hexToRgb(hex1);
-        const color2 = this.hexToRgb(hex2);
-        const result = this.interpolateColor(color1, color2, factor);
-        return this.rgbToHex(result[0], result[1], result[2]);
-    }
-
-    hexToRgb(hex) {
-        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return result ? [
-            parseInt(result[1], 16),
-            parseInt(result[2], 16),
-            parseInt(result[3], 16)
-        ] : [0, 0, 0];
-    }
-
-    rgbToHex(r, g, b) {
-        return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
-    }
-
-    normalizeValue(value, min, max) {
-        return Math.max(0, Math.min(1, (value - min) / (max - min)));
+    updateSensorValues() {
+        // Aggiorna i valori dell'overlay con i dati attuali
+        Object.entries(this.sensorValues).forEach(([sensor, value]) => {
+            const element = document.getElementById(`${sensor}-value`);
+            if (element) {
+                const unit = sensor === 'temperature' ? '°C' : sensor === 'humidity' ? '%' : '';
+                element.textContent = `${value}${unit}`;
+            }
+        });
     }
 
     handleDeviceUpdate(data) {
         if (data.device_id === this.selectedDevice) {
+            // Aggiorna i valori sensori con i dati ricevuti dal server
             this.sensorValues = {
-                temperature: data.data.temperature,
-                humidity: data.data.humidity,
-                light: data.data.light,
-                audio: data.data.audio
+                temperature: data.data.temperature || this.sensorValues.temperature,
+                humidity: data.data.humidity || this.sensorValues.humidity,
+                light: data.data.light || this.sensorValues.light,
+                audio: data.data.audio || this.sensorValues.audio
             };
+
+            // Aggiorna anche gli slider per riflettere i nuovi valori
+            this.updateSlidersFromSensorValues();
             this.updateSensorValues();
         }
     }
 
-    validateName(name) {
-        const isValid = name.length > 0 && name.length <= 50;
-        this.validateForm();
-        return isValid;
+    updateSlidersFromSensorValues() {
+        // Aggiorna gli slider con i valori attuali dei sensori
+        const sliders = {
+            'temp-slider': this.sensorValues.temperature,
+            'humidity-slider': this.sensorValues.humidity,
+            'light-slider': this.sensorValues.light,
+            'audio-slider': this.sensorValues.audio
+        };
+
+        Object.entries(sliders).forEach(([sliderId, value]) => {
+            const slider = document.getElementById(sliderId);
+            if (slider && value !== undefined) {
+                slider.value = value;
+                const display = slider.nextElementSibling;
+                if (display) {
+                    const unit = sliderId.includes('temp') ? '°C' :
+                        sliderId.includes('humidity') ? '%' : '';
+                    display.textContent = `${value}${unit}`;
+                }
+            }
+        });
     }
+
+    // ============================================================================
+    // VALIDATION AND SAVING
+    // ============================================================================
 
     validateForm() {
         const name = document.getElementById('quadro-name').value;
@@ -1932,20 +1942,15 @@ class QuadroCreator {
 
         const isValid = name.length > 0 && name.length <= 50 && device !== '';
 
-        if (isValid) {
-            saveBtn.disabled = false;
-            saveBtn.classList.remove('disabled');
-        } else {
-            saveBtn.disabled = true;
-            saveBtn.classList.add('disabled');
-        }
+        saveBtn.disabled = !isValid;
+        saveBtn.classList.toggle('disabled', !isValid);
     }
 
     async saveQuadro() {
         const name = document.getElementById('quadro-name').value;
         const deviceId = document.getElementById('device-select').value;
 
-        if (!this.validateName(name)) {
+        if (!name || name.length > 50) {
             alert('Inserisci un nome valido per il quadro (max 50 caratteri)');
             return;
         }
@@ -1955,26 +1960,19 @@ class QuadroCreator {
             return;
         }
 
-        // Prepara la configurazione finale
-        let finalConfig;
-        if (this.selectedTemplate === 'personalizzato') {
-            finalConfig = {
-                ...this.sensorsConfig,
-                customConfig: this.customConfig
-            };
-        } else {
-            // Per i template predefiniti, usa la configurazione del template
-            finalConfig = this.predefinedTemplates[this.selectedTemplate];
-        }
-
         const quadroData = {
             name: name,
             device_id: deviceId,
-            template: this.selectedTemplate,
-            is_predefined: this.selectedTemplate !== 'personalizzato',
-            sensors_config: finalConfig,
+            template: 'personalizzato',
+            is_predefined: false,
+            triggers: this.triggers,
+            uploaded_files: this.uploadedFiles.map(file => ({
+                id: file.id,
+                name: file.name,
+                type: file.type
+            })),
             created_at: new Date().toISOString(),
-            version: "3.0"
+            version: "4.0"
         };
 
         try {
@@ -2013,7 +2011,10 @@ class QuadroCreator {
         overlay.classList.add('hidden');
     }
 
-    // Controlli anteprima
+    // ============================================================================
+    // PREVIEW CONTROLS
+    // ============================================================================
+
     togglePreview() {
         this.isPlaying = !this.isPlaying;
         const btn = document.getElementById('play-btn');
@@ -2068,10 +2069,11 @@ class QuadroCreator {
                     };
 
                     const slider = document.getElementById(`${sliderMap[sensor]}-slider`);
-                    slider.value = value;
-
-                    const unit = sensor === 'temperature' ? '°C' : sensor === 'humidity' ? '%' : '';
-                    slider.nextElementSibling.textContent = `${value}${unit}`;
+                    if (slider) {
+                        slider.value = value;
+                        const unit = sensor === 'temperature' ? '°C' : sensor === 'humidity' ? '%' : '';
+                        slider.nextElementSibling.textContent = `${value}${unit}`;
+                    }
                 });
 
                 this.updateSensorValues();
@@ -2085,7 +2087,7 @@ class QuadroCreator {
 }
 
 // ============================================================================
-// FUNZIONI GLOBALI
+// GLOBAL FUNCTIONS AND EVENT HANDLERS
 // ============================================================================
 
 let quadroCreator;
@@ -2093,15 +2095,41 @@ let quadroCreator;
 // Inizializzazione
 document.addEventListener('DOMContentLoaded', function () {
     quadroCreator = new QuadroCreator();
+
+    // Setup range input listeners per aggiornare i valori visualizzati
+    document.addEventListener('input', function (e) {
+        if (e.target.type === 'range') {
+            const valueDisplay = e.target.parentElement.querySelector('.range-value');
+            if (valueDisplay) {
+                let value = e.target.value;
+                const id = e.target.id;
+
+                // Aggiungi unità appropriate
+                if (id.includes('duration')) {
+                    value += 'ms';
+                } else if (id.includes('rotation')) {
+                    value += '°';
+                } else if (id.includes('opacity') || id.includes('size') || id.includes('intensity')) {
+                    value += '%';
+                }
+
+                valueDisplay.textContent = value;
+            }
+        }
+    });
 });
 
-// Funzioni di controllo
+// Funzioni di controllo globali
 function goBack() {
     window.history.back();
 }
 
 function saveQuadro() {
     quadroCreator.saveQuadro();
+}
+
+function addTrigger(sensor) {
+    quadroCreator.addTrigger(sensor);
 }
 
 function togglePreview() {
@@ -2116,6 +2144,62 @@ function testEffects() {
     quadroCreator.testEffects();
 }
 
+function previewEspData() {
+    const btn = document.getElementById('esp-preview-btn');
+    btn.disabled = true;
+    btn.textContent = '🔄 Carico...';
+
+    const deviceId = document.getElementById('device-select').value;
+    if (!deviceId) {
+        alert("Seleziona prima un dispositivo ESP32!");
+        btn.disabled = false;
+        btn.textContent = '📡 Dati Live ESP';
+        return;
+    }
+
+    // Fai una richiesta al server per i dati più recenti del device
+    fetch(`/api/device_data?device_id=${encodeURIComponent(deviceId)}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Aggiorna i controlli con i dati ricevuti
+            if (data.temperature !== undefined) {
+                const tempSlider = document.getElementById('temp-slider');
+                tempSlider.value = data.temperature;
+                quadroCreator.updateSensorValue('temp', data.temperature);
+            }
+            if (data.humidity !== undefined) {
+                const humiditySlider = document.getElementById('humidity-slider');
+                humiditySlider.value = data.humidity;
+                quadroCreator.updateSensorValue('humidity', data.humidity);
+            }
+            if (data.light !== undefined) {
+                const lightSlider = document.getElementById('light-slider');
+                lightSlider.value = data.light;
+                quadroCreator.updateSensorValue('light', data.light);
+            }
+            if (data.audio !== undefined) {
+                const audioSlider = document.getElementById('audio-slider');
+                audioSlider.value = data.audio;
+                quadroCreator.updateSensorValue('audio', data.audio);
+            }
+
+            console.log('Dati ESP32 caricati:', data);
+        })
+        .catch(error => {
+            console.error('Errore nel caricamento dati ESP32:', error);
+            alert("Impossibile ottenere dati dall'ESP32. Dispositivo offline o errore di connessione.");
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.textContent = '📡 Dati Live ESP';
+        });
+}
+
 function viewQuadro() {
     if (quadroCreator.createdQuadroId) {
         window.location.href = `/quadro/${quadroCreator.createdQuadroId}`;
@@ -2126,11 +2210,47 @@ function goToHome() {
     window.location.href = '/';
 }
 
+// Funzioni globali per gestire gli eventi dai template HTML generati dinamicamente
+window.selectBackgroundType = function (type) {
+    if (quadroCreator && quadroCreator.currentAction) {
+        quadroCreator.selectBackgroundType(type);
+    }
+};
+
+window.selectSVGObject = function (svg) {
+    if (quadroCreator && quadroCreator.currentAction) {
+        quadroCreator.selectSVGObject(svg);
+    }
+};
+
+window.selectSVGAnimation = function (animation) {
+    if (quadroCreator && quadroCreator.currentAction) {
+        quadroCreator.selectSVGAnimation(animation);
+    }
+};
+
+window.selectAnimation = function (animation) {
+    if (quadroCreator && quadroCreator.currentAction) {
+        quadroCreator.selectAnimation(animation);
+    }
+};
+
+window.selectFilter = function (filter) {
+    if (quadroCreator && quadroCreator.currentAction) {
+        quadroCreator.selectFilter(filter);
+    }
+};
+function drawDefault(ctx, size) {
+    ctx.fillStyle = '#667eea';
+    ctx.beginPath();
+    ctx.arc(0, 0, size, 0, 2 * Math.PI);
+    ctx.fill();
+}
+
 // Gestione responsive
 window.addEventListener('resize', function () {
     if (quadroCreator && quadroCreator.previewCanvas) {
-        // Riadatta il canvas alle nuove dimensioni
-        quadroCreator.updatePreview();
+        quadroCreator.resizeCanvas();
     }
 });
 
@@ -2141,9 +2261,35 @@ window.addEventListener('error', function (e) {
 
 // Gestione beforeunload
 window.addEventListener('beforeunload', function (e) {
-    // Avvisa l'utente se sta per lasciare la pagina con modifiche non salvate
     const name = document.getElementById('quadro-name').value;
-    if (name && !quadroCreator.createdQuadroId) {
+    const hasTriggers = Object.values(quadroCreator?.triggers || {}).some(triggers => triggers.length > 0);
+
+    if ((name || hasTriggers) && !quadroCreator?.createdQuadroId) {
+        e.preventDefault();
+        e.returnValue = 'Hai modifiche non salvate. Sei sicuro di voler lasciare la pagina?';
+    }
+});
+
+
+
+// Gestione responsive
+window.addEventListener('resize', function () {
+    if (quadroCreator && quadroCreator.previewCanvas) {
+        quadroCreator.resizeCanvas();
+    }
+});
+
+// Gestione errori globali
+window.addEventListener('error', function (e) {
+    console.error('Errore JavaScript:', e.error);
+});
+
+// Gestione beforeunload
+window.addEventListener('beforeunload', function (e) {
+    const name = document.getElementById('quadro-name').value;
+    const hasTriggers = Object.values(quadroCreator?.triggers || {}).some(triggers => triggers.length > 0);
+
+    if ((name || hasTriggers) && !quadroCreator?.createdQuadroId) {
         e.preventDefault();
         e.returnValue = 'Hai modifiche non salvate. Sei sicuro di voler lasciare la pagina?';
     }

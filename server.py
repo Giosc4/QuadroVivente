@@ -293,6 +293,23 @@ def get_devices():
 
     return jsonify(devices_out), 200
 
+@app.route("/api/device_data")
+def api_device_data():
+    device_id = request.args.get("device_id")
+    if not device_id:
+        return jsonify({"error": "missing device_id"}), 400
+    device = connected_devices.get(device_id)
+    if not device or not device.get("data_history"):
+        return jsonify({"error": "device not found"}), 404
+    # Prendi l'ultimo dato disponibile
+    data = device["data_history"][-1]
+    return jsonify({
+        "temperature": data.get("temperature", 0),
+        "humidity": data.get("humidity", 0),
+        "light": data.get("light", 0),
+        "audio": data.get("audio", 0)
+    })
+
 
 @app.route('/api/quadri', methods=['GET'])
 def get_quadri():

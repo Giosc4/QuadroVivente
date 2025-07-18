@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crea Nuovo Quadro - Quadri Viventi</title>
     <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
-    <link rel="stylesheet" href="/static/css/create_paint.css">
+    <link rel="stylesheet" href="../static/css/create_paint.css">
 </head>
 
 <body>
@@ -15,7 +15,7 @@
         <header class="create-header">
             <div class="header-content">
                 <h1>🎨 Crea Nuovo Quadro Vivente</h1>
-                <p class="subtitle">Trasforma i dati dei tuoi sensori in arte interattiva</p>
+                <p class="subtitle">Trasforma i dati dei tuoi sensori in arte interattiva personalizzata</p>
             </div>
             <div class="header-actions">
                 <button class="btn btn-secondary" onclick="goBack()">
@@ -30,14 +30,14 @@
         <div class="create-content">
             <!-- Sidebar di configurazione -->
             <div class="config-sidebar">
-                <div class="config-section active" data-section="basic">
+                <!-- Informazioni Base -->
+                <div class="config-section">
                     <h3>📝 Informazioni Base</h3>
                     <div class="form-group">
                         <label for="quadro-name">Nome Quadro:</label>
                         <input type="text" id="quadro-name" placeholder="Il mio quadro vivente..." maxlength="50">
-                        <small class="help-text">Massimo 50 caratteri</small>
+                        <small class="help-text">Massimo 50 caratteri, anche caratteri speciali</small>
                     </div>
-
                     <div class="form-group">
                         <label for="device-select">Dispositivo ESP32:</label>
                         <select id="device-select">
@@ -47,486 +47,73 @@
                             <span class="status-indicator"></span>
                             <span class="status-text">Seleziona un dispositivo</span>
                         </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Template:</label>
-                        <div class="template-grid">
-                            <div class="template-card" data-template="natura">
-                                <div class="template-preview">
-                                    <canvas width="120" height="80"></canvas>
-                                </div>
-                                <h4>🌿 Natura</h4>
-                                <p>Paesaggi naturali con elementi meteo</p>
-                            </div>
-                            <div class="template-card" data-template="spazio">
-                                <div class="template-preview">
-                                    <canvas width="120" height="80"></canvas>
-                                </div>
-                                <h4>🌌 Spazio</h4>
-                                <p>Stelle, pianeti e nebulose</p>
-                            </div>
-                            <div class="template-card" data-template="oceano">
-                                <div class="template-preview">
-                                    <canvas width="120" height="80"></canvas>
-                                </div>
-                                <h4>🌊 Oceano</h4>
-                                <p>Onde, pesci e bolle marine</p>
-                            </div>
-                            <div class="template-card" data-template="personalizzato">
-                                <div class="template-preview">
-                                    <canvas width="120" height="80"></canvas>
-                                </div>
-                                <h4>🎨 Personalizzato</h4>
-                                <p>Crea il tuo quadro da zero</p>
-                            </div>
-                        </div>
+                        <button class="btn btn-small" id="esp-preview-btn" onclick="previewEspData()" style="margin-top: 10px;">
+                            📡 Dati Live ESP
+                        </button>
                     </div>
                 </div>
 
-                <div class="config-section" data-section="sensors">
-                    <h3>🔧 Configurazione Sensori</h3>
-
+                <!-- Configurazione Triggers -->
+                <div class="config-section">
+                    <h3>🔧 Triggers e Azioni</h3>
+                    
                     <!-- Temperatura -->
                     <div class="sensor-config" data-sensor="temperature">
                         <h4>🌡️ Temperatura</h4>
-                        <div class="animation-types">
-                            <div class="animation-type">
-                                <label>
-                                    <input type="checkbox" class="animation-checkbox" data-animation="color_change">
-                                    Cambio Colore di Sfondo
-                                </label>
-                                <div class="animation-config hidden">
-                                    <div class="form-row">
-                                        <div class="form-group">
-                                            <label>Tipo:</label>
-                                            <select class="color-type">
-                                                <option value="fixed">Tinta Unica</option>
-                                                <option value="variable">Variabile</option>
-                                            </select>
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Condizione:</label>
-                                            <select class="condition-type">
-                                                <option value="range">Tra valori</option>
-                                                <option value="above">Sopra soglia</option>
-                                                <option value="below">Sotto soglia</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="threshold-config">
-                                        <div class="form-group">
-                                            <label>Soglia min:</label>
-                                            <input type="number" class="threshold-min" value="15">
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Soglia max:</label>
-                                            <input type="number" class="threshold-max" value="30">
-                                        </div>
-                                    </div>
-                                    <div class="color-palette">
-                                        <div class="color-item">
-                                            <label>Colore basso:</label>
-                                            <input type="color" class="color-low" value="#4da6ff">
-                                        </div>
-                                        <div class="color-item">
-                                            <label>Colore alto:</label>
-                                            <input type="color" class="color-high" value="#ff4d4d">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="animation-type">
-                                <label>
-                                    <input type="checkbox" class="animation-checkbox" data-animation="svg_objects">
-                                    Oggetti SVG
-                                </label>
-                                <div class="animation-config hidden">
-                                    <div class="form-group">
-                                        <label>Oggetto:</label>
-                                        <select class="svg-object">
-                                            <option value="sun.svg">☀️ Sole</option>
-                                            <option value="snowflake.svg">❄️ Fiocco di Neve</option>
-                                            <option value="cloud.svg">☁️ Nuvola</option>
-                                            <option value="thermometer.svg">🌡️ Termometro</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-row">
-                                        <div class="form-group">
-                                            <label>Quantità:</label>
-                                            <input type="number" class="object-count" value="5" min="1" max="30">
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Animazione:</label>
-                                            <select class="animation-style">
-                                                <option value="static">Statico</option>
-                                                <option value="floating">Fluttuante</option>
-                                                <option value="linear">Percorso Lineare</option>
-                                                <option value="rotation">Rotazione</option>
-                                                <option value="snow_fall">Nevicata</option>
-                                                <option value="sun_rays">Raggi Solari</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="threshold-config">
-                                        <div class="form-group">
-                                            <label>Condizione:</label>
-                                            <select class="svg-condition">
-                                                <option value="always">Sempre</option>
-                                                <option value="above">Sopra soglia</option>
-                                                <option value="below">Sotto soglia</option>
-                                            </select>
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Soglia:</label>
-                                            <input type="number" class="svg-threshold" value="25">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="animation-type">
-                                <label>
-                                    <input type="checkbox" class="animation-checkbox" data-animation="waves">
-                                    Onde
-                                </label>
-                                <div class="animation-config hidden">
-                                    <div class="form-group">
-                                        <label>Tipo di onda:</label>
-                                        <select class="wave-type">
-                                            <option value="heat">Onde di Calore</option>
-                                            <option value="cold">Onde di Freddo</option>
-                                            <option value="thermal">Onde Termiche</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-row">
-                                        <div class="form-group">
-                                            <label>Ampiezza:</label>
-                                            <input type="range" class="wave-amplitude" min="1" max="10" value="5">
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Frequenza:</label>
-                                            <input type="range" class="wave-frequency" min="1" max="10" value="3">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="triggers-container">
+                            <button class="btn btn-small add-trigger" onclick="addTrigger('temperature')">
+                                ➕ Aggiungi Trigger
+                            </button>
+                            <div class="triggers-list" id="temperature-triggers"></div>
                         </div>
                     </div>
 
                     <!-- Umidità -->
                     <div class="sensor-config" data-sensor="humidity">
                         <h4>💧 Umidità</h4>
-                        <div class="animation-types">
-                            <div class="animation-type">
-                                <label>
-                                    <input type="checkbox" class="animation-checkbox" data-animation="color_change">
-                                    Cambio Colore di Sfondo
-                                </label>
-                                <div class="animation-config hidden">
-                                    <div class="form-row">
-                                        <div class="form-group">
-                                            <label>Tipo:</label>
-                                            <select class="color-type">
-                                                <option value="fixed">Tinta Unica</option>
-                                                <option value="variable">Variabile</option>
-                                            </select>
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Condizione:</label>
-                                            <select class="condition-type">
-                                                <option value="range">Tra valori</option>
-                                                <option value="above">Sopra soglia</option>
-                                                <option value="below">Sotto soglia</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="threshold-config">
-                                        <div class="form-group">
-                                            <label>Soglia min:</label>
-                                            <input type="number" class="threshold-min" value="40">
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Soglia max:</label>
-                                            <input type="number" class="threshold-max" value="70">
-                                        </div>
-                                    </div>
-                                    <div class="color-palette">
-                                        <div class="color-item">
-                                            <label>Colore basso:</label>
-                                            <input type="color" class="color-low" value="#d4b896">
-                                        </div>
-                                        <div class="color-item">
-                                            <label>Colore alto:</label>
-                                            <input type="color" class="color-high" value="#4ecdc4">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="animation-type">
-                                <label>
-                                    <input type="checkbox" class="animation-checkbox" data-animation="svg_objects">
-                                    Oggetti SVG
-                                </label>
-                                <div class="animation-config hidden">
-                                    <div class="form-group">
-                                        <label>Oggetto:</label>
-                                        <select class="svg-object">
-                                            <option value="leaf.svg">🍃 Foglia</option>
-                                            <option value="bird.svg">🐦 Uccello</option>
-                                            <option value="cloud-rain.svg">🌧️ Pioggia</option>
-                                            <option value="cloud.svg">☁️ Nuvola</option>
-                                            <option value="droplet.svg">💧 Goccia</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-row">
-                                        <div class="form-group">
-                                            <label>Quantità:</label>
-                                            <input type="number" class="object-count" value="8" min="1" max="30">
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Animazione:</label>
-                                            <select class="animation-style">
-                                                <option value="static">Statico</option>
-                                                <option value="floating">Fluttuante</option>
-                                                <option value="falling_leaves">Foglie Volanti</option>
-                                                <option value="flying_birds">Uccelli Volanti</option>
-                                                <option value="rain_fall">Pioggia</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="threshold-config">
-                                        <div class="form-group">
-                                            <label>Condizione:</label>
-                                            <select class="svg-condition">
-                                                <option value="always">Sempre</option>
-                                                <option value="above">Sopra soglia</option>
-                                                <option value="below">Sotto soglia</option>
-                                                <option value="range">Tra valori</option>
-                                            </select>
-                                        </div>
-                                        <div class="form-row">
-                                            <div class="form-group">
-                                                <label>Soglia min:</label>
-                                                <input type="number" class="svg-threshold-min" value="30">
-                                            </div>
-                                            <div class="form-group">
-                                                <label>Soglia max:</label>
-                                                <input type="number" class="svg-threshold-max" value="70">
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="animation-type">
-                                <label>
-                                    <input type="checkbox" class="animation-checkbox" data-animation="waves">
-                                    Onde
-                                </label>
-                                <div class="animation-config hidden">
-                                    <div class="form-group">
-                                        <label>Tipo di onda:</label>
-                                        <select class="wave-type">
-                                            <option value="sea">Onde del Mare</option>
-                                            <option value="vapor">Vapore Acqueo</option>
-                                            <option value="mist">Nebbia</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-row">
-                                        <div class="form-group">
-                                            <label>Intensità:</label>
-                                            <input type="range" class="wave-intensity" min="1" max="10" value="5">
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Velocità:</label>
-                                            <input type="range" class="wave-speed" min="1" max="10" value="3">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="triggers-container">
+                            <button class="btn btn-small add-trigger" onclick="addTrigger('humidity')">
+                                ➕ Aggiungi Trigger
+                            </button>
+                            <div class="triggers-list" id="humidity-triggers"></div>
                         </div>
                     </div>
 
                     <!-- Luce -->
                     <div class="sensor-config" data-sensor="light">
                         <h4>💡 Luce</h4>
-                        <div class="animation-types">
-                            <div class="animation-type">
-                                <label>
-                                    <input type="checkbox" class="animation-checkbox" data-animation="color_change">
-                                    Cambio Colore di Sfondo
-                                </label>
-                                <div class="animation-config hidden">
-                                    <div class="form-row">
-                                        <div class="form-group">
-                                            <label>Tipo:</label>
-                                            <select class="color-type">
-                                                <option value="fixed">Tinta Unica</option>
-                                                <option value="variable">Variabile</option>
-                                            </select>
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Condizione:</label>
-                                            <select class="condition-type">
-                                                <option value="range">Tra valori</option>
-                                                <option value="above">Sopra soglia</option>
-                                                <option value="below">Sotto soglia</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="threshold-config">
-                                        <div class="form-group">
-                                            <label>Soglia min:</label>
-                                            <input type="number" class="threshold-min" value="500">
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Soglia max:</label>
-                                            <input type="number" class="threshold-max" value="3000">
-                                        </div>
-                                    </div>
-                                    <div class="color-palette">
-                                        <div class="color-item">
-                                            <label>Colore basso:</label>
-                                            <input type="color" class="color-low" value="#1a1a2e">
-                                        </div>
-                                        <div class="color-item">
-                                            <label>Colore alto:</label>
-                                            <input type="color" class="color-high" value="#ffd93d">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="animation-type">
-                                <label>
-                                    <input type="checkbox" class="animation-checkbox" data-animation="svg_objects">
-                                    Oggetti SVG
-                                </label>
-                                <div class="animation-config hidden">
-                                    <div class="form-group">
-                                        <label>Oggetto:</label>
-                                        <select class="svg-object">
-                                            <option value="star.svg">⭐ Stella</option>
-                                            <option value="moon.svg">🌙 Luna</option>
-                                            <option value="sun.svg">☀️ Sole</option>
-                                            <option value="sparkles.svg">✨ Scintille</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-row">
-                                        <div class="form-group">
-                                            <label>Quantità:</label>
-                                            <input type="number" class="object-count" value="10" min="1" max="30">
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Animazione:</label>
-                                            <select class="animation-style">
-                                                <option value="static">Statico</option>
-                                                <option value="twinkle">Scintillio</option>
-                                                <option value="fade">Dissolvenza</option>
-                                                <option value="pulse">Pulsazione</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="threshold-config">
-                                        <div class="form-group">
-                                            <label>Gradualità:</label>
-                                            <select class="gradual-mode">
-                                                <option value="levels">4 Livelli</option>
-                                                <option value="smooth">Graduale</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="triggers-container">
+                            <button class="btn btn-small add-trigger" onclick="addTrigger('light')">
+                                ➕ Aggiungi Trigger
+                            </button>
+                            <div class="triggers-list" id="light-triggers"></div>
                         </div>
                     </div>
 
                     <!-- Audio -->
                     <div class="sensor-config" data-sensor="audio">
                         <h4>🔊 Audio</h4>
-                        <div class="animation-types">
-                            <div class="animation-type">
-                                <label>
-                                    <input type="checkbox" class="animation-checkbox" data-animation="waves">
-                                    Onde Sonore
-                                </label>
-                                <div class="animation-config hidden">
-                                    <div class="form-group">
-                                        <label>Tipo di onda:</label>
-                                        <select class="wave-type">
-                                            <option value="sea_waves">Onde del Mare</option>
-                                            <option value="solar_waves">Onde Solari</option>
-                                            <option value="sound_rings">Anelli Sonori</option>
-                                            <option value="currents">Correnti Marine</option>
-                                            <option value="radial_waves">Onde Radiali</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-row">
-                                        <div class="form-group">
-                                            <label>Sensibilità:</label>
-                                            <input type="range" class="wave-sensitivity" min="1" max="10" value="5">
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Numero Onde:</label>
-                                            <input type="range" class="wave-count" min="1" max="10" value="3">
-                                        </div>
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Origine:</label>
-                                        <select class="wave-origin">
-                                            <option value="center">Centro</option>
-                                            <option value="bottom">Basso</option>
-                                            <option value="top">Alto</option>
-                                            <option value="object">Oggetto Specifico</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="animation-type">
-                                <label>
-                                    <input type="checkbox" class="animation-checkbox" data-animation="svg_objects">
-                                    Oggetti Animati
-                                </label>
-                                <div class="animation-config hidden">
-                                    <div class="form-group">
-                                        <label>Oggetto:</label>
-                                        <select class="svg-object">
-                                            <option value="fish.svg">🐟 Pesce</option>
-                                            <option value="bird.svg">🐦 Uccello</option>
-                                            <option value="butterfly.svg">🦋 Farfalla</option>
-                                            <option value="music-note.svg">🎵 Nota Musicale</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-row">
-                                        <div class="form-group">
-                                            <label>Quantità:</label>
-                                            <input type="number" class="object-count" value="5" min="1" max="20">
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Movimento:</label>
-                                            <select class="movement-type">
-                                                <option value="swim">Nuoto</option>
-                                                <option value="fly">Volo</option>
-                                                <option value="dance">Danza</option>
-                                                <option value="vibrate">Vibrazione</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="triggers-container">
+                            <button class="btn btn-small add-trigger" onclick="addTrigger('audio')">
+                                ➕ Aggiungi Trigger
+                            </button>
+                            <div class="triggers-list" id="audio-triggers"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Configurazione Personalizzata -->
-                <div class="config-section hidden" id="custom-config">
-                    <h3>🎨 Configurazione Personalizzata</h3>
-                    <div id="custom-elements">
-                        <!-- Contenuto generato dinamicamente -->
+                <!-- Upload Immagini -->
+                <div class="config-section">
+                    <h3>📁 Gestione Immagini</h3>
+                    <div class="upload-area" id="upload-area">
+                        <div class="upload-placeholder">
+                            <p>📤 Trascina qui immagini/SVG o clicca per caricare</p>
+                            <input type="file" id="file-input" multiple accept="image/*,.svg" style="display: none;">
+                            <button class="btn btn-small" onclick="document.getElementById('file-input').click()">
+                                Scegli File
+                            </button>
+                        </div>
+                        <div class="uploaded-files" id="uploaded-files"></div>
                     </div>
                 </div>
             </div>
@@ -554,7 +141,7 @@
                         <div class="sensor-values">
                             <div class="sensor-value">
                                 <span class="sensor-icon">🌡️</span>
-                                <span class="sensor-text">Temp: <span id="temp-value">20.5°C</span></span>
+                                <span class="sensor-text">Temp: <span id="temperature-value">20.5°C</span></span>
                             </div>
                             <div class="sensor-value">
                                 <span class="sensor-icon">💧</span>
@@ -602,6 +189,80 @@
         </div>
     </div>
 
+    <!-- Modal per Trigger -->
+    <div id="trigger-modal" class="modal">
+        <div class="modal-content">
+            <h2>⚡ Configura Trigger</h2>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Sensore:</label>
+                    <select id="trigger-sensor" disabled>
+                        <option value="temperature">🌡️ Temperatura</option>
+                        <option value="humidity">💧 Umidità</option>
+                        <option value="light">💡 Luce</option>
+                        <option value="audio">🔊 Audio</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Condizione:</label>
+                    <select id="trigger-condition" onchange="quadroCreator.updateTriggerCondition()">
+                        <option value="range">Tra valori (min-max)</option>
+                        <option value="above">Sopra soglia</option>
+                        <option value="below">Sotto soglia</option>
+                        <option value="change">Variazione rapida</option>
+                        <option value="duration">Durata mantenimento</option>
+                    </select>
+                </div>
+
+                <div class="condition-params" id="condition-params">
+                    <!-- Parametri dinamici basati sulla condizione -->
+                </div>
+
+                <div class="form-group">
+                    <label>Azioni da eseguire:</label>
+                    <div class="actions-list" id="actions-list">
+                        <!-- Lista azioni -->
+                    </div>
+                    <button class="btn btn-small" onclick="quadroCreator.addAction()">➕ Aggiungi Azione</button>
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="quadroCreator.closeTriggerModal()">Annulla</button>
+                <button class="btn btn-primary" onclick="quadroCreator.saveTrigger()">Salva Trigger</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal per Azioni -->
+    <div id="action-modal" class="modal">
+        <div class="modal-content">
+            <h2>🎬 Configura Azione</h2>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Tipo di Azione:</label>
+                    <select id="action-type" onchange="quadroCreator.updateActionParams()">
+                        <option value="load-image">📷 Carica Immagine/SVG</option>
+                        <option value="change-background">🎨 Modifica Sfondo</option>
+                        <option value="add-svg">🌟 Aggiungi Oggetti SVG</option>
+                        <option value="add-animation">✨ Aggiungi Animazione</option>
+                        <option value="add-filter">🎭 Filtri Visivi</option>
+                    </select>
+                </div>
+                
+                <div class="action-params" id="action-params">
+                    <!-- Parametri dinamici basati sul tipo azione -->
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="quadroCreator.closeActionModal()">Annulla</button>
+                <button class="btn btn-primary" onclick="quadroCreator.saveAction()">Salva Azione</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Loading overlay -->
     <div class="loading-overlay" id="loading-overlay">
         <div class="loading-spinner"></div>
@@ -612,7 +273,7 @@
     <div id="success-modal" class="modal">
         <div class="modal-content">
             <h2>✅ Quadro Creato!</h2>
-            <p>Il tuo quadro vivente è stato creato con successo.</p>
+            <p>Il tuo quadro vivente personalizzato è stato creato con successo.</p>
             <div class="modal-actions">
                 <button class="btn btn-primary" onclick="viewQuadro()">
                     🔍 Visualizza Quadro
@@ -624,7 +285,7 @@
         </div>
     </div>
 
-    <script src="/static/js/create_paint.js"></script>
+    <script src="../static/js/create_paint.js"></script>
 </body>
 
 </html>
