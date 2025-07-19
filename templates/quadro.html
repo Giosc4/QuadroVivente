@@ -1,140 +1,1220 @@
 <!DOCTYPE html>
 <html lang="it">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quadro Vivente</title>
-    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
-    <link rel="stylesheet" href="../static/css/quadro.css">
-</head>
+    <title>Visualizzatore Quadri Viventi</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-<body>
-    <div class="quadro-container" id="quadro-container">
-        <!-- Header con controlli -->
-        <header class="quadro-header" id="quadro-header">
-            <div class="quadro-info">
-                <h1 id="quadro-title">🎨 Quadro Vivente</h1>
-                <p id="quadro-subtitle">In connessione...</p>
-            </div>
-            <div class="quadro-controls">
-                <button class="control-btn" id="play-btn" onclick="togglePlay()">
-                    ⏸️
-                </button>
-                <button class="control-btn" id="fullscreen-btn" onclick="toggleFullscreen()">
-                    ⛶
-                </button>
-                <button class="control-btn" id="info-btn" onclick="toggleInfo()">
-                    ℹ️
-                </button>
-                <button class="control-btn" id="back-btn" onclick="goBack()">
-                    ←
-                </button>
-            </div>
-        </header>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            padding: 20px;
+        }
 
-        <!-- Canvas principale -->
-        <main class="quadro-main">
-            <canvas id="quadro-canvas" width="1920" height="1080"></canvas>
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px 30px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #4a5568;
+            font-size: 2em;
+            font-weight: 700;
+        }
+
+        .header .subtitle {
+            color: #718096;
+            font-size: 1em;
+            margin-top: 5px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 0 5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            border: 2px solid rgba(102, 126, 234, 0.3);
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+            height: calc(100vh - 150px);
+        }
+
+        .controls-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+        }
+
+        .canvas-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .canvas-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            flex: 1;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid rgba(102, 126, 234, 0.1);
+        }
+
+        #preview-canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .sensor-overlay {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 15px;
+            color: white;
+            min-width: 180px;
+        }
+
+        .sensor-value {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+        }
+
+        .sensor-icon {
+            font-size: 1.2em;
+            min-width: 20px;
+        }
+
+        .control-section {
+            margin-bottom: 25px;
+        }
+
+        .control-section h3 {
+            color: #4a5568;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 8px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #4a5568;
+            font-size: 0.9em;
+        }
+
+        .range-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .range-control input[type="range"] {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(102, 126, 234, 0.3);
+            outline: none;
+            appearance: none;
+            cursor: pointer;
+        }
+
+        .range-control input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .range-value {
+            min-width: 60px;
+            font-size: 0.9em;
+            font-weight: 600;
+            color: #667eea;
+            text-align: center;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-area {
+            border: 2px dashed rgba(102, 126, 234, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            background: rgba(102, 126, 234, 0.05);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .quadro-info {
+            background: rgba(102, 126, 234, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .quadro-info h4 {
+            color: #4a5568;
+            margin-bottom: 10px;
+        }
+
+        .quadro-info p {
+            color: #718096;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-playing {
+            background: #48bb78;
+            animation: pulse 2s infinite;
+        }
+
+        .status-paused {
+            background: #f56565;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .error-message {
+            background: #fed7d7;
+            border: 1px solid #feb2b2;
+            color: #c53030;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: #718096;
+        }
+
+        .loading::before {
+            content: "";
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
             
-            <!-- Overlay informazioni sensori -->
-            <div class="sensor-overlay" id="sensor-overlay">
-                <div class="sensor-grid">
-                    <div class="sensor-item">
-                        <span class="sensor-icon">🌡️</span>
-                        <div class="sensor-data">
-                            <span class="sensor-label">Temperatura</span>
-                            <span class="sensor-value" id="temp-value">--°C</span>
-                        </div>
-                    </div>
-                    <div class="sensor-item">
-                        <span class="sensor-icon">💧</span>
-                        <div class="sensor-data">
-                            <span class="sensor-label">Umidità</span>
-                            <span class="sensor-value" id="humidity-value">--%</span>
-                        </div>
-                    </div>
-                    <div class="sensor-item">
-                        <span class="sensor-icon">💡</span>
-                        <div class="sensor-data">
-                            <span class="sensor-label">Luce</span>
-                            <span class="sensor-value" id="light-value">--</span>
-                        </div>
-                    </div>
-                    <div class="sensor-item">
-                        <span class="sensor-icon">🔊</span>
-                        <div class="sensor-data">
-                            <span class="sensor-label">Audio</span>
-                            <span class="sensor-value" id="audio-value">--</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="connection-status" id="connection-status">
-                    <span class="status-indicator" id="status-indicator"></span>
-                    <span class="status-text" id="status-text">Connessione...</span>
-                </div>
+            .controls-panel {
+                order: 2;
+                max-height: none;
+            }
+            
+            .canvas-container {
+                order: 1;
+                min-height: 500px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>🎨 Visualizzatore Quadri Viventi</h1>
+                <div class="subtitle">Carica e visualizza i tuoi quadri interattivi</div>
             </div>
-
-            <!-- Overlay informazioni quadro -->
-            <div class="info-overlay hidden" id="info-overlay">
-                <div class="info-content">
-                    <h3>📋 Informazioni Quadro</h3>
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <span class="info-label">Nome:</span>
-                            <span class="info-value" id="info-name">--</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Dispositivo:</span>
-                            <span class="info-value" id="info-device">--</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Triggers:</span>
-                            <span class="info-value" id="info-triggers">--</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Stato:</span>
-                            <span class="info-value" id="info-status">--</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">FPS:</span>
-                            <span class="info-value" id="info-fps">--</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Ultimo aggiornamento:</span>
-                            <span class="info-value" id="info-update">--</span>
-                        </div>
-                    </div>
-                    <div class="trigger-status" id="trigger-status">
-                        <h4>🔧 Triggers Attivi</h4>
-                        <div id="active-triggers"></div>
-                    </div>
-                </div>
+            <div>
+                <button class="btn btn-secondary" onclick="togglePlayPause()">
+                    <span class="status-indicator" id="play-status"></span>
+                    <span id="play-text">Pausa</span>
+                </button>
+                <button class="btn btn-primary" onclick="resetSensors()">🔄 Reset</button>
+                <button class="btn btn-primary" onclick="exportConfig()">💾 Esporta</button>
             </div>
-        </main>
-
-        <!-- Loading overlay -->
-        <div class="loading-overlay" id="loading-overlay">
-            <div class="loading-spinner"></div>
-            <p>Caricamento quadro vivente...</p>
         </div>
 
-        <!-- Messaggio di errore -->
-        <div class="error-overlay hidden" id="error-overlay">
-            <div class="error-content">
-                <h3>❌ Errore</h3>
-                <p id="error-message">Si è verificato un errore nel caricamento del quadro.</p>
-                <button class="control-btn" onclick="location.reload()">🔄 Riprova</button>
-                <button class="control-btn" onclick="goBack()">← Indietro</button>
+        <div class="main-content">
+            <div class="controls-panel">
+                <div class="control-section">
+                    <h3>📁 Carica Configurazione</h3>
+                    <input type="file" id="config-file" class="file-input" accept=".json" onchange="loadConfiguration(event)">
+                    <div class="upload-area" onclick="document.getElementById('config-file').click()">
+                        <p>📄 Clicca per caricare un file JSON</p>
+                        <small>Configurazione del quadro esportata</small>
+                    </div>
+                </div>
+
+                <div id="quadro-info" class="quadro-info" style="display: none;">
+                    <h4>📊 Informazioni Quadro</h4>
+                    <p><strong>Nome:</strong> <span id="quadro-name">-</span></p>
+                    <p><strong>Trigger:</strong> <span id="quadro-triggers">-</span></p>
+                    <p><strong>Versione:</strong> <span id="quadro-version">-</span></p>
+                </div>
+
+                <div class="control-section">
+                    <h3>🌡️ Simulazione Sensori</h3>
+                    
+                    <div class="control-group">
+                        <label>🌡️ Temperatura</label>
+                        <div class="range-control">
+                            <input type="range" id="temp-slider" min="0" max="50" step="0.1" value="20.5" oninput="updateSensor('temperature', this.value)">
+                            <span class="range-value" id="temp-value">20.5°C</span>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label>💧 Umidità</label>
+                        <div class="range-control">
+                            <input type="range" id="humidity-slider" min="20" max="90" step="1" value="65" oninput="updateSensor('humidity', this.value)">
+                            <span class="range-value" id="humidity-value">65%</span>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label>💡 Luminosità</label>
+                        <div class="range-control">
+                            <input type="range" id="light-slider" min="0" max="4095" step="10" value="1250" oninput="updateSensor('light', this.value)">
+                            <span class="range-value" id="light-value">1250</span>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label>🔊 Audio</label>
+                        <div class="range-control">
+                            <input type="range" id="audio-slider" min="0" max="2900" step="10" value="850" oninput="updateSensor('audio', this.value)">
+                            <span class="range-value" id="audio-value">850</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <h3>🎮 Test Rapidi</h3>
+                    <button class="btn btn-secondary" onclick="testScenario('caldo')" style="width: 100%; margin-bottom: 10px;">🔥 Scenario Caldo</button>
+                    <button class="btn btn-secondary" onclick="testScenario('freddo')" style="width: 100%; margin-bottom: 10px;">❄️ Scenario Freddo</button>
+                    <button class="btn btn-secondary" onclick="testScenario('buio')" style="width: 100%; margin-bottom: 10px;">🌙 Scenario Buio</button>
+                    <button class="btn btn-secondary" onclick="testScenario('luminoso')" style="width: 100%;">☀️ Scenario Luminoso</button>
+                </div>
+            </div>
+
+            <div class="canvas-container">
+                <div class="canvas-header">
+                    <h3>🖼️ Anteprima Quadro</h3>
+                    <span id="canvas-status">In attesa di configurazione...</span>
+                </div>
+                
+                <div class="canvas-wrapper">
+                    <canvas id="preview-canvas" width="800" height="600"></canvas>
+                    
+                    <div class="sensor-overlay">
+                        <div class="sensor-value">
+                            <span class="sensor-icon">🌡️</span>
+                            <span id="display-temp">20.5°C</span>
+                        </div>
+                        <div class="sensor-value">
+                            <span class="sensor-icon">💧</span>
+                            <span id="display-humidity">65%</span>
+                        </div>
+                        <div class="sensor-value">
+                            <span class="sensor-icon">💡</span>
+                            <span id="display-light">1250</span>
+                        </div>
+                        <div class="sensor-value">
+                            <span class="sensor-icon">🔊</span>
+                            <span id="display-audio">850</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Passa l'ID del quadro dallo URL o da una variabile globale
-        const QUADRO_ID = window.location.pathname.split('/').pop();
+        class QuadroViewer {
+            constructor() {
+                this.canvas = document.getElementById('preview-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.ctx.imageSmoothingEnabled = true;
+                this.ctx.textBaseline = 'middle';
+                
+                this.isPlaying = true;
+                this.animationId = null;
+                this.configuration = null;
+                this.objectCache = new Map();
+                
+                // Valori sensori
+                this.sensorValues = {
+                    temperature: 20.5,
+                    humidity: 65,
+                    light: 1250,
+                    audio: 850
+                };
+                
+                this.init();
+            }
+            
+            init() {
+                this.resizeCanvas();
+                this.startAnimation();
+                this.updateStatus();
+                
+                window.addEventListener('resize', () => this.resizeCanvas());
+            }
+            
+            resizeCanvas() {
+                const container = this.canvas.parentElement;
+                const rect = container.getBoundingClientRect();
+                
+                const aspectRatio = 4 / 3;
+                let width = rect.width - 4;
+                let height = width / aspectRatio;
+                
+                if (height > rect.height - 4) {
+                    height = rect.height - 4;
+                    width = height * aspectRatio;
+                }
+                
+                this.canvas.width = Math.floor(width);
+                this.canvas.height = Math.floor(height);
+                
+                this.render();
+            }
+            
+            startAnimation() {
+                const animate = () => {
+                    if (this.isPlaying) {
+                        this.render();
+                    }
+                    this.animationId = requestAnimationFrame(animate);
+                };
+                animate();
+            }
+            
+            loadConfiguration(config) {
+                try {
+                    this.configuration = config;
+                    this.updateQuadroInfo();
+                    
+                    // Ripristina valori sensori se presenti
+                    if (config.preview_state && config.preview_state.sensor_values) {
+                        this.sensorValues = { ...config.preview_state.sensor_values };
+                        this.updateSliders();
+                    }
+                    
+                    // Precarica oggetti
+                    this.preloadObjects();
+                    
+                    console.log('📊 Configurazione caricata:', config);
+                    document.getElementById('canvas-status').textContent = `Quadro: ${config.name || 'Senza nome'}`;
+                    
+                } catch (error) {
+                    console.error('❌ Errore nel caricamento:', error);
+                    this.showError('Errore nel caricamento della configurazione');
+                }
+            }
+            
+            updateQuadroInfo() {
+                if (!this.configuration) return;
+                
+                const info = document.getElementById('quadro-info');
+                const nameEl = document.getElementById('quadro-name');
+                const triggersEl = document.getElementById('quadro-triggers');
+                const versionEl = document.getElementById('quadro-version');
+                
+                nameEl.textContent = this.configuration.name || 'Senza nome';
+                
+                const totalTriggers = Object.values(this.configuration.triggers || {})
+                    .reduce((sum, triggers) => sum + triggers.length, 0);
+                triggersEl.textContent = `${totalTriggers} configurati`;
+                
+                versionEl.textContent = this.configuration.version || '1.0';
+                
+                info.style.display = 'block';
+            }
+            
+            async preloadObjects() {
+                if (!this.configuration || !this.configuration.triggers) return;
+                
+                const objectsToLoad = new Set();
+                
+                // Trova tutti gli oggetti usati nei trigger
+                Object.values(this.configuration.triggers).forEach(triggers => {
+                    triggers.forEach(trigger => {
+                        if (trigger.actions) {
+                            trigger.actions.forEach(action => {
+                                if ((action.type === 'add-objects' || action.type === 'add-svg') && 
+                                    (action.objectFile || action.svgObject)) {
+                                    objectsToLoad.add(action.objectFile || action.svgObject);
+                                }
+                            });
+                        }
+                    });
+                });
+                
+                // Carica gli oggetti
+                for (const objectFile of objectsToLoad) {
+                    try {
+                        await this.loadObject(objectFile);
+                    } catch (error) {
+                        console.warn(`⚠️ Impossibile caricare ${objectFile}:`, error);
+                    }
+                }
+                
+                console.log(`✅ Precaricati ${this.objectCache.size} oggetti`);
+            }
+            
+            async loadObject(objectFile) {
+                if (this.objectCache.has(objectFile)) {
+                    return this.objectCache.get(objectFile);
+                }
+                
+                // Prova prima il percorso locale
+                const paths = [
+                    `/static/images/${objectFile}`,
+                    `./images/${objectFile}`,
+                    `https://via.placeholder.com/100x100/667eea/white?text=${encodeURIComponent(objectFile.replace('.svg', ''))}`
+                ];
+                
+                for (const path of paths) {
+                    try {
+                        const response = await fetch(path);
+                        if (!response.ok) continue;
+                        
+                        const svgText = await response.text();
+                        const blob = new Blob([svgText], { type: 'image/svg+xml' });
+                        const url = URL.createObjectURL(blob);
+                        
+                        const img = await new Promise((resolve, reject) => {
+                            const image = new Image();
+                            image.onload = () => {
+                                URL.revokeObjectURL(url);
+                                resolve(image);
+                            };
+                            image.onerror = () => {
+                                URL.revokeObjectURL(url);
+                                reject(new Error('Load failed'));
+                            };
+                            image.src = url;
+                        });
+                        
+                        this.objectCache.set(objectFile, img);
+                        return img;
+                        
+                    } catch (error) {
+                        continue;
+                    }
+                }
+                
+                // Fallback: crea un'immagine placeholder
+                return this.createPlaceholder(objectFile);
+            }
+            
+            createPlaceholder(objectFile) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 100;
+                canvas.height = 100;
+                const ctx = canvas.getContext('2d');
+                
+                // Sfondo colorato
+                ctx.fillStyle = '#667eea';
+                ctx.fillRect(0, 0, 100, 100);
+                
+                // Testo
+                ctx.fillStyle = 'white';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(objectFile.replace('.svg', ''), 50, 50);
+                
+                const img = new Image();
+                img.src = canvas.toDataURL();
+                this.objectCache.set(objectFile, img);
+                return img;
+            }
+            
+            render() {
+                if (!this.canvas || !this.ctx) return;
+                
+                const { width, height } = this.canvas;
+                
+                // Reset filtri
+                this.ctx.filter = 'none';
+                
+                // Sfondo bianco di default
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.fillRect(0, 0, width, height);
+                
+                if (!this.configuration || !this.configuration.triggers) {
+                    this.renderWelcomeScreen();
+                    return;
+                }
+                
+                // Applica trigger attivi
+                this.applyActiveTriggers(width, height);
+                
+                // Reset filtri
+                this.ctx.filter = 'none';
+            }
+            
+            renderWelcomeScreen() {
+                const { width, height } = this.canvas;
+                
+                // Gradiente di sfondo
+                const gradient = this.ctx.createLinearGradient(0, 0, width, height);
+                gradient.addColorStop(0, '#667eea');
+                gradient.addColorStop(1, '#764ba2');
+                this.ctx.fillStyle = gradient;
+                this.ctx.fillRect(0, 0, width, height);
+                
+                // Testo di benvenuto
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                this.ctx.font = 'bold 32px Arial';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText('🎨 Quadri Viventi', width / 2, height / 2 - 40);
+                
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                this.ctx.font = '18px Arial';
+                this.ctx.fillText('Carica una configurazione per iniziare', width / 2, height / 2 + 20);
+            }
+            
+            applyActiveTriggers(width, height) {
+                Object.entries(this.configuration.triggers).forEach(([sensor, triggers]) => {
+                    const sensorValue = this.sensorValues[sensor];
+                    
+                    triggers.forEach(trigger => {
+                        if (this.isTriggerActive(trigger, sensorValue)) {
+                            trigger.actions.forEach(action => {
+                                this.executeAction(action, width, height, sensorValue, trigger);
+                            });
+                        }
+                    });
+                });
+            }
+            
+            isTriggerActive(trigger, value) {
+                switch (trigger.condition) {
+                    case 'range':
+                        return value >= trigger.params.min && value <= trigger.params.max;
+                    case 'above':
+                        return value > trigger.params.threshold;
+                    case 'below':
+                        return value < trigger.params.threshold;
+                    case 'duration':
+                        return Math.abs(value - trigger.params.target) < 5;
+                    default:
+                        return false;
+                }
+            }
+            
+            executeAction(action, width, height, sensorValue, trigger) {
+                switch (action.type) {
+                    case 'change-background':
+                        this.renderBackground(action, width, height);
+                        break;
+                    case 'add-objects':
+                    case 'add-svg':
+                        this.renderObjects(action, width, height, sensorValue, trigger);
+                        break;
+                    case 'add-filter':
+                        this.applyFilter(action);
+                        break;
+                    case 'load-image':
+                        this.renderImage(action, width, height);
+                        break;
+                }
+            }
+            
+            renderBackground(action, width, height) {
+                const type = action.backgroundType || 'solid';
+                
+                switch (type) {
+                    case 'solid':
+                        this.ctx.fillStyle = action.color || '#ffffff';
+                        this.ctx.fillRect(0, 0, width, height);
+                        break;
+                        
+                    case 'gradient':
+                        const gradient = this.createGradient(action, width, height);
+                        this.ctx.fillStyle = gradient;
+                        this.ctx.fillRect(0, 0, width, height);
+                        break;
+                        
+                    case 'overlay':
+                        this.ctx.fillStyle = action.color || '#ffffff';
+                        this.ctx.globalAlpha = 0.5;
+                        this.ctx.fillRect(0, 0, width, height);
+                        this.ctx.globalAlpha = 1;
+                        break;
+                }
+            }
+            
+            createGradient(action, width, height) {
+                const direction = action.direction || 'vertical';
+                let gradient;
+                
+                switch (direction) {
+                    case 'horizontal':
+                        gradient = this.ctx.createLinearGradient(0, 0, width, 0);
+                        break;
+                    case 'diagonal':
+                        gradient = this.ctx.createLinearGradient(0, 0, width, height);
+                        break;
+                    case 'radial':
+                        gradient = this.ctx.createRadialGradient(width/2, height/2, 0, width/2, height/2, Math.max(width, height)/2);
+                        break;
+                    default: // vertical
+                        gradient = this.ctx.createLinearGradient(0, 0, 0, height);
+                }
+                
+                gradient.addColorStop(0, action.color1 || '#667eea');
+                gradient.addColorStop(1, action.color2 || '#764ba2');
+                
+                return gradient;
+            }
+            
+            renderObjects(action, width, height, sensorValue, trigger) {
+                const quantity = action.quantity || 5;
+                const baseSize = (action.size || 100) / 100 * 30;
+                const opacity = (action.opacity || 100) / 100;
+                const baseSpeed = action.animationSpeed || 1;
+                
+                // Velocità dinamica basata sul trigger
+                const dynamicSpeed = this.calculateDynamicSpeed(trigger, sensorValue, baseSpeed);
+                const time = Date.now() * 0.001 * dynamicSpeed;
+                
+                // Area di posizionamento
+                let boxX = 0, boxY = 0, boxWidth = width, boxHeight = height;
+                
+                if (action.boxX !== undefined && action.boxY !== undefined) {
+                    boxX = action.boxX / 100 * width;
+                    boxY = action.boxY / 100 * height;
+                    boxWidth = action.boxWidth / 100 * width;
+                    boxHeight = action.boxHeight / 100 * height;
+                }
+                
+                const baseRotation = (action.rotation || 0) * Math.PI / 180;
+                
+                this.ctx.globalAlpha = opacity;
+                
+                // Seed per posizioni consistenti
+                const actionSeed = this.getActionSeed(action);
+                
+                for (let i = 0; i < quantity; i++) {
+                    const seedX = this.seededRandom(actionSeed + i * 1000);
+                    const seedY = this.seededRandom(actionSeed + i * 2000);
+                    
+                    let x = boxX + (seedX * boxWidth);
+                    let y = boxY + (seedY * boxHeight);
+                    
+                    let size = baseSize;
+                    let rotation = baseRotation;
+                    
+                    // Effetto intensità basato sul sensore
+                    const intensity = Math.max(0, Math.min(1, sensorValue / 100));
+                    size *= (0.5 + intensity * 0.5);
+                    
+                    // Applica animazioni
+                    const animation = action.objectAnimation || action.svgAnimation;
+                    this.applyAnimation(animation, time, i, { x, y, size, rotation }, { x: boxX, y: boxY, width: boxWidth, height: boxHeight });
+                    
+                    this.ctx.save();
+                    this.ctx.translate(x, y);
+                    this.ctx.rotate(rotation);
+                    
+                    // Disegna l'oggetto
+                    const objectFile = action.objectFile || action.svgObject || 'star.svg';
+                    this.drawObject(objectFile, size);
+                    
+                    this.ctx.restore();
+                }
+                
+                this.ctx.globalAlpha = 1;
+            }
+            
+            applyAnimation(animation, time, index, obj, bounds) {
+                switch (animation) {
+                    case 'float':
+                        obj.y += Math.sin(time + index) * 30;
+                        break;
+                    case 'rotate':
+                        obj.rotation += time + index;
+                        break;
+                    case 'pulse':
+                        obj.size *= (0.8 + 0.4 * Math.sin(time * 2 + index));
+                        break;
+                    case 'bounce':
+                        obj.y += Math.abs(Math.sin(time + index)) * 40;
+                        break;
+                    case 'wave':
+                        obj.x += Math.sin(time + index * 0.5) * 20;
+                        obj.y += Math.cos(time + index * 0.5) * 10;
+                        break;
+                    case 'spiral':
+                        const animAngle = time + index * 0.5;
+                        const radius = 30 + Math.sin(time) * 20;
+                        obj.x += Math.cos(animAngle) * radius;
+                        obj.y += Math.sin(animAngle) * radius;
+                        break;
+                    case 'scale':
+                        obj.size *= (0.5 + 0.5 * Math.sin(time + index));
+                        break;
+                    case 'slide':
+                        obj.x = ((obj.x - bounds.x + time * 50) % bounds.width) + bounds.x;
+                        break;
+                    case 'fade':
+                        this.ctx.globalAlpha *= (0.3 + 0.7 * Math.sin(time + index));
+                        break;
+                }
+                
+                // Mantieni l'oggetto dentro i bounds
+                obj.x = Math.max(bounds.x + obj.size, Math.min(bounds.x + bounds.width - obj.size, obj.x));
+                obj.y = Math.max(bounds.y + obj.size, Math.min(bounds.y + bounds.height - obj.size, obj.y));
+            }
+            
+            drawObject(objectFile, size) {
+                const objectImage = this.objectCache.get(objectFile);
+                
+                if (objectImage) {
+                    const originalWidth = objectImage.naturalWidth || objectImage.width || 100;
+                    const originalHeight = objectImage.naturalHeight || objectImage.height || 100;
+                    
+                    let drawWidth, drawHeight;
+                    
+                    if (originalWidth > originalHeight) {
+                        drawWidth = size * 2;
+                        drawHeight = (drawWidth * originalHeight) / originalWidth;
+                    } else {
+                        drawHeight = size * 2;
+                        drawWidth = (drawHeight * originalWidth) / originalHeight;
+                    }
+                    
+                    this.ctx.drawImage(
+                        objectImage,
+                        -drawWidth / 2,
+                        -drawHeight / 2,
+                        drawWidth,
+                        drawHeight
+                    );
+                } else {
+                    // Placeholder circle
+                    this.ctx.fillStyle = '#667eea';
+                    this.ctx.beginPath();
+                    this.ctx.arc(0, 0, size, 0, 2 * Math.PI);
+                    this.ctx.fill();
+                    
+                    this.ctx.fillStyle = '#fff';
+                    this.ctx.font = `${Math.max(8, size / 3)}px Arial`;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText('?', 0, 4);
+                }
+            }
+            
+            applyFilter(action) {
+                const intensity = (action.intensity || 100) / 100;
+                
+                switch (action.filter) {
+                    case 'blur':
+                        this.ctx.filter = `blur(${intensity * 5}px)`;
+                        break;
+                    case 'brightness':
+                        this.ctx.filter = `brightness(${intensity})`;
+                        break;
+                    case 'contrast':
+                        this.ctx.filter = `contrast(${intensity})`;
+                        break;
+                    case 'saturation':
+                        this.ctx.filter = `saturate(${intensity})`;
+                        break;
+                    case 'grayscale':
+                        this.ctx.filter = `grayscale(${intensity})`;
+                        break;
+                    case 'sepia':
+                        this.ctx.filter = `sepia(${intensity})`;
+                        break;
+                }
+            }
+            
+            calculateDynamicSpeed(trigger, sensorValue, baseSpeed) {
+                if (!trigger) return baseSpeed;
+                
+                switch (trigger.condition) {
+                    case 'range':
+                        const min = trigger.params.min;
+                        const max = trigger.params.max;
+                        const center = (min + max) / 2;
+                        const range = max - min;
+                        const distanceFromCenter = Math.abs(sensorValue - center) / (range / 2);
+                        return baseSpeed * (1 + distanceFromCenter * 4);
+                    case 'above':
+                    case 'below':
+                        return baseSpeed * 2.5;
+                    case 'duration':
+                        return baseSpeed * 1.8;
+                    default:
+                        return baseSpeed;
+                }
+            }
+            
+            getActionSeed(action) {
+                const str = JSON.stringify({
+                    objectFile: action.objectFile || action.svgObject,
+                    boxX: action.boxX,
+                    boxY: action.boxY,
+                    quantity: action.quantity
+                });
+                
+                let hash = 0;
+                for (let i = 0; i < str.length; i++) {
+                    const char = str.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash;
+                }
+                return Math.abs(hash);
+            }
+            
+            seededRandom(seed) {
+                const x = Math.sin(seed) * 10000;
+                return x - Math.floor(x);
+            }
+            
+            updateSensor(sensor, value) {
+                this.sensorValues[sensor] = parseFloat(value);
+                
+                // Aggiorna display
+                const displays = {
+                    temperature: { id: 'temp-value', unit: '°C' },
+                    humidity: { id: 'humidity-value', unit: '%' },
+                    light: { id: 'light-value', unit: '' },
+                    audio: { id: 'audio-value', unit: '' }
+                };
+                
+                const display = displays[sensor];
+                if (display) {
+                    document.getElementById(display.id).textContent = `${value}${display.unit}`;
+                    document.getElementById(`display-${sensor.substring(0, 4)}`).textContent = `${value}${display.unit}`;
+                }
+            }
+            
+            updateSliders() {
+                Object.entries(this.sensorValues).forEach(([sensor, value]) => {
+                    const sliderMap = {
+                        temperature: 'temp',
+                        humidity: 'humidity',
+                        light: 'light',
+                        audio: 'audio'
+                    };
+                    
+                    const sliderId = sliderMap[sensor];
+                    if (sliderId) {
+                        const slider = document.getElementById(`${sliderId}-slider`);
+                        if (slider) {
+                            slider.value = value;
+                            this.updateSensor(sensor, value);
+                        }
+                    }
+                });
+            }
+            
+            togglePlayPause() {
+                this.isPlaying = !this.isPlaying;
+                this.updateStatus();
+            }
+            
+            updateStatus() {
+                const status = document.getElementById('play-status');
+                const text = document.getElementById('play-text');
+                
+                if (this.isPlaying) {
+                    status.className = 'status-indicator status-playing';
+                    text.textContent = 'Pausa';
+                } else {
+                    status.className = 'status-indicator status-paused';
+                    text.textContent = 'Play';
+                }
+            }
+            
+            resetSensors() {
+                this.sensorValues = {
+                    temperature: 20.5,
+                    humidity: 65,
+                    light: 1250,
+                    audio: 850
+                };
+                this.updateSliders();
+            }
+            
+            showError(message) {
+                console.error(message);
+                // Potresti aggiungere un div per mostrare errori nell'UI
+            }
+            
+            exportConfiguration() {
+                if (!this.configuration) {
+                    alert('Nessuna configurazione caricata');
+                    return;
+                }
+                
+                // Aggiungi i valori sensori attuali
+                const exportData = {
+                    ...this.configuration,
+                    current_sensor_values: this.sensorValues,
+                    exported_at: new Date().toISOString()
+                };
+                
+                const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+                    type: 'application/json'
+                });
+                
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `quadro_${this.configuration.name || 'export'}_${Date.now()}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+        }
+        
+        // Istanza globale
+        let viewer;
+        
+        // Funzioni globali
+        function initViewer() {
+            viewer = new QuadroViewer();
+        }
+        
+        function loadConfiguration(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const config = JSON.parse(e.target.result);
+                    viewer.loadConfiguration(config);
+                } catch (error) {
+                    alert('Errore nel parsing del file JSON: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+        
+        function updateSensor(sensor, value) {
+            if (viewer) {
+                viewer.updateSensor(sensor, value);
+            }
+        }
+        
+        function togglePlayPause() {
+            if (viewer) {
+                viewer.togglePlayPause();
+            }
+        }
+        
+        function resetSensors() {
+            if (viewer) {
+                viewer.resetSensors();
+            }
+        }
+        
+        function exportConfig() {
+            if (viewer) {
+                viewer.exportConfiguration();
+            }
+        }
+        
+        function testScenario(type) {
+            if (!viewer) return;
+            
+            const scenarios = {
+                caldo: { temperature: 35, humidity: 80, light: 3000, audio: 2000 },
+                freddo: { temperature: 5, humidity: 30, light: 500, audio: 100 },
+                buio: { temperature: 22, humidity: 55, light: 100, audio: 400 },
+                luminoso: { temperature: 25, humidity: 45, light: 4000, audio: 1800 }
+            };
+            
+            const scenario = scenarios[type];
+            if (scenario) {
+                Object.entries(scenario).forEach(([sensor, value]) => {
+                    viewer.updateSensor(sensor, value);
+                    viewer.sensorValues[sensor] = value;
+                });
+                viewer.updateSliders();
+            }
+        }
+        
+        // Esempio di configurazione per test
+        function loadExampleConfig() {
+            const exampleConfig = {
+                name: "Quadro di Esempio",
+                version: "4.0",
+                triggers: {
+                    temperature: [
+                        {
+                            condition: "range",
+                            params: { min: 25, max: 35 },
+                            actions: [
+                                {
+                                    type: "change-background",
+                                    backgroundType: "gradient",
+                                    color1: "#ff6b6b",
+                                    color2: "#ffa726",
+                                    direction: "vertical"
+                                },
+                                {
+                                    type: "add-objects",
+                                    objectFile: "sun.svg",
+                                    quantity: 8,
+                                    size: 80,
+                                    opacity: 90,
+                                    objectAnimation: "float",
+                                    boxX: 10,
+                                    boxY: 10,
+                                    boxWidth: 80,
+                                    boxHeight: 80
+                                }
+                            ]
+                        }
+                    ],
+                    light: [
+                        {
+                            condition: "below",
+                            params: { threshold: 1000 },
+                            actions: [
+                                {
+                                    type: "add-objects",
+                                    objectFile: "star.svg",
+                                    quantity: 15,
+                                    size: 60,
+                                    opacity: 70,
+                                    objectAnimation: "sparkle",
+                                    boxX: 0,
+                                    boxY: 0,
+                                    boxWidth: 100,
+                                    boxHeight: 100
+                                }
+                            ]
+                        }
+                    ]
+                }
+            };
+            
+            if (viewer) {
+                viewer.loadConfiguration(exampleConfig);
+            }
+        }
+        
+        // Inizializza quando la pagina è caricata
+        document.addEventListener('DOMContentLoaded', function() {
+            initViewer();
+            
+            // Carica esempio dopo 2 secondi se nessuna configurazione è stata caricata
+            setTimeout(() => {
+                if (!viewer.configuration) {
+                    loadExampleConfig();
+                }
+            }, 2000);
+        });
     </script>
-    <script src="../static/js/quadro.js"></script>
 </body>
-
 </html>

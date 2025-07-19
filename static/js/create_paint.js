@@ -13,6 +13,8 @@ class QuadroCreator {
         this.animationId = null;
         this.isPlaying = true;
         this.createdQuadroId = null;
+        this.editingQuadroId = null;
+        this.isEditMode = false;
 
         // Sistema di caricamento oggetti default
         this.objectCache = new Map();
@@ -59,10 +61,10 @@ class QuadroCreator {
 
         // dentro constructor(), subito dopo this.triggers = { … }
         this.sensorLimits = {
-            temperature: { min: 0, max: 50 },    // °C per DHT11
-            humidity: { min: 20, max: 90 },    // %RH per DHT11
-            light: { min: 0, max: 4095 },  // ADC 12‑bit
-            audio: { min: 0, max: 2900 }
+            temperature: { min: 0, max: 50, unit: '°C', step: 0.1 },
+            humidity: { min: 20, max: 90, unit: '%', step: 1 },
+            light: { min: 0, max: 4095, unit: '', step: 10 },
+            audio: { min: 0, max: 2900, unit: '', step: 10 }
         };
 
         // Modal state
@@ -83,11 +85,12 @@ class QuadroCreator {
         this.setupEventListeners();
         this.setupCanvas();
         this.setupDragAndDrop();
+
+        // AGGIUNGERE questa riga:
+        await this.checkEditMode();
+
         this.loadDevices();
-
-        // Pre-carica gli oggetti default
         await this.preloadAllObjects();
-
         this.startPreviewAnimation();
         this.hideLoadingOverlay();
     }
@@ -117,6 +120,142 @@ class QuadroCreator {
             this.objectLoading.delete(objectPath);
             console.error(`Impossibile caricare oggetto ${objectPath}:`, error);
             return null;
+        }
+    }
+
+    // Controlla se siamo in modalità edit
+    async checkEditMode() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const editId = urlParams.get('edit');
+
+        if (editId) {
+            console.log('🔧 Modalità edit attivata per quadro:', editId);
+            this.isEditMode = true;
+            this.editingQuadroId = editId;
+
+            try {
+                await this.loadQuadroForEdit(editId);
+            } catch (error) {
+                console.error('Errore nel caricamento quadro per edit:', error);
+                alert('Errore nel caricamento del quadro da modificare');
+                window.location.href = '/';
+            }
+        }
+    }
+
+    // Carica i dati del quadro esistente
+    async loadQuadroForEdit(quadroId) {
+        const response = await fetch(`/api/quadri/${quadroId}`);
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const quadroData = await response.json();
+        console.log('📊 Dati quadro caricati per edit:', quadroData);
+
+        // Precompila i campi
+        this.populateFieldsFromQuadro(quadroData);
+
+        // Aggiorna il titolo della pagina
+        this.updatePageForEditMode(quadroData.name);
+    }
+
+    // Popola i campi del form con i dati esistenti
+    populateFieldsFromQuadro(quadroData) {
+        // Caricamento base (già esistente)
+        const nameInput = document.getElementById('quadro-name');
+        if (nameInput) {
+            nameInput.value = quadroData.name || '';
+        }
+
+        this.selectedDevice = quadroData.device_id;
+        this.triggers = quadroData.triggers || {
+            temperature: [],
+            humidity: [],
+            light: [],
+            audio: []
+        };
+
+        // File caricati
+        if (quadroData.uploaded_files && quadroData.uploaded_files.length > 0) {
+            console.log('📁 File caricati trovati:', quadroData.uploaded_files);
+            this.uploadedFiles = quadroData.uploaded_files.map(file => ({
+                ...file,
+                url: file.url || null,
+                isFromServer: file.isFromServer || true
+            }));
+        }
+
+        // NUOVO: Ripristina stato completo dell'anteprima
+        if (quadroData.preview_state) {
+            console.log('🔄 Ripristino stato anteprima...');
+
+            // Ripristina valori sensori
+            if (quadroData.preview_state.sensor_values) {
+                this.sensorValues = { ...quadroData.preview_state.sensor_values };
+
+                // Aggiorna i slider
+                setTimeout(() => {
+                    this.updateSlidersFromSensorValues();
+                    this.updateSensorValues();
+                }, 100);
+            }
+
+            // Ripristina stato UI
+            if (quadroData.preview_state.ui_state) {
+                this.isPlaying = quadroData.preview_state.ui_state.is_playing !== false;
+
+                if (quadroData.preview_state.ui_state.visible_boxes) {
+                    this.visibleBoxes = new Set(quadroData.preview_state.ui_state.visible_boxes);
+                }
+
+                if (quadroData.preview_state.ui_state.temp_box_coords) {
+                    this.tempBoxCoords = { ...quadroData.preview_state.ui_state.temp_box_coords };
+                }
+            }
+        }
+
+        // Forza aggiornamento dell'interfaccia
+        setTimeout(() => {
+            this.renderTriggers();
+            this.renderUploadedFiles();
+            this.validateForm();
+            this.updatePreview();
+
+            const deviceSelect = document.getElementById('device-select');
+            if (deviceSelect && this.selectedDevice) {
+                deviceSelect.value = this.selectedDevice;
+                this.updateDeviceStatus();
+            }
+
+            // Aggiorna checkbox dei box visibili
+            this.updateCheckboxes();
+
+            console.log('✅ Stato anteprima ripristinato completamente');
+        }, 500);
+    }
+
+    // Aggiorna l'interfaccia per la modalità edit
+    updatePageForEditMode(quadroName) {
+        // Aggiorna il titolo della pagina
+        document.title = `Modifica: ${quadroName} - Quadri Viventi`;
+
+        // Aggiorna il header
+        const headerTitle = document.querySelector('.create-header h1');
+        if (headerTitle) {
+            headerTitle.innerHTML = '✏️ Modifica Quadro Vivente';
+        }
+
+        const headerSubtitle = document.querySelector('.create-header .subtitle');
+        if (headerSubtitle) {
+            headerSubtitle.textContent = `Modifica il quadro: ${quadroName}`;
+        }
+
+        // Aggiorna il pulsante di salvataggio
+        const saveBtn = document.getElementById('save-quadro-btn');
+        if (saveBtn) {
+            saveBtn.innerHTML = '💾 Salva Modifiche';
         }
     }
 
@@ -424,22 +563,23 @@ class QuadroCreator {
     renderUploadedFiles() {
         const container = document.getElementById('uploaded-files');
         container.innerHTML = this.uploadedFiles.map(file => `
-            <div class="uploaded-file" data-file-id="${file.id}">
-                <div class="file-info">
-                    <div class="file-preview">
-                        ${file.type.startsWith('image/') ?
+        <div class="uploaded-file" data-file-id="${file.id}">
+            <div class="file-info">
+                <div class="file-preview">
+                    ${file.url && file.type.startsWith('image/') ?
                 `<img src="${file.url}" alt="${file.name}" style="width:100%;height:100%;object-fit:cover;">` :
-                '📄'
+                `📄${file.isFromServer ? ' (Server)' : ''}`
             }
-                    </div>
-                    <span class="file-name">${file.name}</span>
                 </div>
-                <button class="remove-file" onclick="quadroCreator.removeFile('${file.id}')">
-                    🗑️
-                </button>
+                <span class="file-name">${file.name}</span>
             </div>
-        `).join('');
+            <button class="remove-file" onclick="quadroCreator.removeFile('${file.id}')">
+                🗑️
+            </button>
+        </div>
+    `).join('');
     }
+
 
     removeFile(fileId) {
         this.uploadedFiles = this.uploadedFiles.filter(file => file.id !== fileId);
@@ -668,7 +808,7 @@ class QuadroCreator {
                 );
 
                 return `
-                <div class="trigger-item">
+ <div class="trigger-item">
                     <div class="trigger-header">
                         <div class="trigger-title">Trigger ${index + 1}</div>
                         <div class="trigger-actions">
@@ -680,10 +820,10 @@ class QuadroCreator {
                                     <span class="checkmark">📦</span>
                                 </label>
                             ` : ''}
-                            <button class="btn btn-small btn-secondary" onclick="quadroCreator.editTrigger('${sensor}', ${index})">
+                            <button class="btn btn-small btn-secondary" onclick="quadroCreator.editTrigger('${sensor}', ${index})" title="Modifica trigger">
                                 ✏️
                             </button>
-                            <button class="btn btn-small btn-danger" onclick="quadroCreator.deleteTrigger('${sensor}', ${index})">
+                            <button class="btn btn-small btn-danger" onclick="quadroCreator.deleteTrigger('${sensor}', ${index})" title="Elimina trigger">
                                 🗑️
                             </button>
                         </div>
@@ -691,6 +831,11 @@ class QuadroCreator {
                     <div class="trigger-summary">
                         <div class="trigger-condition">${this.getTriggerConditionText(trigger)}</div>
                         <div class="trigger-actions-count">${trigger.actions.length} azioni configurate</div>
+                        ${trigger.actions.length > 0 ? `
+                            <div class="trigger-actions-preview">
+                                ${trigger.actions.map(action => this.getActionDescription(action)).join(', ')}
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -2086,6 +2231,19 @@ class QuadroCreator {
         const name = document.getElementById('quadro-name').value;
         const deviceId = document.getElementById('device-select').value;
 
+        // Validazione aggiuntiva prima del salvataggio
+        const validation = this.validateQuadroBeforeSave();
+
+        if (!validation.valid) {
+            alert('Errori di validazione:\n' + validation.errors.join('\n'));
+            return;
+        }
+
+        if (validation.warnings.length > 0) {
+            const proceed = confirm('Avvisi di validazione:\n' + validation.warnings.join('\n') + '\n\nVuoi continuare comunque?');
+            if (!proceed) return;
+        }
+
         if (!name || name.length > 50) {
             alert('Inserisci un nome valido per il quadro (max 50 caratteri)');
             return;
@@ -2096,24 +2254,110 @@ class QuadroCreator {
             return;
         }
 
+        // NUOVO: Crea oggetto completo con tutti i dati necessari
         const quadroData = {
-            name: name,
-            device_id: deviceId,
-            template: 'personalizzato',
-            is_predefined: false,
-            triggers: this.triggers,
-            uploaded_files: this.uploadedFiles.map(file => ({
-                id: file.id,
-                name: file.name,
-                type: file.type
-            })),
-            created_at: new Date().toISOString(),
-            version: "4.0"
-        };
+    // === DATI BASE ===
+    name: "Nome del quadro",
+    device_id: "esp32_001", 
+    template: "personalizzato",
+    is_predefined: false,
+    version: "4.0",
+    
+    // === CONFIGURAZIONE TRIGGER ===
+    triggers: {
+        temperature: [
+            {
+                sensor: "temperature",
+                condition: "range", // "range", "above", "below", "duration"
+                params: { min: 20, max: 30 },
+                actions: [
+                    {
+                        type: "add-objects",
+                        objectFile: "star.svg",
+                        quantity: 5,
+                        size: 100,
+                        opacity: 100,
+                        rotation: 0,
+                        animationSpeed: 1,
+                        objectAnimation: "float",
+                        // Coordinate del box dove appaiono gli oggetti
+                        boxX: 20,      // % da sinistra
+                        boxY: 20,      // % dall'alto  
+                        boxWidth: 60,  // % larghezza
+                        boxHeight: 60  // % altezza
+                    },
+                    {
+                        type: "change-background",
+                        backgroundType: "gradient",
+                        color1: "#667eea",
+                        color2: "#764ba2", 
+                        direction: "vertical"
+                    }
+                ]
+            }
+        ],
+        humidity: [],
+        light: [],
+        audio: []
+    },
+    
+    // === FILE CARICATI ===
+    uploaded_files: [
+        {
+            id: "1234567890",
+            name: "mia_immagine.png",
+            type: "image/png", 
+            url: "/uploads/file_path.png",
+            isFromServer: true
+        }
+    ],
+    
+    // === STATO ANTEPRIMA (PER REPLICARE ESATTAMENTE) ===
+    preview_state: {
+        // Valori sensori al momento del salvataggio
+        sensor_values: {
+            temperature: 25.5,
+            humidity: 65,
+            light: 1250,
+            audio: 850
+        },
+        
+        // Configurazione canvas
+        canvas_config: {
+            width: 800,
+            height: 600
+        },
+        
+        // Stato UI (box visibili, ecc.)
+        ui_state: {
+            is_playing: true,
+            visible_boxes: ["temperature_0", "humidity_1"],
+            temp_box_coords: { x: 30, y: 40, width: 50, height: 50 }
+        },
+        
+        // Screenshot dell'anteprima (opzionale)
+        preview_image: "data:image/png;base64,iVBORw0KGgoAAAANSU...",
+        
+        saved_at: "2024-01-20T10:30:00.000Z"
+    }
+};
+
+
+        // Aggiungi timestamp appropriato
+        if (this.isEditMode) {
+            quadroData.updated_at = new Date().toISOString();
+        } else {
+            quadroData.created_at = new Date().toISOString();
+        }
 
         try {
-            const response = await fetch('/api/quadri', {
-                method: 'POST',
+            const url = this.isEditMode ? `/api/quadri/${this.editingQuadroId}` : '/api/quadri';
+            const method = this.isEditMode ? 'PUT' : 'POST';
+
+            console.log(`${method} ${url}`, quadroData);
+
+            const response = await fetch(url, {
+                method: method,
                 headers: {
                     'Content-Type': 'application/json'
                 },
@@ -2122,8 +2366,14 @@ class QuadroCreator {
 
             if (response.ok) {
                 const result = await response.json();
-                this.createdQuadroId = result.quadro_id;
-                this.showSuccessModal();
+
+                if (this.isEditMode) {
+                    this.createdQuadroId = this.editingQuadroId;
+                    this.showSuccessModal('Quadro modificato con successo!');
+                } else {
+                    this.createdQuadroId = result.quadro_id;
+                    this.showSuccessModal('Quadro creato con successo!');
+                }
             } else {
                 const error = await response.json();
                 alert('Errore nel salvataggio: ' + (error.error || 'Errore sconosciuto'));
@@ -2134,8 +2384,64 @@ class QuadroCreator {
         }
     }
 
-    showSuccessModal() {
-        document.getElementById('success-modal').style.display = 'block';
+
+    validateQuadroBeforeSave() {
+        const errors = [];
+        const warnings = [];
+
+        // Verifica dati base
+        const name = document.getElementById('quadro-name').value;
+        const deviceId = document.getElementById('device-select').value;
+
+        if (!name || name.length === 0) {
+            errors.push('Nome quadro mancante');
+        }
+        if (!deviceId) {
+            errors.push('Dispositivo ESP32 non selezionato');
+        }
+
+        // Verifica trigger
+        const totalTriggers = Object.values(this.triggers).flat().length;
+        if (totalTriggers === 0) {
+            warnings.push('Nessun trigger configurato - il quadro sarà statico');
+        }
+
+        // Verifica azioni con coordinate
+        Object.entries(this.triggers).forEach(([sensor, triggers]) => {
+            triggers.forEach((trigger, triggerIndex) => {
+                if (trigger.actions) {
+                    trigger.actions.forEach((action, actionIndex) => {
+                        if ((action.type === 'add-objects' || action.type === 'add-svg') &&
+                            (action.boxX === undefined || action.boxY === undefined)) {
+                            warnings.push(`Azione ${sensor}_${triggerIndex}_${actionIndex}: coordinate box mancanti`);
+                        }
+                    });
+                }
+            });
+        });
+
+        return {
+            valid: errors.length === 0,
+            errors,
+            warnings,
+            totalTriggers,
+            totalActions: Object.values(this.triggers).flat()
+                .reduce((acc, t) => acc + (t.actions ? t.actions.length : 0), 0)
+        };
+    }
+
+
+    showSuccessModal(message = null) {
+        const modal = document.getElementById('success-modal');
+        const modalTitle = modal.querySelector('h2');
+        const modalText = modal.querySelector('p');
+
+        if (message) {
+            modalTitle.textContent = this.isEditMode ? '✅ Quadro Modificato!' : '✅ Quadro Creato!';
+            modalText.textContent = message;
+        }
+
+        modal.style.display = 'block';
     }
 
     closeModal(modal) {
@@ -2246,32 +2552,100 @@ class QuadroCreator {
         }, 2000);
     }
 
-    // Metodo aggiuntivo per testare rapidamente gli oggetti
-    createTestTrigger() {
-        const testTrigger = {
-            sensor: 'temperature',
-            condition: 'range',
-            params: { min: 15, max: 30 },
-            actions: [{
-                type: 'add-objects',
-                objectFile: 'star.svg',
-                // NON include più boxX, boxY, boxWidth, boxHeight
-                size: 100,
-                opacity: 100,
-                rotation: 0,
-                quantity: 8,
-                animationSpeed: 1,
-                objectAnimation: 'float'
-            }]
+    // NUOVA FUNZIONE: Esporta lo stato completo come JSON
+    exportCurrentState() {
+        const completeState = {
+            name: document.getElementById('quadro-name').value,
+            device_id: document.getElementById('device-select').value,
+            template: 'personalizzato',
+            is_predefined: false,
+            triggers: this.triggers,
+            uploaded_files: this.uploadedFiles.map(file => ({
+                id: file.id,
+                name: file.name,
+                type: file.type,
+                url: file.url,
+                isFromServer: file.isFromServer || false
+            })),
+            version: "4.0",
+            preview_state: {
+                sensor_values: { ...this.sensorValues },
+                canvas_config: {
+                    width: this.previewCanvas.width,
+                    height: this.previewCanvas.height
+                },
+                ui_state: {
+                    is_playing: this.isPlaying,
+                    visible_boxes: Array.from(this.visibleBoxes),
+                    temp_box_coords: { ...this.tempBoxCoords }
+                },
+                preview_image: this.previewCanvas.toDataURL('image/png'),
+                exported_at: new Date().toISOString()
+            }
         };
 
-        this.triggers.temperature.push(testTrigger);
-        this.renderTriggers();
-        this.updatePreview();
+        // Crea e scarica il file JSON
+        const blob = new Blob([JSON.stringify(completeState, null, 2)], {
+            type: 'application/json'
+        });
 
-        console.log('🎯 Trigger di test creato! Gli oggetti si posizionano in tutto lo schermo.');
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `quadro_${completeState.name.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
 
-        return testTrigger;
+        console.log('📥 Stato completo esportato:', completeState);
+        return completeState;
+    }
+
+    // NUOVA FUNZIONE: Importa stato da JSON
+    async importState(jsonData) {
+        try {
+            const quadroData = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
+
+            console.log('📤 Importazione stato:', quadroData);
+
+            // Usa la funzione esistente per ripristinare tutto
+            this.populateFieldsFromQuadro(quadroData);
+
+            // Aggiorna immediatamente l'anteprima
+            setTimeout(() => {
+                this.updatePreview();
+                console.log('✅ Importazione completata');
+            }, 1000);
+
+            return true;
+        } catch (error) {
+            console.error('❌ Errore importazione:', error);
+            alert('Errore nell\'importazione del file JSON');
+            return false;
+        }
+    }
+
+    // NUOVA FUNZIONE: Ottieni solo i dati essenziali dello stato corrente
+    getCurrentStateData() {
+        return {
+            // Informazioni base
+            name: document.getElementById('quadro-name').value,
+            device_id: document.getElementById('device-select').value,
+
+            // Configurazione quadro
+            triggers: this.triggers,
+            uploaded_files: this.uploadedFiles.length,
+
+            // Stato anteprima
+            sensor_values: this.sensorValues,
+            is_playing: this.isPlaying,
+            visible_boxes_count: this.visibleBoxes.size,
+            canvas_size: `${this.previewCanvas.width}x${this.previewCanvas.height}`,
+
+            // Timestamp
+            current_time: new Date().toISOString()
+        };
     }
 }
 
@@ -2325,33 +2699,6 @@ function resetPreview() {
 
 function testEffects() {
     quadroCreator.testEffects();
-}
-
-function createTestTrigger() {
-    if (quadroCreator) {
-        return quadroCreator.createTestTrigger();
-    }
-}
-
-function checkObjectsStatus() {
-    if (quadroCreator) {
-        console.log('📊 Stato oggetti caricati:');
-        quadroCreator.availableObjects.forEach(obj => {
-            const path = `/static/images/${obj}`;
-            const isLoaded = quadroCreator.objectCache.has(path);
-            console.log(`${isLoaded ? '✅' : '❌'} ${obj}: ${isLoaded ? 'Caricato' : 'Non caricato'}`);
-        });
-
-        const totalLoaded = quadroCreator.availableObjects.filter(obj =>
-            quadroCreator.objectCache.has(`/static/images/${obj}`)
-        ).length;
-
-        console.log(`\n📈 Totale: ${totalLoaded}/${quadroCreator.availableObjects.length} oggetti pronti`);
-
-        if (totalLoaded === 0) {
-            console.log('💡 Suggerimento: Verifica che i file SVG esistano nella directory /static/images/');
-        }
-    }
 }
 
 function previewEspData() {
@@ -2442,9 +2789,6 @@ window.selectFilter = function (filter) {
     }
 };
 
-window.checkObjectsStatus = function () {
-    checkObjectsStatus();
-};
 
 window.addEventListener('resize', function () {
     if (quadroCreator && quadroCreator.previewCanvas) {

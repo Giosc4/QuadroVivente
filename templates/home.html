@@ -17,11 +17,11 @@
                 <p class="subtitle">I tuoi quadri che reagiscono ai sensori ambientali</p>
             </div>
             <div class="header-actions">
-                <button class="btn btn-primary" onclick="location.href='/templates/create_paint.html'">
-                    ➕ Crea Nuovo Quadro
-                </button>
                 <button class="btn btn-secondary" onclick="toggleDevicesPanel()">
                     📱 Dispositivi
+                </button>
+                <button class="btn btn-primary" onclick="location.href='/templates/create_paint.html'">
+                    ➕ Crea Nuovo Quadro
                 </button>
             </div>
         </header>
@@ -52,11 +52,6 @@
             </div>
         </div>
 
-        <!-- Filtri e ricerca -->
-        <div class="filters-section">
-
-        </div>
-
         <!-- Griglia dei quadri -->
         <main class="quadri-grid" id="quadri-grid">
             <div class="loading-quadri">
@@ -70,59 +65,9 @@
             <div class="empty-icon">🎨</div>
             <h2>Nessun quadro trovato</h2>
             <p>Inizia creando il tuo primo quadro personalizzato!</p>
-            <button class="btn btn-primary" onclick="location.href='/quadri_nuovi'">
+            <button class="btn btn-primary" onclick="location.href='/templates/create_paint.html'">
                 Crea il Primo Quadro
             </button>
-        </div>
-    </div>
-
-    <!-- Modal per anteprima rapida -->
-    <div id="preview-modal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closePreviewModal()">&times;</span>
-            <div class="modal-header">
-                <h2 id="preview-title">Anteprima Quadro</h2>
-                <div class="modal-actions">
-                    <button class="btn btn-primary" id="view-fullscreen-btn">
-                        🔍 Visualizza Fullscreen
-                    </button>
-                    <button class="btn btn-secondary" onclick="editQuadro()">
-                        ✏️ Modifica
-                    </button>
-                </div>
-            </div>
-            <div class="modal-body">
-                <div class="preview-canvas-container">
-                    <canvas id="preview-canvas" width="600" height="400"></canvas>
-                </div>
-                <div class="preview-info">
-                    <div class="device-info">
-                        <h4>📱 Dispositivo</h4>
-                        <p id="preview-device">-</p>
-                    </div>
-                    <div class="sensor-readings">
-                        <h4>📊 Letture Sensori</h4>
-                        <div class="sensor-grid">
-                            <div class="sensor-item">
-                                <span class="sensor-icon">🌡️</span>
-                                <span class="sensor-value" id="preview-temp">--°C</span>
-                            </div>
-                            <div class="sensor-item">
-                                <span class="sensor-icon">💧</span>
-                                <span class="sensor-value" id="preview-humidity">--%</span>
-                            </div>
-                            <div class="sensor-item">
-                                <span class="sensor-icon">💡</span>
-                                <span class="sensor-value" id="preview-light">--</span>
-                            </div>
-                            <div class="sensor-item">
-                                <span class="sensor-icon">🔊</span>
-                                <span class="sensor-value" id="preview-audio">--</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 

@@ -1,6 +1,6 @@
 // ============================================================================
-// QUADRO VIVENTE - SISTEMA DI VISUALIZZAZIONE
-// JavaScript per la visualizzazione e controllo del quadro vivente
+// QUADRO VIEWER - VISUALIZZAZIONE FULLSCREEN QUADRI VIVENTI
+// JavaScript per la visualizzazione immersiva dei quadri salvati
 // ============================================================================
 
 class QuadroViewer {
@@ -11,13 +11,13 @@ class QuadroViewer {
         this.ctx = null;
         this.animationId = null;
         this.isPlaying = true;
-        this.isFullscreen = false;
-        this.showInfo = false;
-        
+        this.overlayVisible = true;
+
         // Dati del quadro
         this.quadroData = null;
-        this.deviceId = null;
-        
+        this.deviceData = null;
+        this.triggers = {};
+
         // Valori sensori attuali
         this.sensorValues = {
             temperature: 20.5,
@@ -25,346 +25,459 @@ class QuadroViewer {
             light: 1250,
             audio: 850
         };
-        
+
+        // Cache oggetti (identico a create_paint)
+        this.objectCache = new Map();
+        this.objectLoading = new Map();
+
         // Stato connessione
-        this.isConnected = false;
-        this.lastUpdate = null;
-        
-        // Performance tracking
-        this.frameCount = 0;
-        this.lastFpsUpdate = Date.now();
-        this.currentFps = 60;
-        
-        // Controlli fullscreen
-        this.mouseTimeout = null;
-        this.showControls = false;
-        
-        // Background layers per effetti complessi
-        this.backgroundLayers = [];
-        this.animationLayers = [];
-        
-        // Cache per SVG e immagini
-        this.imageCache = new Map();
-        this.svgCache = new Map();
-        
+        this.connectionState = 'connecting'; // connecting, connected, disconnected, error
+
+        // Controlli visibilità
+        this.lastActivity = Date.now();
+        this.hideControlsTimeout = null;
+
         this.init();
     }
 
     async init() {
         try {
             this.setupCanvas();
-            this.setupEventListeners();
-            await this.loadQuadroData();
             this.setupSocket();
-            this.startAnimation();
-            this.hideLoading();
+            await this.loadQuadro();
+            await this.preloadObjects();
+            this.startRendering();
+            this.setupEventListeners();
+            this.hideLoadingScreen();
         } catch (error) {
             console.error('Errore inizializzazione:', error);
-            this.showError('Errore nel caricamento del quadro: ' + error.message);
+            this.showError('Errore durante l\'inizializzazione del quadro');
         }
     }
+
+    // ============================================================================
+    // SETUP E CONFIGURAZIONE
+    // ============================================================================
 
     setupCanvas() {
         this.canvas = document.getElementById('quadro-canvas');
         this.ctx = this.canvas.getContext('2d');
-        
-        // Ottimizzazioni per performance
         this.ctx.imageSmoothingEnabled = true;
-        this.ctx.imageSmoothingQuality = 'high';
-        
+        this.ctx.textBaseline = 'middle';
         this.resizeCanvas();
     }
 
     resizeCanvas() {
-        const container = document.querySelector('.quadro-main');
-        const rect = container.getBoundingClientRect();
-        
-        if (this.isFullscreen) {
-            this.canvas.width = window.screen.width;
-            this.canvas.height = window.screen.height;
-        } else {
-            // Mantieni aspect ratio 16:9 o usa quello del container
-            const aspectRatio = 16 / 9;
-            let width = rect.width - 40; // margini
-            let height = width / aspectRatio;
-            
-            if (height > rect.height - 40) {
-                height = rect.height - 40;
-                width = height * aspectRatio;
-            }
-            
-            this.canvas.width = Math.floor(width);
-            this.canvas.height = Math.floor(height);
-        }
-    }
+        const devicePixelRatio = window.devicePixelRatio || 1;
 
-    setupEventListeners() {
-        // Resize
-        window.addEventListener('resize', () => this.resizeCanvas());
-        
-        // Fullscreen events
-        document.addEventListener('fullscreenchange', () => this.handleFullscreenChange());
-        document.addEventListener('webkitfullscreenchange', () => this.handleFullscreenChange());
-        document.addEventListener('mozfullscreenchange', () => this.handleFullscreenChange());
-        document.addEventListener('MSFullscreenChange', () => this.handleFullscreenChange());
-        
-        // Mouse movement in fullscreen
-        document.addEventListener('mousemove', () => this.handleMouseMove());
-        document.addEventListener('keydown', (e) => this.handleKeyDown(e));
-        
-        // Canvas click per toggle info
-        this.canvas.addEventListener('click', () => {
-            if (!this.isFullscreen) {
-                this.toggleInfo();
-            }
-        });
-        
-        // Prevent context menu
-        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-    }
+        this.canvas.width = window.innerWidth * devicePixelRatio;
+        this.canvas.height = window.innerHeight * devicePixelRatio;
 
-    async loadQuadroData() {
-        try {
-            const response = await fetch(`/api/quadri/${this.quadroId}`);
-            if (!response.ok) {
-                throw new Error(`Quadro non trovato (${response.status})`);
-            }
-            
-            this.quadroData = await response.json();
-            this.deviceId = this.quadroData.device_id;
-            
-            // Aggiorna UI
-            document.getElementById('quadro-title').textContent = `🎨 ${this.quadroData.name}`;
-            document.getElementById('info-name').textContent = this.quadroData.name;
-            document.getElementById('info-device').textContent = this.deviceId || 'N/A';
-            
-            // Conta triggers
-            const triggerCount = Object.values(this.quadroData.triggers || {})
-                .reduce((total, triggers) => total + triggers.length, 0);
-            document.getElementById('info-triggers').textContent = triggerCount.toString();
-            
-            // Precarica risorse
-            await this.preloadResources();
-            
-        } catch (error) {
-            throw new Error('Impossibile caricare i dati del quadro: ' + error.message);
-        }
-    }
+        this.canvas.style.width = window.innerWidth + 'px';
+        this.canvas.style.height = window.innerHeight + 'px';
 
-    async preloadResources() {
-        if (!this.quadroData.uploaded_files) return;
-        
-        // Precarica immagini e SVG
-        for (const file of this.quadroData.uploaded_files) {
-            try {
-                const url = `/uploads/${file.id}`;
-                if (file.type.startsWith('image/') || file.name.endsWith('.svg')) {
-                    const img = new Image();
-                    img.crossOrigin = 'anonymous';
-                    img.src = url;
-                    await new Promise((resolve, reject) => {
-                        img.onload = resolve;
-                        img.onerror = reject;
-                    });
-                    this.imageCache.set(file.id, img);
-                }
-            } catch (error) {
-                console.warn(`Impossibile caricare ${file.name}:`, error);
-            }
-        }
+        this.ctx.scale(devicePixelRatio, devicePixelRatio);
+
     }
 
     setupSocket() {
         if (typeof io === 'undefined') {
-            console.warn('Socket.IO non disponibile, modalità offline');
-            this.updateConnectionStatus(false);
+            console.error('Socket.IO non disponibile');
+            this.connectionState = 'error';
             return;
         }
 
         this.socket = io();
 
         this.socket.on('connect', () => {
-            console.log('Connesso al server');
-            this.isConnected = true;
-            this.updateConnectionStatus(true);
-            
-            // Iscriviti agli aggiornamenti del device specifico
-            if (this.deviceId) {
-                this.socket.emit('subscribe_device', this.deviceId);
+            console.log('WebSocket connesso');
+            this.connectionState = 'connected';
+            this.updateConnectionStatus();
+
+            // Richiedi dati del dispositivo se disponibile
+            if (this.quadroData && this.quadroData.device_id) {
+                this.socket.emit('subscribe_device', this.quadroData.device_id);
             }
         });
 
         this.socket.on('device_data_update', (data) => {
-            if (data.device_id === this.deviceId) {
-                this.handleSensorUpdate(data.data);
-            }
+            this.handleDeviceUpdate(data);
         });
 
         this.socket.on('disconnect', () => {
-            console.log('Disconnesso dal server');
-            this.isConnected = false;
-            this.updateConnectionStatus(false);
+            console.log('WebSocket disconnesso');
+            this.connectionState = 'disconnected';
+            this.updateConnectionStatus();
         });
 
-        this.socket.on('connect_error', (error) => {
-            console.error('Errore connessione:', error);
-            this.updateConnectionStatus(false);
+        this.socket.on('connect_error', () => {
+            console.error('Errore connessione WebSocket');
+            this.connectionState = 'error';
+            this.updateConnectionStatus();
         });
     }
 
-    handleSensorUpdate(data) {
-        // Aggiorna valori sensori
-        if (data.temperature !== undefined) this.sensorValues.temperature = data.temperature;
-        if (data.humidity !== undefined) this.sensorValues.humidity = data.humidity;
-        if (data.light !== undefined) this.sensorValues.light = data.light;
-        if (data.audio !== undefined) this.sensorValues.audio = data.audio;
-        
-        this.lastUpdate = new Date();
-        this.updateSensorDisplay();
-        this.updateInfoDisplay();
+    setupEventListeners() {
+        window.addEventListener('resize', () => this.handleResize());
+
+        // Gestione fullscreen
+        document.addEventListener('fullscreenchange', () => this.handleFullscreenChange());
+        document.addEventListener('webkitfullscreenchange', () => this.handleFullscreenChange());
+        document.addEventListener('mozfullscreenchange', () => this.handleFullscreenChange());
+
+        // Nascondi cursore dopo inattività
+        this.setupCursorHiding();
     }
 
-    updateSensorDisplay() {
-        document.getElementById('temp-value').textContent = `${this.sensorValues.temperature.toFixed(1)}°C`;
-        document.getElementById('humidity-value').textContent = `${this.sensorValues.humidity.toFixed(0)}%`;
-        document.getElementById('light-value').textContent = this.sensorValues.light.toFixed(0);
-        document.getElementById('audio-value').textContent = this.sensorValues.audio.toFixed(0);
+    setupCursorHiding() {
+        let hideCursorTimeout;
+
+        const showCursor = () => {
+            document.body.classList.remove('hide-cursor');
+            clearTimeout(hideCursorTimeout);
+            hideCursorTimeout = setTimeout(() => {
+                document.body.classList.add('hide-cursor');
+            }, 3000);
+        };
+
+        document.addEventListener('mousemove', showCursor);
+        document.addEventListener('touchstart', showCursor);
+        document.addEventListener('click', showCursor);
+
+        // Nascondi subito all'inizio
+        setTimeout(() => {
+            document.body.classList.add('hide-cursor');
+        }, 3000);
     }
 
-    updateConnectionStatus(connected) {
-        const indicator = document.getElementById('status-indicator');
-        const text = document.getElementById('status-text');
-        const subtitle = document.getElementById('quadro-subtitle');
-        
-        if (connected) {
-            indicator.className = 'status-indicator connected';
-            text.textContent = 'Connesso';
-            subtitle.textContent = 'Live dal dispositivo ESP32';
-        } else {
-            indicator.className = 'status-indicator';
-            text.textContent = 'Disconnesso';
-            subtitle.textContent = 'Modalità offline';
+    // ============================================================================
+    // CARICAMENTO DATI
+    // ============================================================================
+
+    async loadQuadro() {
+        try {
+            const response = await fetch(`/api/quadri/${this.quadroId}`);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            this.quadroData = await response.json();
+            console.log('Quadro caricato:', this.quadroData);
+
+            // Ripristina valori sensori da anteprima se disponibili
+            if (this.quadroData.preview_state && this.quadroData.preview_state.sensor_values) {
+                console.log('🔄 Ripristino valori sensori da anteprima...');
+                this.sensorValues = { ...this.quadroData.preview_state.sensor_values };
+            }
+
+            // Aggiorna UI con i dati del quadro
+            this.updateQuadroInfo();
+
+            // Carica dati del dispositivo
+            if (this.quadroData.device_id) {
+                await this.loadDeviceData();
+            } else {
+                // Se non c'è dispositivo, usa valori di anteprima o simula
+                this.startSensorSimulation();
+            }
+
+            // Imposta i trigger
+            this.triggers = this.quadroData.triggers || {};
+
+        } catch (error) {
+            console.error('Errore caricamento quadro:', error);
+            throw new Error('Impossibile caricare i dati del quadro');
         }
     }
 
-    updateInfoDisplay() {
-        document.getElementById('info-status').textContent = this.isConnected ? 'Online' : 'Offline';
-        document.getElementById('info-fps').textContent = `${this.currentFps.toFixed(1)} FPS`;
-        
-        if (this.lastUpdate) {
-            const timeAgo = Math.floor((Date.now() - this.lastUpdate.getTime()) / 1000);
-            document.getElementById('info-update').textContent = 
-                timeAgo < 60 ? `${timeAgo}s fa` : `${Math.floor(timeAgo/60)}m fa`;
+    async loadDeviceData() {
+        try {
+            const response = await fetch(`/api/device_data?device_id=${encodeURIComponent(this.quadroData.device_id)}`);
+
+            if (response.ok) {
+                this.deviceData = await response.json();
+                this.sensorValues = {
+                    temperature: this.deviceData.temperature || this.sensorValues.temperature,
+                    humidity: this.deviceData.humidity || this.sensorValues.humidity,
+                    light: this.deviceData.light || this.sensorValues.light,
+                    audio: this.deviceData.audio || this.sensorValues.audio
+                };
+                this.updateSensorDisplay();
+            } else {
+                console.warn('Impossibile caricare dati dispositivo, uso valori salvati o simulati');
+                this.startSensorSimulation();
+            }
+        } catch (error) {
+            console.error('Errore caricamento dati dispositivo:', error);
+            this.startSensorSimulation();
         }
-        
-        // Aggiorna triggers attivi
-        this.updateActiveTriggers();
     }
 
-    updateActiveTriggers() {
-        const container = document.getElementById('active-triggers');
-        if (!this.quadroData || !this.quadroData.triggers) return;
-        
-        const activeTriggers = [];
-        
-        Object.entries(this.quadroData.triggers).forEach(([sensor, triggers]) => {
-            const sensorValue = this.sensorValues[sensor];
-            triggers.forEach((trigger, index) => {
-                if (this.isTriggerActive(trigger, sensorValue)) {
-                    activeTriggers.push({
-                        sensor: sensor,
-                        trigger: trigger,
-                        index: index
-                    });
-                }
+    // ============================================================================
+    // GESTIONE OGGETTI (IDENTICO A CREATE_PAINT)
+    // ============================================================================
+
+    async loadObject(objectPath) {
+        if (this.objectCache.has(objectPath)) {
+            return this.objectCache.get(objectPath);
+        }
+
+        if (this.objectLoading.has(objectPath)) {
+            return await this.objectLoading.get(objectPath);
+        }
+
+        const loadPromise = this._loadObjectFromFile(objectPath);
+        this.objectLoading.set(objectPath, loadPromise);
+
+        try {
+            const image = await loadPromise;
+            this.objectCache.set(objectPath, image);
+            this.objectLoading.delete(objectPath);
+            return image;
+        } catch (error) {
+            this.objectLoading.delete(objectPath);
+            console.error(`Impossibile caricare oggetto ${objectPath}:`, error);
+            return null;
+        }
+    }
+
+    async _loadObjectFromFile(objectPath) {
+        const response = await fetch(objectPath);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const svgText = await response.text();
+        const blob = new Blob([svgText], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                URL.revokeObjectURL(url);
+                resolve(img);
+            };
+            img.onerror = () => {
+                URL.revokeObjectURL(url);
+                reject(new Error(`Impossibile caricare oggetto: ${objectPath}`));
+            };
+            img.src = url;
+        });
+    }
+
+    async preloadObjects() {
+        if (!this.quadroData || !this.quadroData.triggers) {
+            console.log('🎯 Nessun trigger trovato, skip precaricamento oggetti');
+            return;
+        }
+
+        const objectsToLoad = new Set();
+
+        // Raccoglie tutti gli oggetti usati nei trigger
+        Object.values(this.quadroData.triggers).forEach(triggers => {
+            triggers.forEach(trigger => {
+                trigger.actions.forEach(action => {
+                    if ((action.type === 'add-objects' || action.type === 'add-svg') &&
+                        (action.objectFile || action.svgObject)) {
+                        const objectFile = action.objectFile || action.svgObject;
+                        objectsToLoad.add(`/static/images/${objectFile}`);
+                    }
+                });
             });
         });
-        
-        container.innerHTML = activeTriggers.map(({sensor, trigger, index}) => `
-            <div class="active-trigger">
-                <div class="trigger-sensor">${this.getSensorIcon(sensor)} ${this.formatSensorName(sensor)} #${index + 1}</div>
-                <div class="trigger-condition">${this.getTriggerConditionText(trigger)}</div>
-            </div>
-        `).join('') || '<div style="color: rgba(255,255,255,0.5); font-style: italic;">Nessun trigger attivo</div>';
-    }
 
-    startAnimation() {
-        const animate = (timestamp) => {
-            if (this.isPlaying) {
-                this.render();
-                this.updateFPS();
+        if (objectsToLoad.size === 0) {
+            console.log('🎯 Nessun oggetto da precaricare');
+            return;
+        }
+
+
+        const loadPromises = Array.from(objectsToLoad).map(async (path) => {
+            try {
+                const img = await this.loadObject(path);
+                if (img) {
+                    return { path, success: true, img };
+                } else {
+                    console.error(`❌ Immagine null per: ${path}`);
+                    return { path, success: false, error: 'Immagine null' };
+                }
+            } catch (error) {
+                console.error(`❌ Errore caricamento ${path}:`, error);
+                return { path, success: false, error: error.message };
             }
-            this.animationId = requestAnimationFrame(animate);
-        };
-        animate();
+        });
+
+        const results = await Promise.allSettled(loadPromises);
+        const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+        const failed = results.filter(r => r.status !== 'fulfilled' || !r.value.success);
+
+        
+        if (failed.length > 0) {
+            console.warn('❌ Oggetti falliti:', failed);
+        }
+
+        // Verifica finale cache
     }
 
-    render() {
-        if (!this.ctx || !this.quadroData) return;
+    drawRealObject(ctx, objectFile, size) {
+        const objectPath = `/static/images/${objectFile}`;
+        const objectImage = this.objectCache.get(objectPath);
+
+        if (objectImage) {
+            const originalWidth = objectImage.naturalWidth || objectImage.width || 100;
+            const originalHeight = objectImage.naturalHeight || objectImage.height || 100;
+
+            let drawWidth, drawHeight;
+
+            if (originalWidth > originalHeight) {
+                drawWidth = size * 2;
+                drawHeight = (drawWidth * originalHeight) / originalWidth;
+            } else {
+                drawHeight = size * 2;
+                drawWidth = (drawHeight * originalWidth) / originalHeight;
+            }
+
+            try {
+                ctx.drawImage(
+                    objectImage,
+                    -drawWidth / 2,
+                    -drawHeight / 2,
+                    drawWidth,
+                    drawHeight
+                );
+                return true;
+            } catch (error) {
+                console.error(`❌ Errore nel disegnare oggetto ${objectFile}:`, error);
+                // Fallback a placeholder
+                this.drawPlaceholder(ctx, size, objectFile);
+                return false;
+            }
+        } else {
+            // Placeholder quando oggetto non è caricato
+            this.drawPlaceholder(ctx, size, objectFile);
+            
+            // Prova a caricare asincronamente per la prossima volta
+            this.loadObject(objectPath).catch(error => {
+                console.error(`❌ Errore nel caricare oggetto ${objectFile}:`, error);
+            });
+
+            return false;
+        }
+    }
+
+    drawPlaceholder(ctx, size, objectFile) {
+        // Placeholder più visibile per debug
+        ctx.fillStyle = '#ff6b6b';
+        ctx.beginPath();
+        ctx.arc(0, 0, size, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // Bordo bianco
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Testo placeholder
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `${Math.max(8, size / 4)}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.fillText('?', 0, 0);
         
-        const { width, height } = this.canvas;
-        
-        // Pulisci canvas
+        // Debug: log oggetto mancante
+        console.warn(`📄 Placeholder per: ${objectFile}`);
+    }
+
+    // ============================================================================
+    // RENDERING (IDENTICO A CREATE_PAINT)
+    // ============================================================================
+
+    startRendering() {
+        const render = () => {
+            if (this.isPlaying) {
+                this.renderFrame();
+            }
+            this.animationId = requestAnimationFrame(render);
+        };
+        render();
+    }
+
+    renderFrame() {
+        if (!this.ctx || !this.canvas) return;
+
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        // Reset del filtro all'inizio di ogni frame
+        this.ctx.filter = 'none';
+
+        // Pulisce il canvas con sfondo nero
         this.ctx.fillStyle = '#000000';
         this.ctx.fillRect(0, 0, width, height);
+
+        // DEBUG: Verifica se ci sono trigger configurati
+        const hasTriggers = Object.keys(this.triggers).length > 0;
+        if (!hasTriggers) {
+            console.warn('⚠️ Nessun trigger configurato nel quadro');
+        }
+
+        // Applica i trigger attivi
+        const activeCount = this.applyActiveTriggers(width, height);
         
-        // Applica triggers attivi
-        this.applyActiveTriggers();
+        // DEBUG: Log se nessun trigger è attivo
+        if (hasTriggers && activeCount === 0) {
+            console.log('🔍 Nessun trigger attivo con valori:', this.sensorValues);
+        }
+
+        // Reset del filtro alla fine per evitare interferenze
+        this.ctx.filter = 'none';
+
+        // Aggiorna display sensori con evidenziazione
+        this.updateSensorDisplay();
     }
 
-    applyActiveTriggers() {
-        if (!this.quadroData.triggers) return;
-        
-        const { width, height } = this.canvas;
-        
-        // Ordina trigger per priorità (background per primi)
-        const allActions = [];
-        
-        Object.entries(this.quadroData.triggers).forEach(([sensor, triggers]) => {
+    applyActiveTriggers(width, height) {
+        if (!this.triggers) return 0;
+
+        let activeTriggersCount = 0;
+        let totalActionsExecuted = 0;
+
+        Object.entries(this.triggers).forEach(([sensor, triggers]) => {
             const sensorValue = this.sensorValues[sensor];
-            triggers.forEach(trigger => {
+
+            triggers.forEach((trigger, triggerIndex) => {
                 if (this.isTriggerActive(trigger, sensorValue)) {
-                    trigger.actions.forEach(action => {
-                        allActions.push({...action, sensorValue, sensor});
+                    activeTriggersCount++;
+                    
+                    trigger.actions.forEach((action, actionIndex) => {
+                        this.executeAction(action, width, height, sensorValue, trigger);
+                        totalActionsExecuted++;
                     });
                 }
             });
         });
-        
-        // Ordina: background, immagini, SVG, animazioni, filtri
-        const actionOrder = ['change-background', 'load-image', 'add-svg', 'add-animation', 'add-filter'];
-        allActions.sort((a, b) => {
-            const aIndex = actionOrder.indexOf(a.type);
-            const bIndex = actionOrder.indexOf(b.type);
-            return aIndex - bIndex;
-        });
-        
-        // Esegui azioni
-        allActions.forEach(action => {
-            this.executeAction(action, width, height);
-        });
+
+ 
+
+        return activeTriggersCount;
     }
 
     isTriggerActive(trigger, value) {
         switch (trigger.condition) {
             case 'range':
-                return value >= (trigger.params.min || 0) && value <= (trigger.params.max || 100);
+                return value >= trigger.params.min && value <= trigger.params.max;
             case 'above':
-                return value > (trigger.params.threshold || 50);
+                return value > trigger.params.threshold;
             case 'below':
-                return value < (trigger.params.threshold || 50);
-            case 'change':
-                // Implementazione semplificata - in produzione tracciare valori storici
-                return Math.random() > 0.8;
+                return value < trigger.params.threshold;
             case 'duration':
-                // Implementazione semplificata
-                return Math.abs(value - (trigger.params.target || 50)) < 5;
+                return Math.abs(value - trigger.params.target) < 5;
             default:
                 return false;
         }
     }
 
-    executeAction(action, width, height) {
+    executeAction(action, width, height, sensorValue, trigger = null) {
         switch (action.type) {
             case 'load-image':
                 this.renderLoadImageAction(action, width, height);
@@ -372,11 +485,9 @@ class QuadroViewer {
             case 'change-background':
                 this.renderChangeBackgroundAction(action, width, height);
                 break;
-            case 'add-svg':
-                this.renderAddSVGAction(action, width, height);
-                break;
-            case 'add-animation':
-                this.renderAddAnimationAction(action, width, height);
+            case 'add-objects':
+            case 'add-svg': // Supporta entrambi i nomi per compatibilità
+                this.renderAddObjectsAction(action, width, height, sensorValue, trigger);
                 break;
             case 'add-filter':
                 this.renderAddFilterAction(action, width, height);
@@ -384,60 +495,54 @@ class QuadroViewer {
         }
     }
 
+    // METODI DI RENDERING IDENTICI A CREATE_PAINT
+
     renderLoadImageAction(action, width, height) {
         const quantity = action.quantity || 1;
-        const baseSize = (action.size || 100) / 100 * Math.min(width, height) * 0.2;
+        const size = (action.size || 100) / 100 * Math.min(width, height) * 0.2;
         const opacity = (action.opacity || 100) / 100;
-        
-        this.ctx.save();
+
         this.ctx.globalAlpha = opacity;
-        
+
         for (let i = 0; i < quantity; i++) {
-            const x = ((action.x || 50) / 100 * width) + (i * (width / quantity)) % width;
-            const y = ((action.y || 50) / 100 * height) + Math.sin(Date.now() * 0.001 + i) * 20;
-            const size = baseSize * (0.8 + 0.4 * Math.sin(Date.now() * 0.002 + i));
-            
+            const x = (action.x || 50) / 100 * width + (i * 30) % width;
+            const y = (action.y || 50) / 100 * height + Math.sin(Date.now() * 0.001 + i) * 20;
+
             this.ctx.save();
             this.ctx.translate(x, y);
             this.ctx.rotate((action.rotation || 0) * Math.PI / 180);
-            
-            // Carica immagine dal cache o disegna placeholder
-            const img = this.imageCache.get(action.fileId);
-            if (img) {
-                this.ctx.drawImage(img, -size/2, -size/2, size, size);
-            } else {
-                // Placeholder
-                this.ctx.fillStyle = '#4ecdc4';
-                this.ctx.fillRect(-size/2, -size/2, size, size);
-            }
-            
+
+            this.ctx.fillStyle = '#4ecdc4';
+            this.ctx.fillRect(-size / 2, -size / 2, size, size);
+
             this.ctx.restore();
         }
-        
-        this.ctx.restore();
+
+        this.ctx.globalAlpha = 1;
     }
 
     renderChangeBackgroundAction(action, width, height) {
-        this.ctx.save();
-        
-        switch (action.backgroundType || 'solid') {
+        const type = action.backgroundType || 'solid';
+
+        switch (type) {
             case 'solid':
                 this.ctx.fillStyle = action.color || '#ffffff';
                 this.ctx.fillRect(0, 0, width, height);
                 break;
-                
+
             case 'gradient':
                 const gradient = this.createGradient(action, width, height);
                 this.ctx.fillStyle = gradient;
                 this.ctx.fillRect(0, 0, width, height);
                 break;
-                
+
             case 'overlay':
                 this.ctx.fillStyle = action.color || '#ffffff';
                 this.ctx.globalAlpha = 0.5;
                 this.ctx.fillRect(0, 0, width, height);
+                this.ctx.globalAlpha = 1;
                 break;
-                
+
             case 'blend':
                 this.ctx.globalCompositeOperation = action.blendMode || 'multiply';
                 this.ctx.fillStyle = action.color || '#ffffff';
@@ -445,14 +550,13 @@ class QuadroViewer {
                 this.ctx.globalCompositeOperation = 'source-over';
                 break;
         }
-        
-        this.ctx.restore();
     }
 
     createGradient(action, width, height) {
+        const direction = action.direction || 'vertical';
         let gradient;
-        
-        switch (action.direction || 'vertical') {
+
+        switch (direction) {
             case 'horizontal':
                 gradient = this.ctx.createLinearGradient(0, 0, width, 0);
                 break;
@@ -460,317 +564,133 @@ class QuadroViewer {
                 gradient = this.ctx.createLinearGradient(0, 0, width, height);
                 break;
             case 'radial':
-                gradient = this.ctx.createRadialGradient(
-                    width/2, height/2, 0, 
-                    width/2, height/2, Math.max(width, height)/2
-                );
+                gradient = this.ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height) / 2);
                 break;
-            default: // vertical
+            default:
                 gradient = this.ctx.createLinearGradient(0, 0, 0, height);
         }
-        
+
         gradient.addColorStop(0, action.color1 || '#667eea');
         gradient.addColorStop(1, action.color2 || '#764ba2');
-        
+
         return gradient;
     }
 
-    renderAddSVGAction(action, width, height) {
+    renderAddObjectsAction(action, width, height, sensorValue, trigger = null) {
         const quantity = action.quantity || 5;
         const baseSize = (action.size || 100) / 100 * 30;
         const opacity = (action.opacity || 100) / 100;
-        const speed = action.animationSpeed || 1;
-        const time = Date.now() * 0.001 * speed;
-        
-        this.ctx.save();
+        const baseSpeed = action.animationSpeed || 1;
+        const objectFile = action.objectFile || action.svgObject || 'star.svg';
+
+
+        const dynamicSpeed = this.calculateDynamicSpeed(trigger, sensorValue, baseSpeed);
+        const time = Date.now() * 0.001 * dynamicSpeed;
+
+        // Gestione coordinate del box (identico a create_paint)
+        let boxX, boxY, boxWidth, boxHeight;
+
+        if (action.boxX !== undefined && action.boxY !== undefined) {
+            // Usa le coordinate salvate nell'azione
+            boxX = action.boxX / 100 * width;
+            boxY = action.boxY / 100 * height;
+            boxWidth = action.boxWidth / 100 * width;
+            boxHeight = action.boxHeight / 100 * height;
+        } else {
+            // Fallback: tutto lo schermo
+            boxX = 0;
+            boxY = 0;
+            boxWidth = width;
+            boxHeight = height;
+        }
+
+        const baseRotation = (action.rotation || 0) * Math.PI / 180;
+
         this.ctx.globalAlpha = opacity;
-        
+
+        const actionSeed = this.getActionSeed(action);
+        let objectsRendered = 0;
+
         for (let i = 0; i < quantity; i++) {
-            let x = (width / quantity) * i + (width / quantity) * 0.5;
-            let y = height * 0.5;
+            const seedX = this.seededRandom(actionSeed + i * 1000);
+            const seedY = this.seededRandom(actionSeed + i * 2000);
+
+            let x = boxX + (seedX * boxWidth);
+            let y = boxY + (seedY * boxHeight);
+
             let size = baseSize;
-            let rotation = 0;
-            
-            // Modifica in base al valore del sensore
-            const intensity = Math.max(0, Math.min(1, action.sensorValue / 100));
+            let rotation = baseRotation;
+
+            // Calcolo intensità identico a create_paint
+            const intensity = Math.max(0, Math.min(1, sensorValue / 100));
             size *= (0.5 + intensity * 0.5);
-            
-            // Applica animazione
-            this.applyAnimation(action.svgAnimation, { x, y, size, rotation, time, i, width, height }, (result) => {
-                x = result.x;
-                y = result.y;
-                size = result.size;
-                rotation = result.rotation;
-            });
-            
+
+            // Applica animazioni IDENTICHE a create_paint
+            switch (action.objectAnimation || action.svgAnimation) {
+                case 'float':
+                    y += Math.sin(time + i) * 30;
+                    break;
+                case 'rotate':
+                    rotation += time + i;
+                    break;
+                case 'pulse':
+                    size *= (0.8 + 0.4 * Math.sin(time * 2 + i));
+                    break;
+                case 'bounce':
+                    y += Math.abs(Math.sin(time + i)) * 40;
+                    break;
+                case 'wave':
+                    x += Math.sin(time + i * 0.5) * 20;
+                    y += Math.cos(time + i * 0.5) * 10;
+                    break;
+                case 'spiral':
+                    const animAngle = time + i * 0.5;
+                    const radius = 30 + Math.sin(time) * 20;
+                    x += Math.cos(animAngle) * radius;
+                    y += Math.sin(animAngle) * radius;
+                    break;
+                case 'scale':
+                    size *= (0.5 + 0.5 * Math.sin(time + i));
+                    break;
+                case 'slide':
+                    x = ((x - boxX + time * 50) % boxWidth) + boxX;
+                    break;
+                case 'fade':
+                    this.ctx.globalAlpha = opacity * (0.3 + 0.7 * Math.sin(time + i));
+                    break;
+                case 'morph':
+                    size *= (0.7 + 0.6 * Math.sin(time * 0.5 + i));
+                    rotation += Math.sin(time * 0.3 + i) * 0.5;
+                    break;
+                case 'sparkle':
+                    if (Math.sin(time * 3 + i) > 0.5) {
+                        size *= 1.5;
+                        this.ctx.globalAlpha = opacity * Math.random();
+                    }
+                    break;
+            }
+
+            // CONTENIMENTO dentro il box
+            x = Math.max(boxX + size, Math.min(boxX + boxWidth - size, x));
+            y = Math.max(boxY + size, Math.min(boxY + boxHeight - size, y));
+
             this.ctx.save();
             this.ctx.translate(x, y);
             this.ctx.rotate(rotation);
-            
-            this.drawSVGObject(action.svgObject || 'star.svg', size);
-            
+
+            const rendered = this.drawRealObject(this.ctx, objectFile, size);
+            if (rendered) objectsRendered++;
+
             this.ctx.restore();
         }
-        
-        this.ctx.restore();
-    }
 
-    applyAnimation(animationType, params, callback) {
-        const { time, i, width, height } = params;
-        let { x, y, size, rotation } = params;
+        this.ctx.globalAlpha = 1;
         
-        switch (animationType) {
-            case 'float':
-                y += Math.sin(time + i) * 30;
-                break;
-            case 'rotate':
-                rotation = time + i;
-                break;
-            case 'pulse':
-                size *= (0.8 + 0.4 * Math.sin(time * 2 + i));
-                break;
-            case 'bounce':
-                y += Math.abs(Math.sin(time + i)) * 40;
-                break;
-            case 'wave':
-                x += Math.sin(time + i * 0.5) * 20;
-                y += Math.cos(time + i * 0.5) * 10;
-                break;
-            case 'spiral':
-                const angle = time + i * 0.5;
-                const radius = 30 + Math.sin(time) * 20;
-                x += Math.cos(angle) * radius;
-                y += Math.sin(angle) * radius;
-                break;
-            case 'scale':
-                size *= (0.5 + 0.5 * Math.sin(time + i));
-                break;
-            case 'slide':
-                x = ((x + time * 50) % (width + 100)) - 50;
-                break;
-            case 'morph':
-                size *= (0.7 + 0.6 * Math.sin(time * 0.5 + i));
-                rotation = Math.sin(time * 0.3 + i) * 0.5;
-                break;
-            case 'sparkle':
-                if (Math.sin(time * 3 + i) > 0.5) {
-                    size *= 1.5;
-                    this.ctx.globalAlpha *= Math.random();
-                }
-                break;
-        }
-        
-        callback({ x, y, size, rotation });
-    }
-
-    drawSVGObject(svgFile, size) {
-        // Implementa il disegno degli oggetti SVG
-        // Per semplicità, usiamo le stesse funzioni del creator
-        switch (svgFile) {
-            case 'star.svg':
-                this.drawStar(size);
-                break;
-            case 'sun.svg':
-                this.drawSun(size);
-                break;
-            case 'snowflake.svg':
-                this.drawSnowflake(size);
-                break;
-            case 'bubble.svg':
-                this.drawBubble(size);
-                break;
-            case 'leaf.svg':
-                this.drawLeaf(size);
-                break;
-            case 'fish.svg':
-                this.drawFish(size);
-                break;
-            case 'cloud.svg':
-                this.drawCloud(size);
-                break;
-            case 'wave.svg':
-            case 'waves.svg':
-                this.drawWave(size);
-                break;
-            default:
-                this.drawDefault(size);
-        }
-    }
-
-    // Funzioni di disegno SVG (semplificate)
-    drawStar(size) {
-        this.ctx.fillStyle = '#ffd700';
-        this.ctx.beginPath();
-        for (let i = 0; i < 5; i++) {
-            const angle = (i * Math.PI * 2) / 5 - Math.PI / 2;
-            const x = Math.cos(angle) * size;
-            const y = Math.sin(angle) * size;
-            if (i === 0) {
-                this.ctx.moveTo(x, y);
-            } else {
-                this.ctx.lineTo(x, y);
-            }
-            const innerAngle = ((i + 0.5) * Math.PI * 2) / 5 - Math.PI / 2;
-            const innerX = Math.cos(innerAngle) * size * 0.5;
-            const innerY = Math.sin(innerAngle) * size * 0.5;
-            this.ctx.lineTo(innerX, innerY);
-        }
-        this.ctx.closePath();
-        this.ctx.fill();
-    }
-
-    drawSun(size) {
-        this.ctx.fillStyle = '#ffd700';
-        this.ctx.beginPath();
-        this.ctx.arc(0, 0, size * 0.6, 0, 2 * Math.PI);
-        this.ctx.fill();
-        
-        this.ctx.strokeStyle = '#ffd700';
-        this.ctx.lineWidth = 3;
-        for (let i = 0; i < 8; i++) {
-            const angle = (i * Math.PI * 2) / 8;
-            this.ctx.beginPath();
-            this.ctx.moveTo(Math.cos(angle) * size * 0.7, Math.sin(angle) * size * 0.7);
-            this.ctx.lineTo(Math.cos(angle) * size, Math.sin(angle) * size);
-            this.ctx.stroke();
-        }
-    }
-
-    drawSnowflake(size) {
-        this.ctx.strokeStyle = '#ffffff';
-        this.ctx.lineWidth = 2;
-        
-        for (let i = 0; i < 6; i++) {
-            this.ctx.save();
-            this.ctx.rotate((i * Math.PI) / 3);
-            
-            this.ctx.beginPath();
-            this.ctx.moveTo(0, -size);
-            this.ctx.lineTo(0, size);
-            this.ctx.stroke();
-            
-            this.ctx.beginPath();
-            this.ctx.moveTo(0, -size * 0.7);
-            this.ctx.lineTo(-size * 0.3, -size * 0.4);
-            this.ctx.moveTo(0, -size * 0.7);
-            this.ctx.lineTo(size * 0.3, -size * 0.4);
-            this.ctx.stroke();
-            
-            this.ctx.restore();
-        }
-    }
-
-    drawBubble(size) {
-        this.ctx.fillStyle = 'rgba(173, 216, 230, 0.6)';
-        this.ctx.strokeStyle = 'rgba(100, 149, 237, 0.8)';
-        this.ctx.lineWidth = 2;
-        
-        this.ctx.beginPath();
-        this.ctx.arc(0, 0, size, 0, 2 * Math.PI);
-        this.ctx.fill();
-        this.ctx.stroke();
-        
-        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-        this.ctx.beginPath();
-        this.ctx.arc(-size * 0.3, -size * 0.3, size * 0.3, 0, 2 * Math.PI);
-        this.ctx.fill();
-    }
-
-    drawLeaf(size) {
-        this.ctx.fillStyle = '#90ee90';
-        this.ctx.beginPath();
-        this.ctx.ellipse(0, 0, size * 0.6, size, 0, 0, 2 * Math.PI);
-        this.ctx.fill();
-        
-        this.ctx.strokeStyle = '#228b22';
-        this.ctx.lineWidth = 2;
-        this.ctx.beginPath();
-        this.ctx.moveTo(0, -size);
-        this.ctx.lineTo(0, size);
-        this.ctx.stroke();
-    }
-
-    drawFish(size) {
-        this.ctx.fillStyle = '#4169e1';
-        
-        this.ctx.beginPath();
-        this.ctx.ellipse(0, 0, size * 0.8, size * 0.5, 0, 0, 2 * Math.PI);
-        this.ctx.fill();
-        
-        this.ctx.beginPath();
-        this.ctx.moveTo(size * 0.6, 0);
-        this.ctx.lineTo(size * 1.2, -size * 0.4);
-        this.ctx.lineTo(size * 1.2, size * 0.4);
-        this.ctx.closePath();
-        this.ctx.fill();
-        
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.beginPath();
-        this.ctx.arc(-size * 0.3, -size * 0.1, size * 0.2, 0, 2 * Math.PI);
-        this.ctx.fill();
-        
-        this.ctx.fillStyle = '#000000';
-        this.ctx.beginPath();
-        this.ctx.arc(-size * 0.3, -size * 0.1, size * 0.1, 0, 2 * Math.PI);
-        this.ctx.fill();
-    }
-
-    drawCloud(size) {
-        this.ctx.fillStyle = 'rgba(220, 220, 220, 0.9)';
-        this.ctx.beginPath();
-        this.ctx.arc(-size * 0.5, 0, size * 0.4, 0, 2 * Math.PI);
-        this.ctx.arc(0, 0, size * 0.5, 0, 2 * Math.PI);
-        this.ctx.arc(size * 0.5, 0, size * 0.4, 0, 2 * Math.PI);
-        this.ctx.arc(size * 0.2, -size * 0.3, size * 0.35, 0, 2 * Math.PI);
-        this.ctx.fill();
-    }
-
-    drawWave(size) {
-        this.ctx.strokeStyle = '#4169E1';
-        this.ctx.lineWidth = 4;
-        this.ctx.beginPath();
-        for (let x = -size; x <= size; x += 5) {
-            const y = Math.sin(x * 0.1) * size * 0.3;
-            if (x === -size) {
-                this.ctx.moveTo(x, y);
-            } else {
-                this.ctx.lineTo(x, y);
-            }
-        }
-        this.ctx.stroke();
-    }
-
-    drawDefault(size) {
-        this.ctx.fillStyle = '#667eea';
-        this.ctx.beginPath();
-        this.ctx.arc(0, 0, size, 0, 2 * Math.PI);
-        this.ctx.fill();
-    }
-
-    renderAddAnimationAction(action, width, height) {
-        // Le animazioni globali sono gestite a livello di canvas
-        const time = Date.now() * 0.001;
-        
-        switch (action.animation) {
-            case 'pulse':
-                const scale = 0.8 + 0.4 * Math.sin(time * 2);
-                this.ctx.save();
-                this.ctx.translate(width/2, height/2);
-                this.ctx.scale(scale, scale);
-                this.ctx.translate(-width/2, -height/2);
-                break;
-            case 'rotate':
-                this.ctx.save();
-                this.ctx.translate(width/2, height/2);
-                this.ctx.rotate(time);
-                this.ctx.translate(-width/2, -height/2);
-                break;
-        }
     }
 
     renderAddFilterAction(action, width, height) {
         const intensity = (action.intensity || 100) / 100;
-        
+
         switch (action.filter) {
             case 'blur':
                 this.ctx.filter = `blur(${intensity * 5}px)`;
@@ -784,275 +704,444 @@ class QuadroViewer {
             case 'saturation':
                 this.ctx.filter = `saturate(${intensity})`;
                 break;
-            case 'grayscale':
-                this.ctx.filter = `grayscale(${intensity})`;
+            case 'hue-rotate':
+                this.ctx.filter = `hue-rotate(${intensity * 360}deg)`;
                 break;
             case 'sepia':
                 this.ctx.filter = `sepia(${intensity})`;
+                break;
+            case 'grayscale':
+                this.ctx.filter = `grayscale(${intensity})`;
+                break;
+            case 'invert':
+                this.ctx.filter = `invert(${intensity})`;
                 break;
             default:
                 this.ctx.filter = 'none';
         }
     }
 
-    updateFPS() {
-        this.frameCount++;
-        const now = Date.now();
-        
-        if (now - this.lastFpsUpdate >= 1000) {
-            this.currentFps = this.frameCount;
-            this.frameCount = 0;
-            this.lastFpsUpdate = now;
+    calculateDynamicSpeed(trigger, sensorValue, baseSpeed) {
+        if (!trigger) return baseSpeed;
+
+        switch (trigger.condition) {
+            case 'range':
+                const min = trigger.params.min;
+                const max = trigger.params.max;
+                const center = (min + max) / 2;
+                const range = max - min;
+
+                // Calcola quanto il valore è lontano dal centro (0-1)
+                const distanceFromCenter = Math.abs(sensorValue - center) / (range / 2);
+
+                // Velocità: 1x al centro, 5x agli estremi
+                const speedMultiplier = 1 + (distanceFromCenter * 4);
+                return baseSpeed * speedMultiplier;
+
+            case 'above':
+            case 'below':
+                // Velocità fissa a 2.5x per i trigger sopra/sotto soglia
+                return baseSpeed * 2.5;
+
+            case 'duration':
+                // Per questo trigger, velocità moderata
+                return baseSpeed * 1.8;
+
+            default:
+                return baseSpeed;
+        }
+    }
+
+    getActionSeed(action) {
+        // Genera un seed basato sulle proprietà dell'azione per avere posizioni consistenti
+        const str = JSON.stringify({
+            objectFile: action.objectFile || action.svgObject,
+            boxX: action.boxX,
+            boxY: action.boxY,
+            boxWidth: action.boxWidth,
+            boxHeight: action.boxHeight,
+            quantity: action.quantity
+        });
+
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Converte a 32bit int
+        }
+        return Math.abs(hash);
+    }
+
+    seededRandom(seed) {
+        const x = Math.sin(seed) * 10000;
+        return x - Math.floor(x);
+    }
+
+    // ============================================================================
+    // GESTIONE DATI E AGGIORNAMENTI
+    // ============================================================================
+
+    handleDeviceUpdate(data) {
+        if (!this.quadroData || data.device_id !== this.quadroData.device_id) return;
+
+        this.sensorValues = {
+            temperature: data.data.temperature || this.sensorValues.temperature,
+            humidity: data.data.humidity || this.sensorValues.humidity,
+            light: data.data.light || this.sensorValues.light,
+            audio: data.data.audio || this.sensorValues.audio
+        };
+
+        console.log('📡 Dati sensori aggiornati via WebSocket:', this.sensorValues);
+    }
+
+    startSensorSimulation() {
+
+        // Aggiorna immediatamente i display
+        this.updateSensorDisplay();
+
+        // Simula variazioni realistiche
+        setInterval(() => {
+            this.sensorValues = {
+                temperature: 20.5 + Math.sin(Date.now() * 0.001) * 10,
+                humidity: 65 + Math.cos(Date.now() * 0.0015) * 20,
+                light: 1250 + Math.sin(Date.now() * 0.002) * 1000,
+                audio: 850 + Math.random() * 400
+            };
+        }, 2000);
+    }
+
+    updateSensorDisplay() {
+        Object.entries(this.sensorValues).forEach(([sensor, value]) => {
+            const element = document.getElementById(`${sensor}-value`);
+            if (element) {
+                let displayValue = Math.round(value * 10) / 10;
+                const unit = sensor === 'temperature' ? '°C' : sensor === 'humidity' ? '%' : '';
+                element.textContent = `${displayValue}${unit}`;
+
+                // Evidenzia sensori con trigger attivi
+                const sensorElement = element.closest('.sensor-value');
+                const hasActiveTrigger = this.isSensorActive(sensor, value);
+                sensorElement.setAttribute('data-active', hasActiveTrigger);
+            }
+        });
+    }
+
+    isSensorActive(sensor, value) {
+        if (!this.triggers[sensor]) return false;
+
+        return this.triggers[sensor].some(trigger =>
+            this.isTriggerActive(trigger, value)
+        );
+    }
+
+    updateQuadroInfo() {
+        if (!this.quadroData) return;
+
+        const titleElement = document.getElementById('quadro-title');
+        const deviceElement = document.getElementById('device-name');
+
+        if (titleElement) {
+            titleElement.textContent = this.quadroData.name || 'Quadro Senza Nome';
+        }
+
+        if (deviceElement) {
+            deviceElement.textContent = this.quadroData.device_name || this.quadroData.device_id || 'Dispositivo Non Specificato';
+        }
+    }
+
+    updateConnectionStatus() {
+        const indicator = document.getElementById('status-indicator');
+        const text = document.getElementById('status-text');
+
+        if (!indicator || !text) return;
+
+        indicator.className = 'status-indicator';
+
+        switch (this.connectionState) {
+            case 'connected':
+                indicator.classList.add('connected');
+                text.textContent = 'Connesso';
+                break;
+            case 'connecting':
+                indicator.classList.add('connecting');
+                text.textContent = 'Connessione...';
+                break;
+            case 'disconnected':
+                text.textContent = 'Disconnesso';
+                break;
+            case 'error':
+                text.textContent = 'Errore Connessione';
+                break;
         }
     }
 
     // ============================================================================
-    // CONTROLLI FULLSCREEN E UI
+    // CONTROLLI E INTERAZIONI
     // ============================================================================
+
+    toggleOverlay() {
+        this.overlayVisible = !this.overlayVisible;
+        const overlay = document.getElementById('quadro-overlay');
+        if (overlay) {
+            overlay.classList.toggle('hidden', !this.overlayVisible);
+        }
+    }
 
     toggleFullscreen() {
-        if (!this.isFullscreen) {
-            this.enterFullscreen();
+        if (!document.fullscreenElement) {
+            const container = document.querySelector('.quadro-container');
+            if (container.requestFullscreen) {
+                container.requestFullscreen();
+            } else if (container.webkitRequestFullscreen) {
+                container.webkitRequestFullscreen();
+            } else if (container.mozRequestFullScreen) {
+                container.mozRequestFullScreen();
+            }
         } else {
-            this.exitFullscreen();
-        }
-    }
-
-    enterFullscreen() {
-        const element = document.documentElement;
-        
-        if (element.requestFullscreen) {
-            element.requestFullscreen();
-        } else if (element.webkitRequestFullscreen) {
-            element.webkitRequestFullscreen();
-        } else if (element.mozRequestFullScreen) {
-            element.mozRequestFullScreen();
-        } else if (element.msRequestFullscreen) {
-            element.msRequestFullscreen();
-        }
-    }
-
-    exitFullscreen() {
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-        } else if (document.webkitExitFullscreen) {
-            document.webkitExitFullscreen();
-        } else if (document.mozCancelFullScreen) {
-            document.mozCancelFullScreen();
-        } else if (document.msExitFullscreen) {
-            document.msExitFullscreen();
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+            }
         }
     }
 
     handleFullscreenChange() {
-        this.isFullscreen = !!(document.fullscreenElement || 
-                             document.webkitFullscreenElement || 
-                             document.mozFullScreenElement || 
-                             document.msFullscreenElement);
-        
-        const container = document.getElementById('quadro-container');
         const fullscreenBtn = document.getElementById('fullscreen-btn');
-        
-        if (this.isFullscreen) {
-            container.classList.add('fullscreen');
-            fullscreenBtn.textContent = '⛉';
-            document.body.classList.remove('show-cursor');
-        } else {
-            container.classList.remove('fullscreen', 'show-controls');
-            fullscreenBtn.textContent = '⛶';
-            document.body.classList.add('show-cursor');
-            this.showControls = false;
+        if (fullscreenBtn) {
+            fullscreenBtn.textContent = document.fullscreenElement ? '⛶' : '⛶';
         }
+
+        // Ridimensiona canvas dopo cambio fullscreen
+        setTimeout(() => this.handleResize(), 100);
         
+    }
+
+    handleResize() {
         this.resizeCanvas();
     }
 
-    handleMouseMove() {
-        if (!this.isFullscreen) return;
-        
-        const container = document.getElementById('quadro-container');
-        
-        // Mostra controlli
-        container.classList.add('show-controls');
-        document.body.classList.add('show-cursor');
-        this.showControls = true;
-        
-        // Reset timer
-        clearTimeout(this.mouseTimeout);
-        this.mouseTimeout = setTimeout(() => {
-            if (this.isFullscreen) {
-                container.classList.remove('show-controls');
-                document.body.classList.remove('show-cursor');
-                this.showControls = false;
-            }
-        }, 3000);
+    pauseRendering() {
+        this.isPlaying = false;
     }
 
-    handleKeyDown(event) {
-        switch (event.key) {
-            case 'F11':
-                event.preventDefault();
-                this.toggleFullscreen();
-                break;
-            case 'Escape':
-                if (this.isFullscreen) {
-                    this.exitFullscreen();
-                }
-                break;
-            case ' ':
-                event.preventDefault();
-                this.togglePlay();
-                break;
-            case 'i':
-            case 'I':
-                this.toggleInfo();
-                break;
-        }
+    resumeRendering() {
+        this.isPlaying = true;
     }
 
-    togglePlay() {
-        this.isPlaying = !this.isPlaying;
-        const playBtn = document.getElementById('play-btn');
-        playBtn.textContent = this.isPlaying ? '⏸️' : '▶️';
-        playBtn.classList.toggle('active', !this.isPlaying);
-    }
-
-    toggleInfo() {
-        this.showInfo = !this.showInfo;
-        const infoOverlay = document.getElementById('info-overlay');
-        const infoBtn = document.getElementById('info-btn');
-        
-        if (this.showInfo) {
-            infoOverlay.classList.remove('hidden');
-            infoBtn.classList.add('active');
-            this.updateInfoDisplay();
+    goBack() {
+        if (window.history.length > 1) {
+            window.history.back();
         } else {
-            infoOverlay.classList.add('hidden');
-            infoBtn.classList.remove('active');
+            window.location.href = '/';
         }
     }
 
     // ============================================================================
-    // UTILITY FUNCTIONS
+    // GESTIONE ERRORI E STATI
     // ============================================================================
-
-    getSensorIcon(sensor) {
-        const icons = {
-            temperature: '🌡️',
-            humidity: '💧',
-            light: '💡',
-            audio: '🔊'
-        };
-        return icons[sensor] || '📊';
-    }
-
-    formatSensorName(sensor) {
-        const names = {
-            temperature: 'Temperatura',
-            humidity: 'Umidità',
-            light: 'Luce',
-            audio: 'Audio'
-        };
-        return names[sensor] || sensor;
-    }
-
-    getTriggerConditionText(trigger) {
-        switch (trigger.condition) {
-            case 'range':
-                return `Tra ${trigger.params.min} e ${trigger.params.max}`;
-            case 'above':
-                return `Sopra ${trigger.params.threshold}`;
-            case 'below':
-                return `Sotto ${trigger.params.threshold}`;
-            case 'change':
-                return `Variazione di ${trigger.params.change} in ${trigger.params.time}s`;
-            case 'duration':
-                return `Mantiene ${trigger.params.target} per ${trigger.params.duration}s`;
-            default:
-                return 'Condizione personalizzata';
-        }
-    }
-
-    hideLoading() {
-        const overlay = document.getElementById('loading-overlay');
-        overlay.classList.add('hidden');
-    }
 
     showError(message) {
-        const overlay = document.getElementById('error-overlay');
-        const messageEl = document.getElementById('error-message');
-        messageEl.textContent = message;
-        overlay.classList.remove('hidden');
-        this.hideLoading();
+        const errorScreen = document.getElementById('error-screen');
+        const errorMessage = document.getElementById('error-message');
+
+        if (errorScreen && errorMessage) {
+            errorMessage.textContent = message;
+            errorScreen.classList.remove('hidden');
+        }
+
+        this.hideLoadingScreen();
+        console.error('❌ Errore mostrato:', message);
     }
 
+    hideLoadingScreen() {
+        const loadingScreen = document.getElementById('loading-screen');
+        if (loadingScreen) {
+            loadingScreen.classList.add('hidden');
+        }
+    }
+
+    // ============================================================================
+    // CLEANUP
+    // ============================================================================
+
     destroy() {
-        // Cleanup
+        
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
         }
-        
+
         if (this.socket) {
             this.socket.disconnect();
         }
-        
-        if (this.mouseTimeout) {
-            clearTimeout(this.mouseTimeout);
+
+        // Pulisce le URL degli oggetti
+        this.objectCache.forEach(img => {
+            if (img.src && img.src.startsWith('blob:')) {
+                URL.revokeObjectURL(img.src);
+            }
+        });
+
+        this.objectCache.clear();
+    }
+}
+
+// ============================================================================
+// INIZIALIZZAZIONE E FUNZIONI GLOBALI
+// ============================================================================
+
+// Funzioni globali accessibili dall'HTML
+window.toggleOverlay = function () {
+    if (window.quadroViewer) {
+        window.quadroViewer.toggleOverlay();
+    }
+};
+
+window.toggleFullscreen = function () {
+    if (window.quadroViewer) {
+        window.quadroViewer.toggleFullscreen();
+    }
+};
+
+window.goBack = function () {
+    if (window.quadroViewer) {
+        window.quadroViewer.goBack();
+    }
+};
+
+// Cleanup quando la pagina viene chiusa
+window.addEventListener('beforeunload', () => {
+    if (window.quadroViewer) {
+        window.quadroViewer.destroy();
+    }
+});
+
+// Debug functions (solo in development)
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    window.debugQuadro = function () {
+        console.log('=== DEBUG QUADRO VIEWER ===');
+        if (window.quadroViewer) {
+            
+            // Analisi trigger attivi
+            const activeTriggers = Object.entries(window.quadroViewer.triggers).map(([sensor, triggers]) => {
+                const sensorValue = window.quadroViewer.sensorValues[sensor];
+                const activeTriggersList = triggers.filter(trigger => 
+                    window.quadroViewer.isTriggerActive(trigger, sensorValue)
+                );
+                return {
+                    sensor,
+                    value: sensorValue,
+                    totalTriggers: triggers.length,
+                    activeTriggers: activeTriggersList.length,
+                    details: activeTriggersList.map((trigger, index) => ({
+                        index,
+                        condition: trigger.condition,
+                        params: trigger.params,
+                        actions: trigger.actions.length
+                    }))
+                };
+            });
+
+            // Verifica azioni add-objects
+            const objectActions = [];
+            Object.entries(window.quadroViewer.triggers).forEach(([sensor, triggers]) => {
+                triggers.forEach((trigger, triggerIndex) => {
+                    trigger.actions.forEach((action, actionIndex) => {
+                        if (action.type === 'add-objects' || action.type === 'add-svg') {
+                            objectActions.push({
+                                sensor,
+                                triggerIndex,
+                                actionIndex,
+                                objectFile: action.objectFile || action.svgObject,
+                                quantity: action.quantity,
+                                size: action.size,
+                                isActive: window.quadroViewer.isTriggerActive(trigger, window.quadroViewer.sensorValues[sensor])
+                            });
+                        }
+                    });
+                });
+            });
+            
         }
+    };
+
+    window.forceActivateAllTriggers = function() {
+        if (!window.quadroViewer) return;
         
-        // Clean image cache
-        this.imageCache.clear();
-        this.svgCache.clear();
-    }
+        
+        // Trova i range di tutti i trigger e imposta valori che li attivano
+        Object.entries(window.quadroViewer.triggers).forEach(([sensor, triggers]) => {
+            triggers.forEach(trigger => {
+                let targetValue;
+                switch (trigger.condition) {
+                    case 'range':
+                        targetValue = (trigger.params.min + trigger.params.max) / 2;
+                        break;
+                    case 'above':
+                        targetValue = trigger.params.threshold + 10;
+                        break;
+                    case 'below':
+                        targetValue = trigger.params.threshold - 10;
+                        break;
+                    case 'duration':
+                        targetValue = trigger.params.target;
+                        break;
+                    default:
+                        targetValue = window.quadroViewer.sensorValues[sensor];
+                }
+                window.quadroViewer.sensorValues[sensor] = targetValue;
+            });
+        });
+        
+    };
+
+    window.testRenderObject = function(objectFile = 'star.svg', size = 50) {
+        if (!window.quadroViewer) return;
+        
+        
+        const ctx = window.quadroViewer.ctx;
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        
+        // Pulisce e disegna solo l'oggetto di test
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, width, height);
+        
+        ctx.save();
+        ctx.translate(width / 2, height / 2);
+        
+        const rendered = window.quadroViewer.drawRealObject(ctx, objectFile, size);
+        
+        ctx.restore();
+        
+    };
+
+    window.testScenarios = function() {
+        if (!window.quadroViewer) return;
+        
+        const scenarios = [
+            { temp: 35, hum: 80, light: 3000, audio: 2000, name: "Caldo e luminoso" },
+            { temp: 5, hum: 30, light: 100, audio: 200, name: "Freddo e buio" },
+            { temp: 22, hum: 55, light: 1500, audio: 1000, name: "Normale" }
+        ];
+        
+        let index = 0;
+        const interval = setInterval(() => {
+            if (index < scenarios.length) {
+                const scenario = scenarios[index];
+                window.quadroViewer.sensorValues = {
+                    temperature: scenario.temp,
+                    humidity: scenario.hum,
+                    light: scenario.light,
+                    audio: scenario.audio
+                };
+                index++;
+            } else {
+                clearInterval(interval);
+            }
+        }, 3000);
+    };
 }
 
-// ============================================================================
-// GLOBAL FUNCTIONS AND INITIALIZATION
-// ============================================================================
-
-let quadroViewer;
-
-// Inizializzazione
-document.addEventListener('DOMContentLoaded', function() {
-    if (typeof QUADRO_ID !== 'undefined' && QUADRO_ID) {
-        quadroViewer = new QuadroViewer(QUADRO_ID);
-    } else {
-        console.error('ID Quadro non specificato');
-        document.getElementById('error-overlay').classList.remove('hidden');
-        document.getElementById('error-message').textContent = 'ID del quadro non specificato nell\'URL';
-    }
-});
-
-// Cleanup on page unload
-window.addEventListener('beforeunload', function() {
-    if (quadroViewer) {
-        quadroViewer.destroy();
-    }
-});
-
-// Global control functions
-function togglePlay() {
-    if (quadroViewer) quadroViewer.togglePlay();
-}
-
-function toggleFullscreen() {
-    if (quadroViewer) quadroViewer.toggleFullscreen();
-}
-
-function toggleInfo() {
-    if (quadroViewer) quadroViewer.toggleInfo();
-}
-
-function goBack() {
-    window.history.back();
-}
-
-// Gestione errori globali
-window.addEventListener('error', function(e) {
-    console.error('Errore JavaScript:', e.error);
-});
-
-// Performance monitoring
-if ('performance' in window && 'mark' in window.performance) {
-    window.performance.mark('quadro-viewer-start');
-}
