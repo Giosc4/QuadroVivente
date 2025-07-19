@@ -1,7 +1,7 @@
 {
-  "2e55a78d-41a5-4f37-ae9b-175b88c0d414": {
-    "id": "2e55a78d-41a5-4f37-ae9b-175b88c0d414",
-    "name": "test 1",
+  "aff75d47-9cee-40a8-87a3-19f654a78ed5": {
+    "id": "aff75d47-9cee-40a8-87a3-19f654a78ed5",
+    "name": "quadro 1",
     "device_id": "Esp_Giovanni",
     "template": "personalizzato",
     "triggers": {
@@ -10,229 +10,14 @@
           "sensor": "temperature",
           "condition": "range",
           "params": {
-            "min": 0,
-            "max": 15
-          },
-          "actions": [
-            {
-              "type": "change-background",
-              "backgroundType": "solid",
-              "color1": "#2148f2",
-              "color2": "#e8d559",
-              "direction": "horizontal",
-              "color": "#4b2ce8"
-            }
-          ]
-        },
-        {
-          "sensor": "temperature",
-          "condition": "range",
-          "params": {
-            "min": 15,
-            "max": 35
-          },
-          "actions": [
-            {
-              "type": "change-background",
-              "backgroundType": "solid",
-              "color": "#e3de35"
-            }
-          ]
-        },
-        {
-          "sensor": "temperature",
-          "condition": "range",
-          "params": {
-            "min": 35,
-            "max": 100
-          },
-          "actions": [
-            {
-              "type": "change-background",
-              "backgroundType": "solid",
-              "color": "#d00b0b"
-            }
-          ]
-        }
-      ],
-      "humidity": [
-        {
-          "sensor": "humidity",
-          "condition": "range",
-          "params": {
-            "min": 0,
-            "max": 40
-          },
-          "actions": [
-            {
-              "type": "add-svg",
-              "svgObject": "leaf.svg",
-              "quantity": 16,
-              "size": 100,
-              "opacity": 100,
-              "rotation": 0
-            }
-          ]
-        },
-        {
-          "sensor": "humidity",
-          "condition": "range",
-          "params": {
-            "min": 41,
-            "max": 70
-          },
-          "actions": [
-            {
-              "type": "add-svg",
-              "svgObject": "cloud.svg",
-              "quantity": 12,
-              "size": 100,
-              "opacity": 100,
-              "rotation": 0
-            }
-          ]
-        },
-        {
-          "sensor": "humidity",
-          "condition": "range",
-          "params": {
-            "min": 70,
-            "max": 100
-          },
-          "actions": [
-            {
-              "type": "add-svg",
-              "svgObject": "cloud-rain.svg",
-              "quantity": 23,
-              "size": 43,
-              "opacity": 100,
-              "rotation": 124
-            }
-          ]
-        }
-      ],
-      "light": [
-        {
-          "sensor": "light",
-          "condition": "range",
-          "params": {
-            "min": 0,
-            "max": 1300
-          },
-          "actions": [
-            {
-              "type": "add-filter",
-              "filter": "brightness",
-              "intensity": 47
-            }
-          ]
-        },
-        {
-          "sensor": "light",
-          "condition": "range",
-          "params": {
-            "min": 1301,
-            "max": 2000
-          },
-          "actions": [
-            {
-              "type": "add-filter",
-              "filter": "brightness",
-              "intensity": 100
-            }
-          ]
-        },
-        {
-          "sensor": "light",
-          "condition": "range",
-          "params": {
-            "min": 2000,
-            "max": 5000
-          },
-          "actions": [
-            {
-              "type": "add-filter",
-              "filter": "brightness",
-              "intensity": 158
-            }
-          ]
-        }
-      ],
-      "audio": [
-        {
-          "sensor": "audio",
-          "condition": "range",
-          "params": {
-            "min": 0,
-            "max": 1300
-          },
-          "actions": [
-            {
-              "type": "add-animation",
-              "animation": "wave",
-              "duration": 1000,
-              "easing": "ease",
-              "loop": true
-            }
-          ]
-        },
-        {
-          "sensor": "audio",
-          "condition": "range",
-          "params": {
-            "min": 1300,
-            "max": 2000
-          },
-          "actions": [
-            {
-              "type": "add-animation",
-              "animation": "pulse",
-              "duration": 1000,
-              "easing": "ease-in",
-              "loop": true
-            }
-          ]
-        }
-      ]
-    },
-    "layers": [],
-    "sensors_config": {},
-    "settings": {},
-    "created_at": "2025-07-18T13:41:05.374430"
-  },
-  "57f98eac-1f27-4712-9018-70a266250614": {
-    "id": "57f98eac-1f27-4712-9018-70a266250614",
-    "name": "test 2",
-    "device_id": "Esp_Giovanni",
-    "template": "personalizzato",
-    "triggers": {
-      "temperature": [
-        {
-          "sensor": "temperature",
-          "condition": "range",
-          "params": {
-            "min": 0,
+            "min": -10,
             "max": 20
           },
           "actions": [
             {
               "type": "change-background",
               "backgroundType": "solid",
-              "color": "#757aff"
-            },
-            {
-              "type": "add-objects",
-              "objectFile": "snowflake.svg",
-              "svgObject": "snowflake.svg",
-              "objectAnimation": "slide",
-              "svgAnimation": "slide",
-              "x": 50,
-              "y": 12,
-              "size": 38,
-              "opacity": 79,
-              "rotation": 0,
-              "quantity": 5,
-              "animationSpeed": 1.7
+              "color": "#85daff"
             }
           ]
         },
@@ -247,7 +32,7 @@
             {
               "type": "change-background",
               "backgroundType": "solid",
-              "color": "#f0a338"
+              "color": "#fbce50"
             }
           ]
         },
@@ -262,32 +47,196 @@
             {
               "type": "change-background",
               "backgroundType": "solid",
-              "color": "#ee4949"
-            },
-            {
-              "type": "add-objects",
-              "objectFile": "sun.svg",
-              "svgObject": "sun.svg",
-              "objectAnimation": "pulse",
-              "svgAnimation": "pulse",
-              "x": 84,
-              "y": 22,
-              "size": 200,
-              "opacity": 100,
-              "rotation": 0,
-              "quantity": 1,
-              "animationSpeed": 2.6
+              "color": "#f06060"
             }
           ]
         }
       ],
-      "humidity": [],
-      "light": [],
-      "audio": []
+      "humidity": [
+        {
+          "sensor": "humidity",
+          "condition": "range",
+          "params": {
+            "min": 0,
+            "max": 40
+          },
+          "actions": [
+            {
+              "type": "add-objects",
+              "objectFile": "leaf.svg",
+              "svgObject": "leaf.svg",
+              "objectAnimation": "slide",
+              "svgAnimation": "slide",
+              "size": 100,
+              "opacity": 100,
+              "rotation": 0,
+              "quantity": 5,
+              "animationSpeed": 1,
+              "boxX": 0,
+              "boxY": 50,
+              "boxWidth": 100,
+              "boxHeight": 50
+            }
+          ]
+        },
+        {
+          "sensor": "humidity",
+          "condition": "range",
+          "params": {
+            "min": 40,
+            "max": 70
+          },
+          "actions": [
+            {
+              "type": "add-objects",
+              "objectFile": "cloud.svg",
+              "svgObject": "cloud.svg",
+              "objectAnimation": "slide",
+              "svgAnimation": "slide",
+              "size": 100,
+              "opacity": 100,
+              "rotation": 0,
+              "quantity": 12,
+              "animationSpeed": 1,
+              "boxX": 0,
+              "boxY": 0,
+              "boxWidth": 100,
+              "boxHeight": 50
+            }
+          ]
+        },
+        {
+          "sensor": "humidity",
+          "condition": "range",
+          "params": {
+            "min": 70,
+            "max": 100
+          },
+          "actions": [
+            {
+              "type": "add-objects",
+              "objectFile": "cloud-rain.svg",
+              "svgObject": "cloud-rain.svg",
+              "objectAnimation": "slide",
+              "svgAnimation": "slide",
+              "size": 100,
+              "opacity": 100,
+              "rotation": 0,
+              "quantity": 22,
+              "animationSpeed": 1,
+              "boxX": 0,
+              "boxY": 0,
+              "boxWidth": 100,
+              "boxHeight": 50
+            }
+          ]
+        }
+      ],
+      "light": [
+        {
+          "sensor": "light",
+          "condition": "range",
+          "params": {
+            "min": 0,
+            "max": 1000
+          },
+          "actions": [
+            {
+              "type": "add-filter",
+              "filter": "grayscale",
+              "intensity": 170
+            }
+          ]
+        },
+        {
+          "sensor": "light",
+          "condition": "range",
+          "params": {
+            "min": 1001,
+            "max": 2000
+          },
+          "actions": [
+            {
+              "type": "add-filter",
+              "filter": "saturation",
+              "intensity": 100
+            }
+          ]
+        },
+        {
+          "sensor": "light",
+          "condition": "range",
+          "params": {
+            "min": 2000,
+            "max": 4095
+          },
+          "actions": [
+            {
+              "type": "add-filter",
+              "filter": "brightness",
+              "intensity": 200
+            }
+          ]
+        }
+      ],
+      "audio": [
+        {
+          "sensor": "audio",
+          "condition": "range",
+          "params": {
+            "min": 0,
+            "max": 1000
+          },
+          "actions": [
+            {
+              "type": "add-objects",
+              "objectFile": "waves.svg",
+              "svgObject": "waves.svg",
+              "objectAnimation": "fade",
+              "svgAnimation": "fade",
+              "size": 100,
+              "opacity": 100,
+              "rotation": 0,
+              "quantity": 30,
+              "animationSpeed": 1,
+              "boxX": 0,
+              "boxY": 52,
+              "boxWidth": 100,
+              "boxHeight": 50
+            }
+          ]
+        },
+        {
+          "sensor": "audio",
+          "condition": "range",
+          "params": {
+            "min": 1000,
+            "max": 2900
+          },
+          "actions": [
+            {
+              "type": "add-objects",
+              "objectFile": "star.svg",
+              "svgObject": "star.svg",
+              "objectAnimation": "pulse",
+              "svgAnimation": "pulse",
+              "size": 100,
+              "opacity": 100,
+              "rotation": 0,
+              "quantity": 19,
+              "animationSpeed": 1,
+              "boxX": 0,
+              "boxY": 52,
+              "boxWidth": 100,
+              "boxHeight": 50
+            }
+          ]
+        }
+      ]
     },
     "layers": [],
     "sensors_config": {},
     "settings": {},
-    "created_at": "2025-07-18T20:51:39.898323"
+    "created_at": "2025-07-19T10:27:41.843189"
   }
 }

@@ -71,6 +71,10 @@ class QuadroCreator {
         this.editingTriggerIndex = -1;
         this.editingActionIndex = -1;
 
+        this.lastAddObjectsAction = null;
+        this.tempBoxCoords = { x: 20, y: 20, width: 60, height: 60 };
+        this.visibleBoxes = new Set();
+
         this.init();
     }
 
@@ -503,79 +507,65 @@ class QuadroCreator {
         switch (condition) {
             case 'range':
                 html = `
-                    <div class="param-row">
-                    <div class="param-group">
-                        <label>Valore Minimo:</label>
-                        <input type="number" id="param-min"
-                            min="${limits.min}" max="${limits.max}"
-                            value="${this.currentTrigger.params.min ?? limits.min}">
-                    </div>
-                    <div class="param-group">
-                        <label>Valore Massimo:</label>
-                        <input type="number" id="param-max"
-                            min="${limits.min}" max="${limits.max}"
-                            value="${this.currentTrigger.params.max ?? limits.max}">
-                    </div>
-                    </div>
-                    <small class="help-text">
-                    Valori testati: da ${limits.min} a ${limits.max}
-                    ${sensor === 'temperature' ? '°C' : sensor === 'humidity' ? '%RH' : ''}
-                    </small>
-                `;
+                <div class="param-row">
+                <div class="param-group">
+                    <label>Valore Minimo:</label>
+                    <input type="number" id="param-min"
+                        min="${limits.min}" max="${limits.max}"
+                        value="${this.currentTrigger.params.min ?? limits.min}">
+                </div>
+                <div class="param-group">
+                    <label>Valore Massimo:</label>
+                    <input type="number" id="param-max"
+                        min="${limits.min}" max="${limits.max}"
+                        value="${this.currentTrigger.params.max ?? limits.max}">
+                </div>
+                </div>
+                <small class="help-text">
+                Valori testati: da ${limits.min} a ${limits.max}
+                ${sensor === 'temperature' ? '°C' : sensor === 'humidity' ? '%RH' : ''}
+                </small>
+            `;
                 break;
             case 'above':
                 html = `
-    <div class="param-group">
-      <label>Soglia:</label>
-      <input type="number" id="param-threshold"
-             min="${limits.min}" max="${limits.max}"
-             value="${this.currentTrigger.params.threshold ?? limits.min}">
-    </div>
-    <small class="help-text">
-      Soglia valida tra ${limits.min} e ${limits.max}
-    </small>
-  `;
+                <div class="param-group">
+                  <label>Soglia:</label>
+                  <input type="number" id="param-threshold"
+                         min="${limits.min}" max="${limits.max}"
+                         value="${this.currentTrigger.params.threshold ?? limits.min}">
+                </div>
+                <small class="help-text">
+                  Soglia valida tra ${limits.min} e ${limits.max}
+                </small>
+            `;
                 break;
             case 'below':
                 html = `
-    <div class="param-group">
-      <label>Soglia:</label>
-      <input type="number" id="param-threshold"
-             min="${limits.min}" max="${limits.max}"
-             value="${this.currentTrigger.params.threshold ?? limits.min}">
-    </div>
-    <small class="help-text">
-      Soglia valida tra ${limits.min} e ${limits.max}
-    </small>
-  `;
-                break;
-            case 'change':
-                html = `
-                    <div class="param-row">
-                        <div class="param-group">
-                            <label>Variazione Minima:</label>
-                            <input type="number" id="param-change" value="${this.currentTrigger.params.change || 5}">
-                        </div>
-                        <div class="param-group">
-                            <label>Tempo (secondi):</label>
-                            <input type="number" id="param-time" value="${this.currentTrigger.params.time || 10}">
-                        </div>
-                    </div>
-                `;
+                <div class="param-group">
+                  <label>Soglia:</label>
+                  <input type="number" id="param-threshold"
+                         min="${limits.min}" max="${limits.max}"
+                         value="${this.currentTrigger.params.threshold ?? limits.min}">
+                </div>
+                <small class="help-text">
+                  Soglia valida tra ${limits.min} e ${limits.max}
+                </small>
+            `;
                 break;
             case 'duration':
                 html = `
-                    <div class="param-row">
-                        <div class="param-group">
-                            <label>Valore Target:</label>
-                            <input type="number" id="param-target" value="${this.currentTrigger.params.target || 50}">
-                        </div>
-                        <div class="param-group">
-                            <label>Durata (secondi):</label>
-                            <input type="number" id="param-duration" value="${this.currentTrigger.params.duration || 30}">
-                        </div>
+                <div class="param-row">
+                    <div class="param-group">
+                        <label>Valore Target:</label>
+                        <input type="number" id="param-target" value="${this.currentTrigger.params.target || 50}">
                     </div>
-                `;
+                    <div class="param-group">
+                        <label>Durata (secondi):</label>
+                        <input type="number" id="param-duration" value="${this.currentTrigger.params.duration || 30}">
+                    </div>
+                </div>
+            `;
                 break;
         }
 
@@ -613,6 +603,7 @@ class QuadroCreator {
         return descriptions[action.type] || action.type;
     }
 
+
     getActionParams(action) {
         switch (action.type) {
             case 'load-image':
@@ -620,21 +611,20 @@ class QuadroCreator {
             case 'change-background':
                 return `${action.backgroundType || 'solid'} - ${action.color || '#ffffff'}`;
             case 'add-objects':
-            case 'add-svg': // Supporta entrambi i valori per compatibilità
+            case 'add-svg':
                 const objFile = action.objectFile || action.svgObject || 'N/A';
-                const pos = `${action.x || 50},${action.y || 50}`;
                 const size = action.size || 100;
                 const rotation = action.rotation || 0;
                 const quantity = action.quantity || 1;
                 const animation = action.objectAnimation || action.svgAnimation || 'static';
-                return `${objFile} - Pos: ${pos} - Dim: ${size}% - Rot: ${rotation}° - Qtà: ${quantity} - Anim: ${animation}`;
+                // NON mostra più le coordinate del box
+                return `${objFile} - Qtà: ${quantity} - Dim: ${size}% - Rot: ${rotation}° - Anim: ${animation}`;
             case 'add-filter':
                 return `${action.filter || 'blur'} - Intensità: ${action.intensity || 50}%`;
             default:
                 return 'Configurazione personalizzata';
         }
     }
-
     saveTrigger() {
         const condition = document.getElementById('trigger-condition').value;
         this.currentTrigger.condition = condition;
@@ -648,10 +638,6 @@ class QuadroCreator {
             case 'above':
             case 'below':
                 this.currentTrigger.params.threshold = parseFloat(document.getElementById('param-threshold').value);
-                break;
-            case 'change':
-                this.currentTrigger.params.change = parseFloat(document.getElementById('param-change').value);
-                this.currentTrigger.params.time = parseFloat(document.getElementById('param-time').value);
                 break;
             case 'duration':
                 this.currentTrigger.params.target = parseFloat(document.getElementById('param-target').value);
@@ -670,14 +656,30 @@ class QuadroCreator {
         this.updatePreview();
     }
 
+
+
     renderTriggers() {
         Object.keys(this.triggers).forEach(sensor => {
             const container = document.getElementById(`${sensor}-triggers`);
-            container.innerHTML = this.triggers[sensor].map((trigger, index) => `
+            container.innerHTML = this.triggers[sensor].map((trigger, index) => {
+                const triggerId = `${sensor}_${index}`;
+                const hasObjectsActions = trigger.actions.some(action =>
+                    action.type === 'add-objects' || action.type === 'add-svg'
+                );
+
+                return `
                 <div class="trigger-item">
                     <div class="trigger-header">
                         <div class="trigger-title">Trigger ${index + 1}</div>
                         <div class="trigger-actions">
+                            ${hasObjectsActions ? `
+                                <label class="checkbox-container" title="Mostra area oggetti">
+                                    <input type="checkbox" id="show-box-${triggerId}" 
+                                           onchange="quadroCreator.toggleTriggerBox('${triggerId}')"
+                                           ${this.visibleBoxes.has(triggerId) ? 'checked' : ''}>
+                                    <span class="checkmark">📦</span>
+                                </label>
+                            ` : ''}
                             <button class="btn btn-small btn-secondary" onclick="quadroCreator.editTrigger('${sensor}', ${index})">
                                 ✏️
                             </button>
@@ -691,8 +693,19 @@ class QuadroCreator {
                         <div class="trigger-actions-count">${trigger.actions.length} azioni configurate</div>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         });
+    }
+
+    toggleTriggerBox(triggerId) {
+        if (this.visibleBoxes.has(triggerId)) {
+            this.visibleBoxes.delete(triggerId);
+            console.log(`📦 Box nascosto per trigger: ${triggerId}`);
+        } else {
+            this.visibleBoxes.add(triggerId);
+            console.log(`📦 Box mostrato per trigger: ${triggerId}`);
+        }
     }
 
     getTriggerConditionText(trigger) {
@@ -703,8 +716,6 @@ class QuadroCreator {
                 return `Sopra ${trigger.params.threshold}`;
             case 'below':
                 return `Sotto ${trigger.params.threshold}`;
-            case 'change':
-                return `Variazione di ${trigger.params.change} in ${trigger.params.time}s`;
             case 'duration':
                 return `Mantiene ${trigger.params.target} per ${trigger.params.duration}s`;
             default:
@@ -742,14 +753,44 @@ class QuadroCreator {
         typeSelect.value = this.currentAction.type;
         this.updateActionParams();
 
+        // Se è un'azione add-objects, diventa l'ultima (per configurazione)
+        if (this.currentAction.type === 'add-objects' || this.currentAction.type === 'add-svg') {
+            this.lastAddObjectsAction = this.currentAction;
+
+            console.log('📦 Modalità configurazione attivata per add-objects');
+
+            // MODIFICA: Carica le coordinate esistenti dall'azione o usa valori di default
+            if (this.currentAction.boxX !== undefined && this.currentAction.boxY !== undefined) {
+                this.tempBoxCoords = {
+                    x: this.currentAction.boxX || 20,
+                    y: this.currentAction.boxY || 20,
+                    width: this.currentAction.boxWidth || 60,
+                    height: this.currentAction.boxHeight || 60
+                };
+            } else {
+                // Valori di default per nuove azioni
+                this.tempBoxCoords = { x: 20, y: 20, width: 60, height: 60 };
+            }
+
+            console.log('Box coords:', this.tempBoxCoords);
+
+            // Ridisegna il canvas per mostrare il box immediatamente
+            this.updatePreview();
+        }
+
         modal.style.display = 'block';
     }
-
     closeActionModal() {
         const modal = document.getElementById('action-modal');
         modal.style.display = 'none';
+
+        // Pulisce la reference all'ultima azione quando chiude il modal
+        this.lastAddObjectsAction = null;
+
         this.currentAction = null;
         this.editingActionIndex = -1;
+        this.updatePreview();
+
     }
 
     updateActionParams() {
@@ -775,6 +816,38 @@ class QuadroCreator {
         }
 
         paramsContainer.innerHTML = html;
+
+        // AGGIUNTA: Dopo aver creato l'HTML, aggiorna lo stato degli elementi selezionati
+        if (type === 'add-objects' || type === 'add-svg') {
+            this.updateAddObjectsSelections();
+        }
+    }
+
+    // NUOVO METODO: Aggiorna le selezioni per le azioni add-objects
+    updateAddObjectsSelections() {
+        // Aggiorna selezione oggetto
+        const selectedObject = this.currentAction.objectFile || this.currentAction.svgObject;
+        if (selectedObject) {
+            document.querySelectorAll('.object-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            const selectedItem = document.querySelector(`[onclick="quadroCreator.selectObject('${selectedObject}')"]`);
+            if (selectedItem) {
+                selectedItem.classList.add('selected');
+            }
+        }
+
+        // Aggiorna selezione animazione
+        const selectedAnimation = this.currentAction.objectAnimation || this.currentAction.svgAnimation;
+        if (selectedAnimation) {
+            document.querySelectorAll('.animation-type-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            const selectedAnimItem = document.querySelector(`[onclick="quadroCreator.selectObjectAnimation('${selectedAnimation}')"]`);
+            if (selectedAnimItem) {
+                selectedAnimItem.classList.add('selected');
+            }
+        }
     }
 
     renderLoadImageParams() {
@@ -989,104 +1062,162 @@ class QuadroCreator {
 
     renderAddObjectsParams() {
         return `
-            <div class="param-section">
-                <h5>🌟 Oggetti Default</h5>
-                <div class="objects-grid">
-                    ${this.availableObjects.map(obj => `
-                        <div class="object-item ${(this.currentAction.objectFile || this.currentAction.svgObject) === obj ? 'selected' : ''}" 
-                             onclick="quadroCreator.selectObject('${obj}')">
-                            <div class="object-icon">
-                                <img src="/static/images/${obj}" alt="${this.formatObjectName(obj)}" 
-                                     style="width: 24px; height: 24px; object-fit: contain;"
-                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                                <span style="display: none;">${this.getObjectIcon(obj)}</span>
-                            </div>
-                            <div class="object-name">${this.formatObjectName(obj)}</div>
-                        </div>
-                    `).join('')}
+    <div class="param-section">
+        <h5>🌟 Oggetti Default</h5>
+        <div class="objects-grid">
+            ${this.availableObjects.map(obj => `
+                <div class="object-item ${(this.currentAction.objectFile || this.currentAction.svgObject) === obj ? 'selected' : ''}" 
+                     onclick="quadroCreator.selectObject('${obj}')">
+                    <div class="object-icon">
+                        <img src="/static/images/${obj}" alt="${this.formatObjectName(obj)}" 
+                             style="width: 24px; height: 24px; object-fit: contain;"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                        <span style="display: none;">${this.getObjectIcon(obj)}</span>
+                    </div>
+                    <div class="object-name">${this.formatObjectName(obj)}</div>
+                </div>
+            `).join('')}
+        </div>
+    </div>
+    
+    <div class="param-section">
+        <h5>✨ Tipo di Animazione</h5>
+        <div class="animation-types-grid">
+            ${this.availableAnimations.map(anim => `
+                <div class="animation-type-item ${(this.currentAction.objectAnimation || this.currentAction.svgAnimation) === anim ? 'selected' : ''}" 
+                     onclick="quadroCreator.selectObjectAnimation('${anim}')">
+                    <div class="animation-icon">${this.getAnimationIcon(anim)}</div>
+                    <div class="animation-name">${this.formatAnimationName(anim)}</div>
+                </div>
+            `).join('')}
+        </div>
+    </div>
+    
+    <div class="param-section">
+        <h5>📦 Area di Posizionamento</h5>
+        <div class="position-controls">
+            <div class="position-group">
+                <label>X Box (%):</label>
+                <div class="range-input-group">
+                    <input type="range" id="box-x" min="0" max="100" value="${this.tempBoxCoords.x}" 
+                           oninput="quadroCreator.updateTempBoxCoords()">
+                    <span class="range-value">${this.tempBoxCoords.x}%</span>
                 </div>
             </div>
-            
-            <div class="param-section">
-                <h5>✨ Tipo di Animazione</h5>
-                <div class="animation-types-grid">
-                    ${this.availableAnimations.map(anim => `
-                        <div class="animation-type-item ${(this.currentAction.objectAnimation || this.currentAction.svgAnimation) === anim ? 'selected' : ''}" 
-                             onclick="quadroCreator.selectObjectAnimation('${anim}')">
-                            <div class="animation-icon">${this.getAnimationIcon(anim)}</div>
-                            <div class="animation-name">${this.formatAnimationName(anim)}</div>
-                        </div>
-                    `).join('')}
+            <div class="position-group">
+                <label>Y Box (%):</label>
+                <div class="range-input-group">
+                    <input type="range" id="box-y" min="0" max="100" value="${this.tempBoxCoords.y}"
+                           oninput="quadroCreator.updateTempBoxCoords()">
+                    <span class="range-value">${this.tempBoxCoords.y}%</span>
                 </div>
             </div>
-            
-            <div class="param-section">
-                <h5>📍 Posizione e Dimensioni</h5>
-                <div class="position-controls">
-                    <div class="position-group">
-                        <label>X (%):</label>
-                        <div class="range-input-group">
-                            <input type="range" id="object-x" min="0" max="100" value="${this.currentAction.x || 50}">
-                            <span class="range-value">${this.currentAction.x || 50}%</span>
-                        </div>
-                    </div>
-                    <div class="position-group">
-                        <label>Y (%):</label>
-                        <div class="range-input-group">
-                            <input type="range" id="object-y" min="0" max="100" value="${this.currentAction.y || 50}">
-                            <span class="range-value">${this.currentAction.y || 50}%</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Dimensione (%):</label>
-                        <div class="range-input-group">
-                            <input type="range" id="object-size" min="10" max="200" value="${this.currentAction.size || 100}">
-                            <span class="range-value">${this.currentAction.size || 100}%</span>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Opacità (%):</label>
-                        <div class="range-input-group">
-                            <input type="range" id="object-opacity" min="0" max="100" value="${this.currentAction.opacity || 100}">
-                            <span class="range-value">${this.currentAction.opacity || 100}%</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Rotazione (°):</label>
-                        <div class="range-input-group">
-                            <input type="range" id="object-rotation" min="0" max="360" value="${this.currentAction.rotation || 0}">
-                            <span class="range-value">${this.currentAction.rotation || 0}°</span>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Quantità:</label>
-                        <div class="range-input-group">
-                            <input type="range" id="object-quantity" min="1" max="30" value="${this.currentAction.quantity || 5}">
-                            <span class="range-value">${this.currentAction.quantity || 5}</span>
-                        </div>
-                    </div>
+        </div>
+        <div class="position-controls">
+            <div class="position-group">
+                <label>Larghezza Box (%):</label>
+                <div class="range-input-group">
+                    <input type="range" id="box-width" min="10" max="100" value="${this.tempBoxCoords.width}"
+                           oninput="quadroCreator.updateTempBoxCoords()">
+                    <span class="range-value">${this.tempBoxCoords.width}%</span>
                 </div>
             </div>
-            
-            <div class="param-section">
-                <h5>🎬 Controlli Animazione</h5>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Velocità Animazione:</label>
-                        <div class="range-input-group">
-                            <input type="range" id="object-speed" min="0.1" max="5" step="0.1" value="${this.currentAction.animationSpeed || 1}">
-                            <span class="range-value">${this.currentAction.animationSpeed || 1}x</span>
-                        </div>
-                    </div>
+            <div class="position-group">
+                <label>Altezza Box (%):</label>
+                <div class="range-input-group">
+                    <input type="range" id="box-height" min="10" max="100" value="${this.tempBoxCoords.height}"
+                           oninput="quadroCreator.updateTempBoxCoords()">
+                    <span class="range-value">${this.tempBoxCoords.height}%</span>
                 </div>
             </div>
-        `;
+        </div>
+        <small class="help-text">🎯 Box grigio visibile in tempo reale! Muovi i controlli per testare.</small>
+    </div>
+    
+    <div class="param-section">
+        <h5>🎨 Proprietà Oggetti</h5>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Dimensione (%):</label>
+                <div class="range-input-group">
+                    <input type="range" id="object-size" min="10" max="200" value="${this.currentAction.size || 100}">
+                    <span class="range-value">${this.currentAction.size || 100}%</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Opacità (%):</label>
+                <div class="range-input-group">
+                    <input type="range" id="object-opacity" min="0" max="100" value="${this.currentAction.opacity || 100}">
+                    <span class="range-value">${this.currentAction.opacity || 100}%</span>
+                </div>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Rotazione Base (°):</label>
+                <div class="range-input-group">
+                    <input type="range" id="object-rotation" min="0" max="360" value="${this.currentAction.rotation || 0}">
+                    <span class="range-value">${this.currentAction.rotation || 0}°</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Quantità:</label>
+                <div class="range-input-group">
+                    <input type="range" id="object-quantity" min="1" max="30" value="${this.currentAction.quantity || 5}">
+                    <span class="range-value">${this.currentAction.quantity || 5}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="param-section">
+        <h5>🎬 Controlli Animazione</h5>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Velocità Base:</label>
+                <div class="range-input-group">
+                    <input type="range" id="object-speed" min="0.1" max="3" step="0.1" value="${this.currentAction.animationSpeed || 1}">
+                    <span class="range-value">${this.currentAction.animationSpeed || 1}x</span>
+                </div>
+            </div>
+        </div>
+        <small class="help-text">La velocità finale dipenderà anche dal valore del sensore nel trigger</small>
+    </div>
+`;
     }
 
+    updateTempBoxCoords() {
+        const boxX = document.getElementById('box-x');
+        const boxY = document.getElementById('box-y');
+        const boxWidth = document.getElementById('box-width');
+        const boxHeight = document.getElementById('box-height');
+
+        if (boxX && boxY && boxWidth && boxHeight) {
+            this.tempBoxCoords = {
+                x: parseInt(boxX.value) || 0,
+                y: parseInt(boxY.value) || 0,
+                width: parseInt(boxWidth.value) || 100,
+                height: parseInt(boxHeight.value) || 100
+            };
+
+            // Aggiorna anche i display dei valori
+            const displays = document.querySelectorAll('.range-value');
+            displays.forEach((display, index) => {
+                if (display.parentElement.querySelector('#box-x')) {
+                    display.textContent = this.tempBoxCoords.x + '%';
+                } else if (display.parentElement.querySelector('#box-y')) {
+                    display.textContent = this.tempBoxCoords.y + '%';
+                } else if (display.parentElement.querySelector('#box-width')) {
+                    display.textContent = this.tempBoxCoords.width + '%';
+                } else if (display.parentElement.querySelector('#box-height')) {
+                    display.textContent = this.tempBoxCoords.height + '%';
+                }
+            });
+
+            // AGGIUNTA: Ridisegna il canvas per mostrare le modifiche
+            this.updatePreview();
+        }
+    }
     selectObject(objectFile) {
         this.currentAction.objectFile = objectFile;
         // Mantieni compatibilità con il vecchio formato
@@ -1213,19 +1344,202 @@ class QuadroCreator {
     }
 
     saveAddObjectsAction() {
-        this.currentAction.x = parseInt(document.getElementById('object-x').value);
-        this.currentAction.y = parseInt(document.getElementById('object-y').value);
+        // Salva le proprietà degli oggetti
         this.currentAction.size = parseInt(document.getElementById('object-size').value);
         this.currentAction.opacity = parseInt(document.getElementById('object-opacity').value);
         this.currentAction.rotation = parseInt(document.getElementById('object-rotation').value);
         this.currentAction.quantity = parseInt(document.getElementById('object-quantity').value);
         this.currentAction.animationSpeed = parseFloat(document.getElementById('object-speed').value);
 
+        // AGGIUNTA: Salva anche le coordinate del box
+        this.currentAction.boxX = this.tempBoxCoords.x;
+        this.currentAction.boxY = this.tempBoxCoords.y;
+        this.currentAction.boxWidth = this.tempBoxCoords.width;
+        this.currentAction.boxHeight = this.tempBoxCoords.height;
+
         // Normalizza il tipo di azione
         if (this.currentAction.type === 'add-svg') {
             this.currentAction.type = 'add-objects';
         }
     }
+
+    drawObjectBoxes(ctx, width, height) {
+        // Disegna un box per ogni trigger che ha il checkbox attivo
+        Object.entries(this.triggers).forEach(([sensor, triggers]) => {
+            const sensorValue = this.sensorValues[sensor];
+
+            triggers.forEach((trigger, index) => {
+                const triggerId = `${sensor}_${index}`;
+
+                // Mostra il box solo se:
+                // 1. Il checkbox è attivato, E
+                // 2. Il trigger è attivo con i valori attuali, E  
+                // 3. Il trigger ha azioni add-objects
+                if (this.visibleBoxes.has(triggerId) &&
+                    this.isTriggerActive(trigger, sensorValue)) {
+
+                    const objectActions = trigger.actions.filter(action =>
+                        action.type === 'add-objects' || action.type === 'add-svg'
+                    );
+
+                    objectActions.forEach(action => {
+                        this.drawBoxForAction(ctx, action, width, height, triggerId);
+                    });
+                }
+            });
+        });
+
+        // MANTIENI il box per l'azione in configurazione
+        if (this.lastAddObjectsAction &&
+            (this.lastAddObjectsAction.type === 'add-objects' || this.lastAddObjectsAction.type === 'add-svg')) {
+            this.drawConfigurationBox(ctx, width, height);
+        }
+    }
+    drawBoxForAction(ctx, action, width, height, triggerId) {
+        let boxX, boxY, boxWidth, boxHeight;
+
+        // MODIFICA: Controlla se l'azione ha coordinate salvate
+        if (action.boxX !== undefined && action.boxY !== undefined) {
+            // Usa le coordinate salvate nell'azione
+            boxX = action.boxX / 100 * width;
+            boxY = action.boxY / 100 * height;
+            boxWidth = action.boxWidth / 100 * width;
+            boxHeight = action.boxHeight / 100 * height;
+        } else {
+            // Usa coordinate fisse per ogni trigger (generate da un seed) solo come fallback
+            const seed = this.getTriggerSeed(triggerId);
+            const boxCoords = this.generateBoxCoords(seed);
+            boxX = boxCoords.x / 100 * width;
+            boxY = boxCoords.y / 100 * height;
+            boxWidth = boxCoords.width / 100 * width;
+            boxHeight = boxCoords.height / 100 * height;
+        }
+
+        // Disegna il bordo grigio
+        ctx.strokeStyle = '#999999';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 8]);
+        ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+        ctx.setLineDash([]);
+
+        // Etichetta del trigger
+        ctx.fillStyle = '#666';
+        ctx.font = '12px Arial';
+        ctx.fillText(`${triggerId} (${action.quantity || 5} ${action.objectFile || 'oggetti'})`,
+            boxX + 5, boxY + 15);
+    }
+
+
+    // 6. NUOVA FUNZIONE per disegnare il box di configurazione (quando modifica azione)
+    drawConfigurationBox(ctx, width, height) {
+        const boxX = this.tempBoxCoords.x / 100 * width;
+        const boxY = this.tempBoxCoords.y / 100 * height;
+        const boxWidth = this.tempBoxCoords.width / 100 * width;
+        const boxHeight = this.tempBoxCoords.height / 100 * height;
+
+        // Disegna con colore diverso per distinguerlo
+        ctx.strokeStyle = '#ff6b6b';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([5, 5]);
+        ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+        ctx.setLineDash([]);
+
+        // Etichetta speciale
+        ctx.fillStyle = '#ff6b6b';
+        ctx.font = 'bold 12px Arial';
+        ctx.fillText('CONFIGURAZIONE', boxX + 5, boxY + 15);
+    }
+
+
+    // 7. NUOVE FUNZIONI UTILITY per coordinate box consistenti
+    getTriggerSeed(triggerId) {
+        let hash = 0;
+        for (let i = 0; i < triggerId.length; i++) {
+            const char = triggerId.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
+        }
+        return Math.abs(hash);
+    }
+
+    generateBoxCoords(seed) {
+        // Genera coordinate consistenti ma diverse per ogni trigger
+        const rand1 = this.seededRandom(seed);
+        const rand2 = this.seededRandom(seed + 1000);
+        const rand3 = this.seededRandom(seed + 2000);
+        const rand4 = this.seededRandom(seed + 3000);
+
+        return {
+            x: Math.floor(rand1 * 60 + 10),      // 10-70%
+            y: Math.floor(rand2 * 60 + 10),      // 10-70%
+            width: Math.floor(rand3 * 40 + 30),  // 30-70%
+            height: Math.floor(rand4 * 40 + 30)  // 30-70%
+        };
+    }
+    showBoxControls() {
+        console.log('🎯 CONTROLLI BOX:');
+        console.log('quadroCreator.tempBoxCoords:', this.tempBoxCoords);
+        console.log('quadroCreator.debugShowBox:', this.debugShowBox);
+        console.log('');
+        console.log('📦 COMANDI UTILI:');
+        console.log('quadroCreator.setBoxPosition(x, y, width, height) - Cambia posizione box');
+        console.log('quadroCreator.toggleDebugBox() - Attiva/disattiva visualizzazione box');
+        console.log('quadroCreator.testBoxMovement() - Test movimento automatico');
+    }
+    setBoxPosition(x, y, width, height) {
+        this.tempBoxCoords = {
+            x: Math.max(0, Math.min(100, x)),
+            y: Math.max(0, Math.min(100, y)),
+            width: Math.max(10, Math.min(100, width)),
+            height: Math.max(10, Math.min(100, height))
+        };
+        console.log('📦 Box posizionato:', this.tempBoxCoords);
+    }
+    toggleDebugBox() {
+        this.debugShowBox = !this.debugShowBox;
+        console.log('📦 Debug box:', this.debugShowBox ? 'ATTIVO' : 'DISATTIVO');
+    }
+    testBoxMovement() {
+        console.log('🎬 Test movimento box...');
+        let step = 0;
+        const interval = setInterval(() => {
+            const positions = [
+                { x: 10, y: 10, width: 30, height: 30 },
+                { x: 50, y: 10, width: 40, height: 40 },
+                { x: 50, y: 50, width: 40, height: 40 },
+                { x: 10, y: 50, width: 30, height: 30 },
+                { x: 25, y: 25, width: 50, height: 50 }
+            ];
+
+            if (step < positions.length) {
+                this.setBoxPosition(
+                    positions[step].x,
+                    positions[step].y,
+                    positions[step].width,
+                    positions[step].height
+                );
+                step++;
+            } else {
+                clearInterval(interval);
+                console.log('✅ Test completato');
+            }
+        }, 1000);
+    }
+    drawSingleObjectBox(ctx, action, width, height) {
+        // Calcola le coordinate del box
+        const boxX = (action.boxX || 0) / 100 * width;
+        const boxY = (action.boxY || 0) / 100 * height;
+        const boxWidth = (action.boxWidth || 100) / 100 * width;
+        const boxHeight = (action.boxHeight || 100) / 100 * height;
+
+        // Disegna il bordo grigio (1mm ≈ 3px su schermo)
+        ctx.strokeStyle = '#999999';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([5, 5]); // Linea tratteggiata per essere meno invasiva
+        ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+        ctx.setLineDash([]); // Reset line dash
+    }
+
 
     saveAddFilterAction() {
         this.currentAction.intensity = parseInt(document.getElementById('filter-intensity').value);
@@ -1319,10 +1633,52 @@ class QuadroCreator {
         const canvas = this.previewCanvas;
         const ctx = this.previewCtx;
 
+        // AGGIUNTA: Reset del filtro all'inizio di ogni frame
+        ctx.filter = 'none';
+
+        // Pulisci il canvas
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+        // Applica i trigger attivi
         this.applyActiveTriggers(ctx, canvas.width, canvas.height);
+
+        // AGGIUNTA: Reset del filtro alla fine per evitare interferenze
+        ctx.filter = 'none';
+
+        // Disegna i box degli oggetti per ultimo (sopra tutto)
+        this.drawObjectBoxes(ctx, canvas.width, canvas.height);
+    }
+
+    calculateDynamicSpeed(trigger, sensorValue, baseSpeed) {
+        if (!trigger) return baseSpeed;
+
+        switch (trigger.condition) {
+            case 'range':
+                const min = trigger.params.min;
+                const max = trigger.params.max;
+                const center = (min + max) / 2;
+                const range = max - min;
+
+                // Calcola quanto il valore è lontano dal centro (0-1)
+                const distanceFromCenter = Math.abs(sensorValue - center) / (range / 2);
+
+                // Velocità: 1x al centro, 5x agli estremi
+                const speedMultiplier = 1 + (distanceFromCenter * 4);
+                return baseSpeed * speedMultiplier;
+
+            case 'above':
+            case 'below':
+                // Velocità fissa a 2.5x per i trigger sopra/sotto soglia
+                return baseSpeed * 2.5;
+
+            case 'duration':
+                // Per questo trigger, velocità moderata
+                return baseSpeed * 1.8;
+
+            default:
+                return baseSpeed;
+        }
     }
 
     applyActiveTriggers(ctx, width, height) {
@@ -1336,13 +1692,12 @@ class QuadroCreator {
                 if (this.isTriggerActive(trigger, sensorValue)) {
                     hasActiveTriggers = true;
                     trigger.actions.forEach(action => {
-                        this.executeAction(ctx, action, width, height, sensorValue);
+                        // Passa anche il trigger per calcolare la velocità dinamica
+                        this.executeAction(ctx, action, width, height, sensorValue, trigger);
                     });
                 }
             });
         });
-
-
     }
 
 
@@ -1354,8 +1709,6 @@ class QuadroCreator {
                 return value > trigger.params.threshold;
             case 'below':
                 return value < trigger.params.threshold;
-            case 'change':
-                return Math.random() > 0.7;
             case 'duration':
                 return Math.abs(value - trigger.params.target) < 5;
             default:
@@ -1363,7 +1716,7 @@ class QuadroCreator {
         }
     }
 
-    executeAction(ctx, action, width, height, sensorValue) {
+    executeAction(ctx, action, width, height, sensorValue, trigger = null) {
         switch (action.type) {
             case 'load-image':
                 this.renderLoadImageAction(ctx, action, width, height);
@@ -1372,8 +1725,8 @@ class QuadroCreator {
                 this.renderChangeBackgroundAction(ctx, action, width, height);
                 break;
             case 'add-objects':
-            case 'add-svg': // Supporta entrambi i valori per compatibilità
-                this.renderAddObjectsAction(ctx, action, width, height, sensorValue);
+            case 'add-svg':
+                this.renderAddObjectsAction(ctx, action, width, height, sensorValue, trigger);
                 break;
             case 'add-filter':
                 this.renderAddFilterAction(ctx, action, width, height);
@@ -1460,38 +1813,70 @@ class QuadroCreator {
         return gradient;
     }
 
-    renderAddObjectsAction(ctx, action, width, height, sensorValue) {
+
+    renderAddObjectsAction(ctx, action, width, height, sensorValue, trigger = null) {
         const quantity = action.quantity || 5;
         const baseSize = (action.size || 100) / 100 * 30;
         const opacity = (action.opacity || 100) / 100;
-        const speed = action.animationSpeed || 1;
-        const time = Date.now() * 0.001 * speed;
+        const baseSpeed = action.animationSpeed || 1;
 
-        // Posizione base configurata dall'utente
-        const baseX = (action.x || 50) / 100 * width;
-        const baseY = (action.y || 50) / 100 * height;
+        const dynamicSpeed = this.calculateDynamicSpeed(trigger, sensorValue, baseSpeed);
+        const time = Date.now() * 0.001 * dynamicSpeed;
+
+        let boxX, boxY, boxWidth, boxHeight;
+
+        // Determina quale box usare
+        if (this.lastAddObjectsAction === action) {
+            // Usa il box di configurazione (rosso)
+            boxX = this.tempBoxCoords.x / 100 * width;
+            boxY = this.tempBoxCoords.y / 100 * height;
+            boxWidth = this.tempBoxCoords.width / 100 * width;
+            boxHeight = this.tempBoxCoords.height / 100 * height;
+        } else if (action.boxX !== undefined && action.boxY !== undefined) {
+            // AGGIUNTA: Usa le coordinate salvate nell'azione
+            boxX = action.boxX / 100 * width;
+            boxY = action.boxY / 100 * height;
+            boxWidth = action.boxWidth / 100 * width;
+            boxHeight = action.boxHeight / 100 * height;
+        } else {
+            // Trova il triggerId per questa azione e usa le sue coordinate fisse
+            let triggerId = null;
+            Object.entries(this.triggers).forEach(([sensor, triggers]) => {
+                triggers.forEach((trig, index) => {
+                    if (trig.actions.includes(action)) {
+                        triggerId = `${sensor}_${index}`;
+                    }
+                });
+            });
+
+            if (triggerId) {
+                const seed = this.getTriggerSeed(triggerId);
+                const boxCoords = this.generateBoxCoords(seed);
+                boxX = boxCoords.x / 100 * width;
+                boxY = boxCoords.y / 100 * height;
+                boxWidth = boxCoords.width / 100 * width;
+                boxHeight = boxCoords.height / 100 * height;
+            } else {
+                // Fallback: tutto lo schermo
+                boxX = 0;
+                boxY = 0;
+                boxWidth = width;
+                boxHeight = height;
+            }
+        }
+
         const baseRotation = (action.rotation || 0) * Math.PI / 180;
 
         ctx.globalAlpha = opacity;
 
-        // Debug: verifica che l'azione venga eseguita
-        if (Math.random() < 0.01) { // Log occasionale per debug
-            console.log('Rendering oggetti:', action.objectFile || action.svgObject, 'Quantità:', quantity, 'Pos:', action.x, action.y);
-        }
+        const actionSeed = this.getActionSeed(action);
 
         for (let i = 0; i < quantity; i++) {
-            // Se quantità = 1, usa la posizione esatta. Se > 1, distribuisci intorno alla posizione base
-            let x, y;
-            if (quantity === 1) {
-                x = baseX;
-                y = baseY;
-            } else {
-                // Distribuisci gli oggetti in un pattern attorno alla posizione base
-                const spread = Math.min(width, height) * 0.3; // Raggio di distribuzione
-                const angle = (i / quantity) * Math.PI * 2;
-                x = baseX + Math.cos(angle) * spread * 0.5;
-                y = baseY + Math.sin(angle) * spread * 0.5;
-            }
+            const seedX = this.seededRandom(actionSeed + i * 1000);
+            const seedY = this.seededRandom(actionSeed + i * 2000);
+
+            let x = boxX + (seedX * boxWidth);
+            let y = boxY + (seedY * boxHeight);
 
             let size = baseSize;
             let rotation = baseRotation;
@@ -1499,7 +1884,7 @@ class QuadroCreator {
             const intensity = Math.max(0, Math.min(1, sensorValue / 100));
             size *= (0.5 + intensity * 0.5);
 
-            // Applica l'animazione scelta alla posizione e rotazione base
+            // Applica animazioni (codice esistente)
             switch (action.objectAnimation || action.svgAnimation) {
                 case 'float':
                     y += Math.sin(time + i) * 30;
@@ -1527,7 +1912,7 @@ class QuadroCreator {
                     size *= (0.5 + 0.5 * Math.sin(time + i));
                     break;
                 case 'slide':
-                    x = ((x + time * 50) % (width + 100)) - 50;
+                    x = ((x - boxX + time * 50) % boxWidth) + boxX;
                     break;
                 case 'fade':
                     ctx.globalAlpha = opacity * (0.3 + 0.7 * Math.sin(time + i));
@@ -1544,11 +1929,14 @@ class QuadroCreator {
                     break;
             }
 
+            // CONTENIMENTO dentro il box
+            x = Math.max(boxX + size, Math.min(boxX + boxWidth - size, x));
+            y = Math.max(boxY + size, Math.min(boxY + boxHeight - size, y));
+
             ctx.save();
             ctx.translate(x, y);
             ctx.rotate(rotation);
 
-            // USA OGGETTI REALI DALLA DIRECTORY
             const objectFile = action.objectFile || action.svgObject || 'star.svg';
             this.drawRealObject(ctx, objectFile, size);
 
@@ -1556,6 +1944,32 @@ class QuadroCreator {
         }
 
         ctx.globalAlpha = 1;
+    }
+
+    getActionSeed(action) {
+        // Genera un seed basato sulle proprietà dell'azione per avere posizioni consistenti
+        const str = JSON.stringify({
+            objectFile: action.objectFile || action.svgObject,
+            boxX: action.boxX,
+            boxY: action.boxY,
+            boxWidth: action.boxWidth,
+            boxHeight: action.boxHeight,
+            quantity: action.quantity
+        });
+
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Converte a 32bit int
+        }
+        return Math.abs(hash);
+    }
+
+    seededRandom(seed) {
+        // Generatore pseudo-random con seed per posizioni consistenti
+        const x = Math.sin(seed) * 10000;
+        return x - Math.floor(x);
     }
 
     renderAddFilterAction(ctx, action, width, height) {
@@ -1739,6 +2153,39 @@ class QuadroCreator {
         btn.textContent = this.isPlaying ? '⏸️ Pausa' : '▶️ Play';
     }
 
+
+    toggleAllBoxes(show = true) {
+        this.visibleBoxes.clear();
+        if (show) {
+            Object.entries(this.triggers).forEach(([sensor, triggers]) => {
+                triggers.forEach((trigger, index) => {
+                    const hasObjectsActions = trigger.actions.some(action =>
+                        action.type === 'add-objects' || action.type === 'add-svg'
+                    );
+                    if (hasObjectsActions) {
+                        this.visibleBoxes.add(`${sensor}_${index}`);
+                    }
+                });
+            });
+        }
+        // Aggiorna i checkbox nell'interfaccia
+        this.updateCheckboxes();
+        console.log(`📦 ${show ? 'Mostrati' : 'Nascosti'} tutti i box`);
+    }
+
+    updateCheckboxes() {
+        Object.entries(this.triggers).forEach(([sensor, triggers]) => {
+            triggers.forEach((trigger, index) => {
+                const triggerId = `${sensor}_${index}`;
+                const checkbox = document.getElementById(`show-box-${triggerId}`);
+                if (checkbox) {
+                    checkbox.checked = this.visibleBoxes.has(triggerId);
+                }
+            });
+        });
+    }
+
+
     resetPreview() {
         this.sensorValues = {
             temperature: 20.5,
@@ -1804,16 +2251,15 @@ class QuadroCreator {
         const testTrigger = {
             sensor: 'temperature',
             condition: 'range',
-            params: { min: 15, max: 30 }, // Range che copre il valore di default (20.5)
+            params: { min: 15, max: 30 },
             actions: [{
                 type: 'add-objects',
                 objectFile: 'star.svg',
-                x: 50,        // Centro orizzontale
-                y: 50,        // Centro verticale  
-                size: 100,    // Dimensione normale
-                opacity: 100, // Opacità piena
-                rotation: 0,  // Nessuna rotazione base
-                quantity: 3,  // 3 stelle
+                // NON include più boxX, boxY, boxWidth, boxHeight
+                size: 100,
+                opacity: 100,
+                rotation: 0,
+                quantity: 8,
                 animationSpeed: 1,
                 objectAnimation: 'float'
             }]
@@ -1823,7 +2269,7 @@ class QuadroCreator {
         this.renderTriggers();
         this.updatePreview();
 
-        console.log('🎯 Trigger di test creato! Dovresti vedere 3 stelle che fluttuano al centro.');
+        console.log('🎯 Trigger di test creato! Gli oggetti si posizionano in tutto lo schermo.');
 
         return testTrigger;
     }
@@ -2019,3 +2465,27 @@ window.addEventListener('beforeunload', function (e) {
         e.returnValue = 'Hai modifiche non salvate. Sei sicuro di voler lasciare la pagina?';
     }
 });
+
+
+window.updateTempBoxCoords = function () {
+    if (quadroCreator && quadroCreator.updateTempBoxCoords) {
+        quadroCreator.updateTempBoxCoords();
+    }
+};
+window.showAllBoxes = function () {
+    if (quadroCreator) {
+        quadroCreator.toggleAllBoxes(true);
+    }
+};
+
+window.hideAllBoxes = function () {
+    if (quadroCreator) {
+        quadroCreator.toggleAllBoxes(false);
+    }
+};
+
+window.listVisibleBoxes = function () {
+    if (quadroCreator) {
+        console.log('📦 Box visibili:', Array.from(quadroCreator.visibleBoxes));
+    }
+};
