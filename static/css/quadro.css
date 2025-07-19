@@ -240,6 +240,7 @@ body {
     align-items: center;
     justify-content: center;
     position: relative;
+    pointer-events: all;
 }
 
 .control-btn:hover {
@@ -476,6 +477,31 @@ body {
 }
 
 /* ============================================================================
+   CONTROLLO CURSORE
+   ============================================================================ */
+
+.hide-cursor {
+    cursor: none;
+}
+
+body.hide-cursor * {
+    cursor: none !important;
+}
+
+/* Controls visibility on mouse movement */
+@media (hover: hover) {
+    .quadro-controls {
+        opacity: 0;
+        pointer-events: none;
+    }
+    
+    body:hover .quadro-controls {
+        opacity: 1;
+        pointer-events: all;
+    }
+}
+
+/* ============================================================================
    RESPONSIVE DESIGN
    ============================================================================ */
 
@@ -570,20 +596,9 @@ body {
 }
 
 /* ============================================================================
-   UTILITÀ
+   FULLSCREEN
    ============================================================================ */
 
-.hidden {
-    display: none !important;
-}
-
-.fade-in {
-    animation: fadeIn 0.5s ease-in-out;
-}
-
-
-
-/* Modalità fullscreen */
 .quadro-container:fullscreen {
     background: #000000;
 }
@@ -644,11 +659,6 @@ body {
     }
 }
 
-/* Modalità scura (default) */
-@media (prefers-color-scheme: dark) {
-    /* Già implementata come default */
-}
-
 /* Modalità chiara */
 @media (prefers-color-scheme: light) {
     .quadro-info,
@@ -688,6 +698,18 @@ body {
     .sensor-value {
         border-bottom-color: rgba(0, 0, 0, 0.1);
     }
+}
+
+/* ============================================================================
+   UTILITÀ
+   ============================================================================ */
+
+.hidden {
+    display: none !important;
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease-in-out;
 }
 
 /* Performance ottimizzazioni */

@@ -78,6 +78,9 @@ class QuadroViewer {
 
         this.ctx.scale(devicePixelRatio, devicePixelRatio);
 
+        // ✅ AGGIUNTA: Memorizza le dimensioni logiche
+        this.logicalWidth = window.innerWidth;
+        this.logicalHeight = window.innerHeight;
     }
 
     setupSocket() {
@@ -156,6 +159,11 @@ class QuadroViewer {
 
     async loadQuadro() {
         try {
+            // Usa la configurazione passata dal server se disponibile
+            if (window.QUADRO_CONFIG && window.QUADRO_CONFIG.quadro_id) {
+                this.quadroId = window.QUADRO_CONFIG.quadro_id;
+            }
+
             const response = await fetch(`/api/quadri/${this.quadroId}`);
 
             if (!response.ok) {
@@ -163,11 +171,9 @@ class QuadroViewer {
             }
 
             this.quadroData = await response.json();
-            console.log('Quadro caricato:', this.quadroData);
 
             // Ripristina valori sensori da anteprima se disponibili
             if (this.quadroData.preview_state && this.quadroData.preview_state.sensor_values) {
-                console.log('🔄 Ripristino valori sensori da anteprima...');
                 this.sensorValues = { ...this.quadroData.preview_state.sensor_values };
             }
 
@@ -268,7 +274,6 @@ class QuadroViewer {
 
     async preloadObjects() {
         if (!this.quadroData || !this.quadroData.triggers) {
-            console.log('🎯 Nessun trigger trovato, skip precaricamento oggetti');
             return;
         }
 
@@ -288,10 +293,8 @@ class QuadroViewer {
         });
 
         if (objectsToLoad.size === 0) {
-            console.log('🎯 Nessun oggetto da precaricare');
             return;
         }
-
 
         const loadPromises = Array.from(objectsToLoad).map(async (path) => {
             try {
@@ -309,15 +312,11 @@ class QuadroViewer {
         });
 
         const results = await Promise.allSettled(loadPromises);
-        const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
         const failed = results.filter(r => r.status !== 'fulfilled' || !r.value.success);
 
-        
         if (failed.length > 0) {
             console.warn('❌ Oggetti falliti:', failed);
         }
-
-        // Verifica finale cache
     }
 
     drawRealObject(ctx, objectFile, size) {
@@ -349,14 +348,14 @@ class QuadroViewer {
                 return true;
             } catch (error) {
                 console.error(`❌ Errore nel disegnare oggetto ${objectFile}:`, error);
-                // Fallback a placeholder
+                // Fallback a placeholder più visibile
                 this.drawPlaceholder(ctx, size, objectFile);
                 return false;
             }
         } else {
-            // Placeholder quando oggetto non è caricato
+            // ✅ MIGLIORAMENTO: Placeholder più visibile con debug info
             this.drawPlaceholder(ctx, size, objectFile);
-            
+
             // Prova a caricare asincronamente per la prossima volta
             this.loadObject(objectPath).catch(error => {
                 console.error(`❌ Errore nel caricare oggetto ${objectFile}:`, error);
@@ -367,25 +366,54 @@ class QuadroViewer {
     }
 
     drawPlaceholder(ctx, size, objectFile) {
-        // Placeholder più visibile per debug
+        // Placeholder più visibile e grande
         ctx.fillStyle = '#ff6b6b';
         ctx.beginPath();
-        ctx.arc(0, 0, size, 0, 2 * Math.PI);
+        ctx.arc(0, 0, Math.max(size, 20), 0, 2 * Math.PI);
         ctx.fill();
 
-        // Bordo bianco
+        // Bordo bianco spesso
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.stroke();
 
-        // Testo placeholder
+        // Testo placeholder più grande
         ctx.fillStyle = '#ffffff';
-        ctx.font = `${Math.max(8, size / 4)}px Arial`;
+        ctx.font = `bold ${Math.max(12, size / 2)}px Arial`;
         ctx.textAlign = 'center';
         ctx.fillText('?', 0, 0);
-        
-        // Debug: log oggetto mancante
-        console.warn(`📄 Placeholder per: ${objectFile}`);
+
+        // DEBUG: Log dettagliato
+        console.warn(`📄 PLACEHOLDER per: ${objectFile} - size: ${size} - cache: ${this.objectCache.has(`/static/images/${objectFile}`)}`);
+    }
+
+
+    // 6. AGGIUNTA: Forza il rendering visibile per test
+    forceVisibleRendering() {
+
+        // Imposta valori sensori che attivano tutti i trigger
+        Object.entries(this.triggers).forEach(([sensor, triggers]) => {
+            triggers.forEach(trigger => {
+                let targetValue;
+                switch (trigger.condition) {
+                    case 'range':
+                        targetValue = (trigger.params.min + trigger.params.max) / 2;
+                        break;
+                    case 'above':
+                        targetValue = trigger.params.threshold + 10;
+                        break;
+                    case 'below':
+                        targetValue = trigger.params.threshold - 10;
+                        break;
+                    case 'duration':
+                        targetValue = trigger.params.target;
+                        break;
+                    default:
+                        targetValue = this.sensorValues[sensor];
+                }
+                this.sensorValues[sensor] = targetValue;
+            });
+        });
     }
 
     // ============================================================================
@@ -405,8 +433,9 @@ class QuadroViewer {
     renderFrame() {
         if (!this.ctx || !this.canvas) return;
 
-        const width = window.innerWidth;
-        const height = window.innerHeight;
+        // ✅ USA le dimensioni logiche invece di window.inner*
+        const width = this.logicalWidth || window.innerWidth;
+        const height = this.logicalHeight || window.innerHeight;
 
         // Reset del filtro all'inizio di ogni frame
         this.ctx.filter = 'none';
@@ -423,10 +452,10 @@ class QuadroViewer {
 
         // Applica i trigger attivi
         const activeCount = this.applyActiveTriggers(width, height);
-        
+
         // DEBUG: Log se nessun trigger è attivo
         if (hasTriggers && activeCount === 0) {
-            console.log('🔍 Nessun trigger attivo con valori:', this.sensorValues);
+            console.warn('🔍 Nessun trigger attivo con valori:', this.sensorValues);
         }
 
         // Reset del filtro alla fine per evitare interferenze
@@ -435,6 +464,7 @@ class QuadroViewer {
         // Aggiorna display sensori con evidenziazione
         this.updateSensorDisplay();
     }
+
 
     applyActiveTriggers(width, height) {
         if (!this.triggers) return 0;
@@ -448,7 +478,7 @@ class QuadroViewer {
             triggers.forEach((trigger, triggerIndex) => {
                 if (this.isTriggerActive(trigger, sensorValue)) {
                     activeTriggersCount++;
-                    
+
                     trigger.actions.forEach((action, actionIndex) => {
                         this.executeAction(action, width, height, sensorValue, trigger);
                         totalActionsExecuted++;
@@ -456,8 +486,6 @@ class QuadroViewer {
                 }
             });
         });
-
- 
 
         return activeTriggersCount;
     }
@@ -583,7 +611,6 @@ class QuadroViewer {
         const baseSpeed = action.animationSpeed || 1;
         const objectFile = action.objectFile || action.svgObject || 'star.svg';
 
-
         const dynamicSpeed = this.calculateDynamicSpeed(trigger, sensorValue, baseSpeed);
         const time = Date.now() * 0.001 * dynamicSpeed;
 
@@ -685,7 +712,6 @@ class QuadroViewer {
         }
 
         this.ctx.globalAlpha = 1;
-        
     }
 
     renderAddFilterAction(action, width, height) {
@@ -780,19 +806,6 @@ class QuadroViewer {
     // ============================================================================
     // GESTIONE DATI E AGGIORNAMENTI
     // ============================================================================
-
-    handleDeviceUpdate(data) {
-        if (!this.quadroData || data.device_id !== this.quadroData.device_id) return;
-
-        this.sensorValues = {
-            temperature: data.data.temperature || this.sensorValues.temperature,
-            humidity: data.data.humidity || this.sensorValues.humidity,
-            light: data.data.light || this.sensorValues.light,
-            audio: data.data.audio || this.sensorValues.audio
-        };
-
-        console.log('📡 Dati sensori aggiornati via WebSocket:', this.sensorValues);
-    }
 
     startSensorSimulation() {
 
@@ -916,7 +929,7 @@ class QuadroViewer {
 
         // Ridimensiona canvas dopo cambio fullscreen
         setTimeout(() => this.handleResize(), 100);
-        
+
     }
 
     handleResize() {
@@ -968,7 +981,7 @@ class QuadroViewer {
     // ============================================================================
 
     destroy() {
-        
+
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
         }
@@ -1019,15 +1032,14 @@ window.addEventListener('beforeunload', () => {
 });
 
 // Debug functions (solo in development)
-if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '192.168.4.1') {
     window.debugQuadro = function () {
-        console.log('=== DEBUG QUADRO VIEWER ===');
         if (window.quadroViewer) {
-            
+
             // Analisi trigger attivi
             const activeTriggers = Object.entries(window.quadroViewer.triggers).map(([sensor, triggers]) => {
                 const sensorValue = window.quadroViewer.sensorValues[sensor];
-                const activeTriggersList = triggers.filter(trigger => 
+                const activeTriggersList = triggers.filter(trigger =>
                     window.quadroViewer.isTriggerActive(trigger, sensorValue)
                 );
                 return {
@@ -1063,14 +1075,12 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
                     });
                 });
             });
-            
         }
     };
 
-    window.forceActivateAllTriggers = function() {
+    window.forceActivateAllTriggers = function () {
         if (!window.quadroViewer) return;
-        
-        
+
         // Trova i range di tutti i trigger e imposta valori che li attivano
         Object.entries(window.quadroViewer.triggers).forEach(([sensor, triggers]) => {
             triggers.forEach(trigger => {
@@ -1094,39 +1104,36 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
                 window.quadroViewer.sensorValues[sensor] = targetValue;
             });
         });
-        
     };
 
-    window.testRenderObject = function(objectFile = 'star.svg', size = 50) {
+    window.testRenderObject = function (objectFile = 'star.svg', size = 50) {
         if (!window.quadroViewer) return;
-        
-        
+
         const ctx = window.quadroViewer.ctx;
         const width = window.innerWidth;
         const height = window.innerHeight;
-        
+
         // Pulisce e disegna solo l'oggetto di test
         ctx.fillStyle = '#000000';
         ctx.fillRect(0, 0, width, height);
-        
+
         ctx.save();
         ctx.translate(width / 2, height / 2);
-        
+
         const rendered = window.quadroViewer.drawRealObject(ctx, objectFile, size);
-        
+
         ctx.restore();
-        
     };
 
-    window.testScenarios = function() {
+    window.testScenarios = function () {
         if (!window.quadroViewer) return;
-        
+
         const scenarios = [
             { temp: 35, hum: 80, light: 3000, audio: 2000, name: "Caldo e luminoso" },
             { temp: 5, hum: 30, light: 100, audio: 200, name: "Freddo e buio" },
             { temp: 22, hum: 55, light: 1500, audio: 1000, name: "Normale" }
         ];
-        
+
         let index = 0;
         const interval = setInterval(() => {
             if (index < scenarios.length) {
@@ -1145,3 +1152,19 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
     };
 }
 
+// Inizializzazione principale
+document.addEventListener('DOMContentLoaded', function () {
+    // Legge la configurazione dal server o dall'URL
+    let quadroId = null;
+
+    if (window.QUADRO_CONFIG && window.QUADRO_CONFIG.quadro_id) {
+        quadroId = window.QUADRO_CONFIG.quadro_id;
+    } else {
+        // Fallback: estrae dall'URL
+        const path = window.location.pathname;
+        quadroId = path.split('/').pop();
+    }
+
+    // Inizializza il viewer
+    window.quadroViewer = new QuadroViewer(quadroId);
+});

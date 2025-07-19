@@ -363,26 +363,6 @@ class QuadroCreator {
     // SETUP FUNCTIONS
     // ============================================================================
 
-    setupSocket() {
-        if (typeof io === 'undefined') {
-            console.error('Socket.IO non disponibile');
-            return;
-        }
-
-        this.socket = io();
-
-        this.socket.on('connect', () => {
-            console.log('Connesso al server');
-        });
-
-        this.socket.on('device_data_update', (data) => {
-            this.handleDeviceUpdate(data);
-        });
-
-        this.socket.on('disconnect', () => {
-            console.log('Disconnesso dal server');
-        });
-    }
 
     setupEventListeners() {
         const nameInput = document.getElementById('quadro-name');
@@ -2180,20 +2160,6 @@ class QuadroCreator {
         });
     }
 
-    handleDeviceUpdate(data) {
-        if (data.device_id === this.selectedDevice) {
-            this.sensorValues = {
-                temperature: data.data.temperature || this.sensorValues.temperature,
-                humidity: data.data.humidity || this.sensorValues.humidity,
-                light: data.data.light || this.sensorValues.light,
-                audio: data.data.audio || this.sensorValues.audio
-            };
-
-            this.updateSlidersFromSensorValues();
-            this.updateSensorValues();
-        }
-    }
-
     updateSlidersFromSensorValues() {
         const sliders = {
             'temp-slider': this.sensorValues.temperature,
@@ -2227,18 +2193,17 @@ class QuadroCreator {
         saveBtn.classList.toggle('disabled', !isValid);
     }
 
+    // VERSIONE CORRETTA del metodo saveQuadro()
     async saveQuadro() {
         const name = document.getElementById('quadro-name').value;
         const deviceId = document.getElementById('device-select').value;
 
-        // Validazione aggiuntiva prima del salvataggio
+        // Validazione
         const validation = this.validateQuadroBeforeSave();
-
         if (!validation.valid) {
             alert('Errori di validazione:\n' + validation.errors.join('\n'));
             return;
         }
-
         if (validation.warnings.length > 0) {
             const proceed = confirm('Avvisi di validazione:\n' + validation.warnings.join('\n') + '\n\nVuoi continuare comunque?');
             if (!proceed) return;
@@ -2248,100 +2213,56 @@ class QuadroCreator {
             alert('Inserisci un nome valido per il quadro (max 50 caratteri)');
             return;
         }
-
         if (!deviceId) {
             alert('Seleziona un dispositivo ESP32');
             return;
         }
 
-        // NUOVO: Crea oggetto completo con tutti i dati necessari
+        // ✅ COSTRUISCE I DATI REALI (non hardcoded)
         const quadroData = {
-    // === DATI BASE ===
-    name: "Nome del quadro",
-    device_id: "esp32_001", 
-    template: "personalizzato",
-    is_predefined: false,
-    version: "4.0",
-    
-    // === CONFIGURAZIONE TRIGGER ===
-    triggers: {
-        temperature: [
-            {
-                sensor: "temperature",
-                condition: "range", // "range", "above", "below", "duration"
-                params: { min: 20, max: 30 },
-                actions: [
-                    {
-                        type: "add-objects",
-                        objectFile: "star.svg",
-                        quantity: 5,
-                        size: 100,
-                        opacity: 100,
-                        rotation: 0,
-                        animationSpeed: 1,
-                        objectAnimation: "float",
-                        // Coordinate del box dove appaiono gli oggetti
-                        boxX: 20,      // % da sinistra
-                        boxY: 20,      // % dall'alto  
-                        boxWidth: 60,  // % larghezza
-                        boxHeight: 60  // % altezza
-                    },
-                    {
-                        type: "change-background",
-                        backgroundType: "gradient",
-                        color1: "#667eea",
-                        color2: "#764ba2", 
-                        direction: "vertical"
-                    }
-                ]
-            }
-        ],
-        humidity: [],
-        light: [],
-        audio: []
-    },
-    
-    // === FILE CARICATI ===
-    uploaded_files: [
-        {
-            id: "1234567890",
-            name: "mia_immagine.png",
-            type: "image/png", 
-            url: "/uploads/file_path.png",
-            isFromServer: true
-        }
-    ],
-    
-    // === STATO ANTEPRIMA (PER REPLICARE ESATTAMENTE) ===
-    preview_state: {
-        // Valori sensori al momento del salvataggio
-        sensor_values: {
-            temperature: 25.5,
-            humidity: 65,
-            light: 1250,
-            audio: 850
-        },
-        
-        // Configurazione canvas
-        canvas_config: {
-            width: 800,
-            height: 600
-        },
-        
-        // Stato UI (box visibili, ecc.)
-        ui_state: {
-            is_playing: true,
-            visible_boxes: ["temperature_0", "humidity_1"],
-            temp_box_coords: { x: 30, y: 40, width: 50, height: 50 }
-        },
-        
-        // Screenshot dell'anteprima (opzionale)
-        preview_image: "data:image/png;base64,iVBORw0KGgoAAAANSU...",
-        
-        saved_at: "2024-01-20T10:30:00.000Z"
-    }
-};
+            // === DATI BASE ===
+            name: name,                    // ✅ Valore reale dal form
+            device_id: deviceId,           // ✅ Valore reale dal form
+            template: "personalizzato",
+            is_predefined: false,
+            version: "4.0",
 
+            // === CONFIGURAZIONE TRIGGER ===
+            triggers: this.triggers,       // ✅ Trigger reali configurati
+
+            // === FILE CARICATI ===
+            uploaded_files: this.uploadedFiles.map(file => ({
+                id: file.id,
+                name: file.name,
+                type: file.type,
+                url: file.url,
+                isFromServer: file.isFromServer || false
+            })),
+
+            // === STATO ANTEPRIMA (PER RIPRISTINO ESATTO) ===
+            preview_state: {
+                // Valori sensori al momento del salvataggio
+                sensor_values: { ...this.sensorValues },
+
+                // Configurazione canvas
+                canvas_config: {
+                    width: this.previewCanvas.width,
+                    height: this.previewCanvas.height
+                },
+
+                // Stato UI (box visibili, ecc.)
+                ui_state: {
+                    is_playing: this.isPlaying,
+                    visible_boxes: Array.from(this.visibleBoxes),
+                    temp_box_coords: { ...this.tempBoxCoords }
+                },
+
+                // Screenshot dell'anteprima (opzionale)
+                preview_image: this.previewCanvas.toDataURL('image/png'),
+
+                saved_at: new Date().toISOString()
+            }
+        };
 
         // Aggiungi timestamp appropriato
         if (this.isEditMode) {
@@ -2383,7 +2304,6 @@ class QuadroCreator {
             alert('Errore di connessione. Riprova più tardi.');
         }
     }
-
 
     validateQuadroBeforeSave() {
         const errors = [];

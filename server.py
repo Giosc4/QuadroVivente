@@ -366,6 +366,49 @@ def get_quadro(quadro_id):
         return jsonify({'error': 'Quadro non trovato'}), 404
     return jsonify(quadro), 200
 
+# Aggiungere questa route in server.py per supportare PUT (modifica quadri)
+
+@app.route('/api/quadri/<quadro_id>', methods=['PUT'])
+def update_quadro(quadro_id):
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data received'}), 400
+        
+        # Controlla se il quadro esiste
+        if quadro_id not in quadri_config:
+            return jsonify({'error': 'Quadro non trovato'}), 404
+        
+        # Aggiorna i dati del quadro esistente
+        quadro_data = {
+            'id': quadro_id,
+            'name': data.get('name', 'Quadro Senza Nome'),
+            'device_id': data.get('device_id', ''),
+            'template': data.get('template', 'personalizzato'),
+            'triggers': data.get('triggers', {}),
+            'layers': data.get('layers', []),
+            'sensors_config': data.get('sensors_config', {}),
+            'settings': data.get('settings', {}),
+            'uploaded_files': data.get('uploaded_files', []),
+            'preview_state': data.get('preview_state', {}),
+            'updated_at': datetime.now().isoformat(),
+            # Mantieni la data di creazione originale
+            'created_at': quadri_config[quadro_id].get('created_at', datetime.now().isoformat())
+        }
+        
+        quadri_config[quadro_id] = quadro_data
+        save_json(QUADRI_FILE, quadri_config, iso_dates=False)
+        
+        return jsonify({
+            'status': 'success',
+            'quadro_id': quadro_id,
+            'message': 'Quadro aggiornato con successo'
+        }), 200
+        
+    except Exception as e:
+        print(f"Errore nell'aggiornamento del quadro: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/quadri/<quadro_id>', methods=['DELETE'])
 def delete_quadro(quadro_id):
     try:

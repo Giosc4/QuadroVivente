@@ -130,5 +130,345 @@
     "sensors_config": {},
     "settings": {},
     "created_at": "2025-07-19T14:22:45.055023"
+  },
+  "f5427e3d-a07a-464e-bb8b-0c37d6ffe67f": {
+    "id": "f5427e3d-a07a-464e-bb8b-0c37d6ffe67f",
+    "name": "quadro Gio",
+    "device_id": "Esp_Giovanni",
+    "template": "personalizzato",
+    "triggers": {
+      "temperature": [
+        {
+          "sensor": "temperature",
+          "condition": "range",
+          "params": {
+            "min": -10,
+            "max": 20
+          },
+          "actions": [
+            {
+              "type": "change-background",
+              "backgroundType": "solid",
+              "color": "#d7f3b4"
+            },
+            {
+              "type": "add-objects",
+              "objectFile": "snowflake.svg",
+              "svgObject": "snowflake.svg",
+              "objectAnimation": "bounce",
+              "svgAnimation": "bounce",
+              "size": 133,
+              "opacity": 100,
+              "rotation": 0,
+              "quantity": 12,
+              "animationSpeed": 1,
+              "boxX": 0,
+              "boxY": 0,
+              "boxWidth": 100,
+              "boxHeight": 71
+            }
+          ]
+        },
+        {
+          "sensor": "temperature",
+          "condition": "range",
+          "params": {
+            "min": 20,
+            "max": 32
+          },
+          "actions": [
+            {
+              "type": "change-background",
+              "backgroundType": "solid",
+              "color": "#d9d568"
+            }
+          ]
+        },
+        {
+          "sensor": "temperature",
+          "condition": "range",
+          "params": {
+            "min": 32,
+            "max": 50
+          },
+          "actions": [
+            {
+              "type": "change-background",
+              "backgroundType": "solid",
+              "color": "#51cbdb"
+            },
+            {
+              "type": "add-objects",
+              "objectFile": "sun.svg",
+              "svgObject": "sun.svg",
+              "size": 200,
+              "opacity": 100,
+              "rotation": 0,
+              "quantity": 1,
+              "animationSpeed": 1,
+              "boxX": 65,
+              "boxY": 9,
+              "boxWidth": 30,
+              "boxHeight": 30
+            }
+          ]
+        }
+      ],
+      "humidity": [
+        {
+          "sensor": "humidity",
+          "condition": "range",
+          "params": {
+            "min": 0,
+            "max": 40
+          },
+          "actions": [
+            {
+              "type": "add-objects",
+              "objectFile": "leaf.svg",
+              "svgObject": "leaf.svg",
+              "objectAnimation": "slide",
+              "svgAnimation": "slide",
+              "size": 100,
+              "opacity": 100,
+              "rotation": 0,
+              "quantity": 5,
+              "animationSpeed": 1,
+              "boxX": 5,
+              "boxY": 0,
+              "boxWidth": 90,
+              "boxHeight": 44
+            }
+          ]
+        },
+        {
+          "sensor": "humidity",
+          "condition": "range",
+          "params": {
+            "min": 40,
+            "max": 70
+          },
+          "actions": [
+            {
+              "type": "add-objects",
+              "objectFile": "cloud.svg",
+              "svgObject": "cloud.svg",
+              "objectAnimation": "scale",
+              "svgAnimation": "scale",
+              "size": 144,
+              "opacity": 100,
+              "rotation": 44,
+              "quantity": 13,
+              "animationSpeed": 1,
+              "boxX": 5,
+              "boxY": 5,
+              "boxWidth": 90,
+              "boxHeight": 44
+            }
+          ]
+        },
+        {
+          "sensor": "humidity",
+          "condition": "range",
+          "params": {
+            "min": 70,
+            "max": 100
+          },
+          "actions": [
+            {
+              "type": "add-objects",
+              "objectFile": "comet.svg",
+              "svgObject": "comet.svg",
+              "objectAnimation": "bounce",
+              "svgAnimation": "bounce",
+              "size": 100,
+              "opacity": 100,
+              "rotation": 31,
+              "quantity": 5,
+              "animationSpeed": 1,
+              "boxX": 5,
+              "boxY": 5,
+              "boxWidth": 90,
+              "boxHeight": 44
+            }
+          ]
+        }
+      ],
+      "light": [
+        {
+          "sensor": "light",
+          "condition": "range",
+          "params": {
+            "min": 0,
+            "max": 1000
+          },
+          "actions": [
+            {
+              "type": "add-filter",
+              "filter": "grayscale",
+              "intensity": 150
+            }
+          ]
+        },
+        {
+          "sensor": "light",
+          "condition": "duration",
+          "params": {
+            "target": 2000,
+            "duration": 30
+          },
+          "actions": [
+            {
+              "type": "add-objects",
+              "objectFile": "sun.svg",
+              "svgObject": "sun.svg",
+              "objectAnimation": "pulse",
+              "svgAnimation": "pulse",
+              "size": 100,
+              "opacity": 100,
+              "rotation": 0,
+              "quantity": 1,
+              "animationSpeed": 1,
+              "boxX": 25,
+              "boxY": 25,
+              "boxWidth": 50,
+              "boxHeight": 50
+            },
+            {
+              "type": "change-background",
+              "backgroundType": "gradient",
+              "color1": "#fbff1a",
+              "color2": "#ff2e2e",
+              "direction": "radial"
+            }
+          ]
+        },
+        {
+          "sensor": "light",
+          "condition": "range",
+          "params": {
+            "min": 1000,
+            "max": 2500
+          },
+          "actions": [
+            {
+              "type": "add-filter",
+              "filter": "saturation",
+              "intensity": 100
+            }
+          ]
+        },
+        {
+          "sensor": "light",
+          "condition": "range",
+          "params": {
+            "min": 2500,
+            "max": 4095
+          },
+          "actions": [
+            {
+              "type": "add-objects",
+              "objectFile": "sparkles.svg",
+              "svgObject": "sparkles.svg",
+              "objectAnimation": "scale",
+              "svgAnimation": "scale",
+              "size": 145,
+              "opacity": 100,
+              "rotation": 0,
+              "quantity": 30,
+              "animationSpeed": 1,
+              "boxX": 0,
+              "boxY": 0,
+              "boxWidth": 100,
+              "boxHeight": 100
+            }
+          ]
+        }
+      ],
+      "audio": [
+        {
+          "sensor": "audio",
+          "condition": "range",
+          "params": {
+            "min": 1000,
+            "max": 2000
+          },
+          "actions": [
+            {
+              "type": "add-objects",
+              "objectAnimation": "wave",
+              "svgAnimation": "wave",
+              "objectFile": "waves.svg",
+              "svgObject": "waves.svg",
+              "size": 100,
+              "opacity": 100,
+              "rotation": 0,
+              "quantity": 20,
+              "animationSpeed": 1,
+              "boxX": 0,
+              "boxY": 50,
+              "boxWidth": 100,
+              "boxHeight": 100
+            }
+          ]
+        },
+        {
+          "sensor": "audio",
+          "condition": "range",
+          "params": {
+            "min": 2000,
+            "max": 4000
+          },
+          "actions": [
+            {
+              "type": "add-objects",
+              "objectFile": "wave.svg",
+              "svgObject": "wave.svg",
+              "objectAnimation": "slide",
+              "svgAnimation": "slide",
+              "size": 100,
+              "opacity": 100,
+              "rotation": 0,
+              "quantity": 5,
+              "animationSpeed": 1,
+              "boxX": 0,
+              "boxY": 50,
+              "boxWidth": 100,
+              "boxHeight": 100
+            }
+          ]
+        },
+        {
+          "sensor": "audio",
+          "condition": "range",
+          "params": {
+            "min": 0,
+            "max": 1000
+          },
+          "actions": [
+            {
+              "type": "add-objects",
+              "objectFile": "coral.svg",
+              "svgObject": "coral.svg",
+              "objectAnimation": "pulse",
+              "svgAnimation": "pulse",
+              "size": 100,
+              "opacity": 100,
+              "rotation": 0,
+              "quantity": 13,
+              "animationSpeed": 1,
+              "boxX": 5,
+              "boxY": 50,
+              "boxWidth": 90,
+              "boxHeight": 79
+            }
+          ]
+        }
+      ]
+    },
+    "layers": [],
+    "sensors_config": {},
+    "settings": {},
+    "created_at": "2025-07-19T21:07:47.902105"
   }
 }
