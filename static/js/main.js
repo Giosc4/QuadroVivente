@@ -121,7 +121,7 @@ class QuadriManager {
             this.renderDevices();
             this.renderDevicesOverview();
             this.hideLoadingState();
-            
+
         } catch (error) {
             console.error('Errore nel caricamento dei dati:', error);
             this.showError('Errore nel caricamento dei dati');
@@ -198,19 +198,18 @@ class QuadriManager {
                     </div>
                 </div>
                 <div class="quadro-actions">
-                    <button class="action-btn primary" onclick="viewQuadroFullscreen('${quadro.id}')">
-                        🔍 Visualizza
-                    </button>
-                    <button class="action-btn" onclick="previewQuadro('${quadro.id}')">
-                        👁️ Anteprima
-                    </button>
-                    <button class="action-btn favorite ${isFavorite ? 'active' : ''}" onclick="toggleFavorite('${quadro.id}')">
-                        ${isFavorite ? '★' : '☆'}
-                    </button>
-                    <button class="action-btn danger" onclick="deleteQuadro('${quadro.id}')">
-                        🗑️
-                    </button>
-                </div>
+        <!-- Esistente -->
+        <button class="action-btn primary" onclick="viewQuadroFullscreen('${quadro.id}')">🔍 Visualizza</button>
+        <button class="action-btn" onclick="previewQuadro('${quadro.id}')">👁️ Anteprima</button>
+        <button class="action-btn favorite ${isFavorite ? 'active' : ''}" onclick="toggleFavorite('${quadro.id}')">
+          ${isFavorite ? '★' : '☆'}
+        </button>
+        <button class="action-btn danger" onclick="deleteQuadro('${quadro.id}')">🗑️</button>
+
+        <!-- NUOVO: Modifica -->
+        <button class="action-btn" onclick="editQuadro('${quadro.id}')">✏️ Modifica</button>
+      </div>
+    </div>
             </div>
         `;
     }
@@ -753,7 +752,7 @@ function toggleFavorite(quadroId) {
 
 function editQuadro() {
     if (quadriManager.currentPreview) {
-        window.location.href = `/quadri_nuovi?edit=${quadriManager.currentPreview.id}`;
+        window.location.href = `/templates/create_paint.html?edit=${quadriManager.currentPreview.id}`;
     }
 }
 

@@ -535,6 +535,13 @@ body {
     transition: all 0.3s ease;
 }
 
+.help-text {
+    display: block;
+    font-size: 0.9rem;
+    color: #666;
+    margin-top: 4px;
+}
+
 .control-group input[type="range"]::-webkit-slider-thumb:hover {
     background: #5a67d8;
     transform: scale(1.1);
@@ -702,15 +709,15 @@ body {
     font-weight: 600;
 }
 
-/* SVG Objects Grid */
-.svg-objects-grid {
+/* CORRETTI: Objects Grid (era SVG Objects Grid) */
+.objects-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 10px;
     margin-top: 10px;
 }
 
-.svg-object-item {
+.object-item {
     padding: 15px 10px;
     border: 2px solid rgba(102, 126, 234, 0.2);
     border-radius: 8px;
@@ -721,24 +728,24 @@ body {
     user-select: none;
 }
 
-.svg-object-item:hover {
+.object-item:hover {
     border-color: #667eea;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.svg-object-item.selected {
+.object-item.selected {
     border-color: #667eea;
     background: rgba(102, 126, 234, 0.15);
     box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
 }
 
-.svg-icon {
+.object-icon {
     font-size: 1.5em;
     margin-bottom: 5px;
 }
 
-.svg-name {
+.object-name {
     font-size: 0.8em;
     color: #4a5568;
     font-weight: 500;
@@ -979,13 +986,25 @@ body {
 
 /* Animations */
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
 }
 
 @keyframes modalAppear {
@@ -993,6 +1012,7 @@ body {
         opacity: 0;
         transform: scale(0.95);
     }
+
     to {
         opacity: 1;
         transform: scale(1);
@@ -1000,8 +1020,13 @@ body {
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 /* Utility Classes */
@@ -1057,12 +1082,12 @@ body {
     .create-content {
         grid-template-columns: 350px 1fr;
     }
-    
+
     .controls-grid {
         grid-template-columns: 1fr;
     }
-    
-    .svg-objects-grid {
+
+    .objects-grid {
         grid-template-columns: repeat(3, 1fr);
     }
 }
@@ -1072,21 +1097,21 @@ body {
         grid-template-columns: 1fr;
         height: auto;
     }
-    
+
     .config-sidebar {
         max-height: none;
         margin-bottom: 20px;
     }
-    
+
     .preview-area {
         height: auto;
         min-height: 600px;
     }
-    
-    .svg-objects-grid {
+
+    .objects-grid {
         grid-template-columns: repeat(4, 1fr);
     }
-    
+
     .animation-types-grid {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -1098,45 +1123,45 @@ body {
         gap: 15px;
         padding: 20px;
     }
-    
+
     .header-actions {
         width: 100%;
         justify-content: space-between;
     }
-    
+
     .btn {
         min-width: auto;
         padding: 10px 20px;
     }
-    
+
     .form-row {
         grid-template-columns: 1fr;
     }
-    
+
     .param-row {
         grid-template-columns: 1fr;
     }
-    
+
     .position-controls {
         grid-template-columns: 1fr;
     }
-    
+
     .background-types-grid {
         grid-template-columns: 1fr;
     }
-    
-    .svg-objects-grid {
+
+    .objects-grid {
         grid-template-columns: repeat(3, 1fr);
     }
-    
+
     .animation-types-grid {
         grid-template-columns: repeat(2, 1fr);
     }
-    
+
     .filter-types-grid {
         grid-template-columns: repeat(3, 1fr);
     }
-    
+
     .modal-content {
         width: 95%;
         margin: 10% auto;
@@ -1148,23 +1173,23 @@ body {
     .container {
         padding: 10px;
     }
-    
+
     .create-header h1 {
         font-size: 1.8em;
     }
-    
+
     .controls-grid {
         gap: 15px;
     }
-    
-    .svg-objects-grid {
+
+    .objects-grid {
         grid-template-columns: repeat(2, 1fr);
     }
-    
+
     .animation-types-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .filter-types-grid {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -1195,7 +1220,7 @@ button:focus {
         background: #fff !important;
         color: #000 !important;
     }
-    
+
     .create-header,
     .preview-controls,
     .simulation-controls,
@@ -1203,12 +1228,12 @@ button:focus {
     .modal {
         display: none !important;
     }
-    
+
     .create-content {
         grid-template-columns: 1fr;
         height: auto;
     }
-    
+
     .preview-canvas-container {
         background: #fff !important;
         border: 1px solid #000;
@@ -1218,17 +1243,18 @@ button:focus {
 
 /* High Contrast Mode */
 @media (prefers-contrast: high) {
+
     .trigger-item,
     .action-item,
-    .svg-object-item,
+    .object-item,
     .animation-type-item {
         border-width: 3px;
     }
-    
+
     .btn {
         border: 2px solid currentColor;
     }
-    
+
     .status-indicator {
         border: 2px solid #fff;
     }
@@ -1241,12 +1267,12 @@ button:focus {
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
     }
-    
+
     .loading-spinner {
         animation: none;
         border: 5px solid #667eea;
     }
-    
+
     .status-indicator {
         animation: none;
     }

@@ -1,83 +1,82 @@
 {
   "Esp_Giovanni": {
     "name": "Esp_Giovanni",
-    "location": "Posizione_Esp_Giovanni",
-    "created_at": "2025-07-18T13:22:09.429016",
+    "created_at": "2025-07-19T08:30:22.487330",
     "data_history": [
       {
-        "timestamp": "2025-07-18T13:57:40.947775",
-        "temperature": 31.3,
-        "humidity": 32.0,
-        "light": 235,
-        "audio": 1895
+        "timestamp": "2025-07-19T08:44:09.132320",
+        "temperature": 31.0,
+        "humidity": 44.0,
+        "light": 1610,
+        "audio": 1207
       },
       {
-        "timestamp": "2025-07-18T13:57:41.929420",
-        "temperature": 31.3,
-        "humidity": 32.0,
-        "light": 237,
-        "audio": 1360
+        "timestamp": "2025-07-19T08:44:10.554666",
+        "temperature": 31.0,
+        "humidity": 44.0,
+        "light": 1612,
+        "audio": 1260
       },
       {
-        "timestamp": "2025-07-18T13:57:42.958630",
-        "temperature": 31.3,
-        "humidity": 32.0,
-        "light": 237,
-        "audio": 1335
+        "timestamp": "2025-07-19T08:44:12.636206",
+        "temperature": 31.0,
+        "humidity": 45.0,
+        "light": 1613,
+        "audio": 877
       },
       {
-        "timestamp": "2025-07-18T13:57:43.947804",
-        "temperature": 31.3,
-        "humidity": 32.0,
-        "light": 230,
-        "audio": 939
+        "timestamp": "2025-07-19T08:44:17.585326",
+        "temperature": 31.0,
+        "humidity": 45.0,
+        "light": 1616,
+        "audio": 1391
       },
       {
-        "timestamp": "2025-07-18T13:57:45.016462",
-        "temperature": 31.3,
-        "humidity": 32.0,
-        "light": 229,
-        "audio": 1471
+        "timestamp": "2025-07-19T08:44:18.576087",
+        "temperature": 31.0,
+        "humidity": 45.0,
+        "light": 1617,
+        "audio": 1189
       },
       {
-        "timestamp": "2025-07-18T13:57:45.948200",
-        "temperature": 31.3,
-        "humidity": 32.0,
-        "light": 235,
-        "audio": 1325
+        "timestamp": "2025-07-19T08:44:20.207790",
+        "temperature": 31.2,
+        "humidity": 45.0,
+        "light": 1616,
+        "audio": 1119
       },
       {
-        "timestamp": "2025-07-18T13:57:46.970305",
-        "temperature": 31.3,
-        "humidity": 32.0,
-        "light": 233,
-        "audio": 1872
+        "timestamp": "2025-07-19T08:44:20.841683",
+        "temperature": 31.2,
+        "humidity": 45.0,
+        "light": 1614,
+        "audio": 1247
       },
       {
-        "timestamp": "2025-07-18T13:57:47.946483",
-        "temperature": 31.3,
-        "humidity": 32.0,
-        "light": 231,
-        "audio": 1090
+        "timestamp": "2025-07-19T08:44:22.222258",
+        "temperature": 31.0,
+        "humidity": 45.0,
+        "light": 1607,
+        "audio": 1122
       },
       {
-        "timestamp": "2025-07-18T13:57:49.838284",
-        "temperature": 31.6,
-        "humidity": 32.0,
-        "light": 231,
-        "audio": 1019
+        "timestamp": "2025-07-19T08:44:22.590928",
+        "temperature": 31.0,
+        "humidity": 45.0,
+        "light": 1613,
+        "audio": 1349
       },
       {
-        "timestamp": "2025-07-18T13:57:49.956412",
-        "temperature": 31.6,
-        "humidity": 32.0,
-        "light": 229,
-        "audio": 1061
+        "timestamp": "2025-07-19T08:44:24.098894",
+        "temperature": 31.0,
+        "humidity": 45.0,
+        "light": 1617,
+        "audio": 1614
       }
     ],
-    "last_update": "2025-07-18T13:57:49.956412",
     "mac_address": "3C:8A:1F:AF:C0:28",
     "ip_address": "192.168.4.5",
-    "rssi": -71
+    "rssi": -63,
+    "last_update": "2025-07-19T08:44:24.098894"
   }
 }
