@@ -1,12 +1,11 @@
 // ============================================================================
-// QUADRO VIEWER - VISUALIZZAZIONE FULLSCREEN QUADRI VIVENTI
+// QUADRO VIEWER - VISUALIZZAZIONE FULLSCREEN QUADRI VIVENTI 
 // JavaScript per la visualizzazione immersiva dei quadri salvati
 // ============================================================================
 
 class QuadroViewer {
     constructor(quadroId) {
         this.quadroId = quadroId;
-        this.socket = null;
         this.canvas = null;
         this.ctx = null;
         this.animationId = null;
@@ -37,13 +36,25 @@ class QuadroViewer {
         this.lastActivity = Date.now();
         this.hideControlsTimeout = null;
 
+        // HTTP Polling per ESP32
+        this.pollingInterval = null;
+        this.isReceivingRealData = false;
+        this.simulationInterval = null;
+        this.lastDataUpdate = 0;
+        this.pollingRate = 2000; // 2 secondi
+
+        // Controllo log per evitare spam
+        this.debugLogCount = 0;
+        this.maxDebugLogs = 50;
+        this.lastLogTime = 0;
+
         this.init();
     }
 
     async init() {
         try {
             this.setupCanvas();
-            this.setupSocket();
+            this.setupHTTPPolling(); 
             await this.loadQuadro();
             await this.preloadObjects();
             this.startRendering();
@@ -78,46 +89,79 @@ class QuadroViewer {
 
         this.ctx.scale(devicePixelRatio, devicePixelRatio);
 
-        // ✅ AGGIUNTA: Memorizza le dimensioni logiche
+        // Memorizza le dimensioni logiche
         this.logicalWidth = window.innerWidth;
         this.logicalHeight = window.innerHeight;
     }
 
-    setupSocket() {
-        if (typeof io === 'undefined') {
-            console.error('Socket.IO non disponibile');
-            this.connectionState = 'error';
-            return;
-        }
-
-        this.socket = io();
-
-        this.socket.on('connect', () => {
-            console.log('WebSocket connesso');
+    setupHTTPPolling() {
+        console.log('🔄 Inizializzazione HTTP Polling');
+        
+        // Simula connessione immediata
+        setTimeout(() => {
             this.connectionState = 'connected';
             this.updateConnectionStatus();
-
-            // Richiedi dati del dispositivo se disponibile
+            
+            // Avvia polling se c'è un dispositivo
             if (this.quadroData && this.quadroData.device_id) {
-                this.socket.emit('subscribe_device', this.quadroData.device_id);
+                this.startHTTPPolling(this.quadroData.device_id);
             }
-        });
+        }, 100);
+    }
 
-        this.socket.on('device_data_update', (data) => {
-            this.handleDeviceUpdate(data);
-        });
+    startHTTPPolling(deviceId) {
+        if (this.pollingInterval) {
+            clearInterval(this.pollingInterval);
+        }
 
-        this.socket.on('disconnect', () => {
-            console.log('WebSocket disconnesso');
-            this.connectionState = 'disconnected';
-            this.updateConnectionStatus();
-        });
+        console.log(`📡 Avvio HTTP polling per dispositivo: ${deviceId}`);
+        
+        this.pollingInterval = setInterval(() => {
+            this.pollDeviceData(deviceId);
+        }, this.pollingRate);
 
-        this.socket.on('connect_error', () => {
-            console.error('Errore connessione WebSocket');
-            this.connectionState = 'error';
-            this.updateConnectionStatus();
-        });
+        // Primo polling immediato
+        this.pollDeviceData(deviceId);
+    }
+
+    async pollDeviceData(deviceId) {
+        try {
+            const response = await fetch(`/api/device_data?device_id=${encodeURIComponent(deviceId)}`, {
+                method: 'GET',
+                cache: 'no-cache',
+                headers: {
+                    'Cache-Control': 'no-cache'
+                }
+            });
+
+            if (response.ok) {
+                const deviceData = await response.json();
+                
+                // Controlla se i dati sono nuovi
+                const dataTimestamp = deviceData.timestamp || Date.now();
+                
+                if (dataTimestamp > this.lastDataUpdate) {
+                    this.lastDataUpdate = dataTimestamp;
+                    
+                    // Simula evento device_data_update
+                    this.handleDeviceUpdate({
+                        device_id: deviceId,
+                        data: deviceData,
+                        timestamp: dataTimestamp
+                    });
+                }
+            } else {
+                // Se polling fallisce, continua con simulazione
+                if (this.debugLogCount < 5) {
+                    console.warn(`⚠️ Polling dispositivo ${deviceId} fallito: ${response.status}`);
+                }
+            }
+        } catch (error) {
+            // Errore di rete - continua con simulazione
+            if (this.debugLogCount < 5) {
+                console.error(`❌ Errore polling dispositivo ${deviceId}:`, error.message);
+            }
+        }
     }
 
     setupEventListeners() {
@@ -183,6 +227,8 @@ class QuadroViewer {
             // Carica dati del dispositivo
             if (this.quadroData.device_id) {
                 await this.loadDeviceData();
+                // Avvia polling HTTP
+                this.startHTTPPolling(this.quadroData.device_id);
             } else {
                 // Se non c'è dispositivo, usa valori di anteprima o simula
                 this.startSensorSimulation();
@@ -348,12 +394,10 @@ class QuadroViewer {
                 return true;
             } catch (error) {
                 console.error(`❌ Errore nel disegnare oggetto ${objectFile}:`, error);
-                // Fallback a placeholder più visibile
                 this.drawPlaceholder(ctx, size, objectFile);
                 return false;
             }
         } else {
-            // ✅ MIGLIORAMENTO: Placeholder più visibile con debug info
             this.drawPlaceholder(ctx, size, objectFile);
 
             // Prova a caricare asincronamente per la prossima volta
@@ -383,37 +427,27 @@ class QuadroViewer {
         ctx.textAlign = 'center';
         ctx.fillText('?', 0, 0);
 
-        // DEBUG: Log dettagliato
-        console.warn(`📄 PLACEHOLDER per: ${objectFile} - size: ${size} - cache: ${this.objectCache.has(`/static/images/${objectFile}`)}`);
+        // DEBUG: Log dettagliato LIMITATO
+        this.debugLog(`📄 PLACEHOLDER per: ${objectFile} - size: ${size}`);
     }
 
-
-    // 6. AGGIUNTA: Forza il rendering visibile per test
-    forceVisibleRendering() {
-
-        // Imposta valori sensori che attivano tutti i trigger
-        Object.entries(this.triggers).forEach(([sensor, triggers]) => {
-            triggers.forEach(trigger => {
-                let targetValue;
-                switch (trigger.condition) {
-                    case 'range':
-                        targetValue = (trigger.params.min + trigger.params.max) / 2;
-                        break;
-                    case 'above':
-                        targetValue = trigger.params.threshold + 10;
-                        break;
-                    case 'below':
-                        targetValue = trigger.params.threshold - 10;
-                        break;
-                    case 'duration':
-                        targetValue = trigger.params.target;
-                        break;
-                    default:
-                        targetValue = this.sensorValues[sensor];
-                }
-                this.sensorValues[sensor] = targetValue;
-            });
-        });
+    // NUOVO: Metodo per limitare i log di debug
+    debugLog(message) {
+        const now = Date.now();
+        
+        // Limita log uguali troppo frequenti
+        if (now - this.lastLogTime < 1000) {
+            return; // Skip log se è passato meno di 1 secondo
+        }
+        
+        if (this.debugLogCount < this.maxDebugLogs) {
+            console.warn(message);
+            this.debugLogCount++;
+            this.lastLogTime = now;
+        } else if (this.debugLogCount === this.maxDebugLogs) {
+            console.warn('⚠️ Debug log limit raggiunto, disabilitazione log per evitare spam');
+            this.debugLogCount++;
+        }
     }
 
     // ============================================================================
@@ -433,7 +467,7 @@ class QuadroViewer {
     renderFrame() {
         if (!this.ctx || !this.canvas) return;
 
-        // ✅ USA le dimensioni logiche invece di window.inner*
+        // USA le dimensioni logiche invece di window.inner*
         const width = this.logicalWidth || window.innerWidth;
         const height = this.logicalHeight || window.innerHeight;
 
@@ -444,33 +478,17 @@ class QuadroViewer {
         this.ctx.fillStyle = '#000000';
         this.ctx.fillRect(0, 0, width, height);
 
-        // DEBUG: Verifica se ci sono trigger configurati
-        const hasTriggers = Object.keys(this.triggers).length > 0;
-        if (!hasTriggers) {
-            console.warn('⚠️ Nessun trigger configurato nel quadro');
-        }
-
         // Applica i trigger attivi
-        const activeCount = this.applyActiveTriggers(width, height);
-
-        // DEBUG: Log se nessun trigger è attivo
-        if (hasTriggers && activeCount === 0) {
-            console.warn('🔍 Nessun trigger attivo con valori:', this.sensorValues);
-        }
+        this.applyActiveTriggers(width, height);
 
         // Reset del filtro alla fine per evitare interferenze
         this.ctx.filter = 'none';
-
-        // Aggiorna display sensori con evidenziazione
-        this.updateSensorDisplay();
     }
-
 
     applyActiveTriggers(width, height) {
         if (!this.triggers) return 0;
 
         let activeTriggersCount = 0;
-        let totalActionsExecuted = 0;
 
         Object.entries(this.triggers).forEach(([sensor, triggers]) => {
             const sensorValue = this.sensorValues[sensor];
@@ -481,7 +499,6 @@ class QuadroViewer {
 
                     trigger.actions.forEach((action, actionIndex) => {
                         this.executeAction(action, width, height, sensorValue, trigger);
-                        totalActionsExecuted++;
                     });
                 }
             });
@@ -614,17 +631,26 @@ class QuadroViewer {
         const dynamicSpeed = this.calculateDynamicSpeed(trigger, sensorValue, baseSpeed);
         const time = Date.now() * 0.001 * dynamicSpeed;
 
-        // Gestione coordinate del box (identico a create_paint)
+        // Gestione coordinate del box migliorata
         let boxX, boxY, boxWidth, boxHeight;
 
-        if (action.boxX !== undefined && action.boxY !== undefined) {
-            // Usa le coordinate salvate nell'azione
-            boxX = action.boxX / 100 * width;
-            boxY = action.boxY / 100 * height;
-            boxWidth = action.boxWidth / 100 * width;
-            boxHeight = action.boxHeight / 100 * height;
+        if (action.boxX !== undefined && action.boxY !== undefined && 
+            action.boxWidth !== undefined && action.boxHeight !== undefined) {
+            // Usa le coordinate salvate nell'azione con validazione
+            boxX = Math.max(0, Math.min(100, action.boxX)) / 100 * width;
+            boxY = Math.max(0, Math.min(100, action.boxY)) / 100 * height;
+            boxWidth = Math.max(10, Math.min(100, action.boxWidth)) / 100 * width;
+            boxHeight = Math.max(10, Math.min(100, action.boxHeight)) / 100 * height;
         } else {
             // Fallback: tutto lo schermo
+            boxX = 0;
+            boxY = 0;
+            boxWidth = width;
+            boxHeight = height;
+        }
+
+        // Validazione finale delle dimensioni del box
+        if (boxWidth <= 0 || boxHeight <= 0) {
             boxX = 0;
             boxY = 0;
             boxWidth = width;
@@ -636,7 +662,6 @@ class QuadroViewer {
         this.ctx.globalAlpha = opacity;
 
         const actionSeed = this.getActionSeed(action);
-        let objectsRendered = 0;
 
         for (let i = 0; i < quantity; i++) {
             const seedX = this.seededRandom(actionSeed + i * 1000);
@@ -648,11 +673,11 @@ class QuadroViewer {
             let size = baseSize;
             let rotation = baseRotation;
 
-            // Calcolo intensità identico a create_paint
+            // Calcolo intensità
             const intensity = Math.max(0, Math.min(1, sensorValue / 100));
             size *= (0.5 + intensity * 0.5);
 
-            // Applica animazioni IDENTICHE a create_paint
+            // Applica animazioni
             switch (action.objectAnimation || action.svgAnimation) {
                 case 'float':
                     y += Math.sin(time + i) * 30;
@@ -705,8 +730,7 @@ class QuadroViewer {
             this.ctx.translate(x, y);
             this.ctx.rotate(rotation);
 
-            const rendered = this.drawRealObject(this.ctx, objectFile, size);
-            if (rendered) objectsRendered++;
+            this.drawRealObject(this.ctx, objectFile, size);
 
             this.ctx.restore();
         }
@@ -757,20 +781,15 @@ class QuadroViewer {
                 const center = (min + max) / 2;
                 const range = max - min;
 
-                // Calcola quanto il valore è lontano dal centro (0-1)
                 const distanceFromCenter = Math.abs(sensorValue - center) / (range / 2);
-
-                // Velocità: 1x al centro, 5x agli estremi
                 const speedMultiplier = 1 + (distanceFromCenter * 4);
                 return baseSpeed * speedMultiplier;
 
             case 'above':
             case 'below':
-                // Velocità fissa a 2.5x per i trigger sopra/sotto soglia
                 return baseSpeed * 2.5;
 
             case 'duration':
-                // Per questo trigger, velocità moderata
                 return baseSpeed * 1.8;
 
             default:
@@ -779,7 +798,6 @@ class QuadroViewer {
     }
 
     getActionSeed(action) {
-        // Genera un seed basato sulle proprietà dell'azione per avere posizioni consistenti
         const str = JSON.stringify({
             objectFile: action.objectFile || action.svgObject,
             boxX: action.boxX,
@@ -793,7 +811,7 @@ class QuadroViewer {
         for (let i = 0; i < str.length; i++) {
             const char = str.charCodeAt(i);
             hash = ((hash << 5) - hash) + char;
-            hash = hash & hash; // Converte a 32bit int
+            hash = hash & hash;
         }
         return Math.abs(hash);
     }
@@ -807,19 +825,78 @@ class QuadroViewer {
     // GESTIONE DATI E AGGIORNAMENTI
     // ============================================================================
 
-    startSensorSimulation() {
+    handleDeviceUpdate(data) {
+        // Verifica che i dati siano per il dispositivo corretto
+        if (data.device_id !== this.quadroData?.device_id) {
+            return;
+        }
 
+        console.log('📡 Ricevuti dati ESP via HTTP:', data);
+        
+        // Imposta flag per evitare interferenze con simulazione
+        this.isReceivingRealData = true;
+        
+        // Ferma la simulazione se attiva
+        if (this.simulationInterval) {
+            clearInterval(this.simulationInterval);
+            this.simulationInterval = null;
+            console.log('🛑 Simulazione fermata, uso dati reali HTTP');
+        }
+
+        // Aggiorna i valori sensori con i dati reali
+        const oldValues = { ...this.sensorValues };
+        
+        this.sensorValues = {
+            temperature: parseFloat(data.data.temperature) || this.sensorValues.temperature,
+            humidity: parseFloat(data.data.humidity) || this.sensorValues.humidity,
+            light: parseFloat(data.data.light) || this.sensorValues.light,
+            audio: parseFloat(data.data.audio) || this.sensorValues.audio
+        };
+
+        // Log dei cambiamenti
+        Object.keys(this.sensorValues).forEach(sensor => {
+            if (Math.abs(oldValues[sensor] - this.sensorValues[sensor]) > 0.1) {
+                console.log(`📈 ${sensor}: ${oldValues[sensor]} → ${this.sensorValues[sensor]}`);
+            }
+        });
+
+        // Aggiorna immediatamente il display
+        this.updateSensorDisplay();
+    }
+
+    startSensorSimulation() {
+        // Non avviare la simulazione se stiamo ricevendo dati reali
+        if (this.isReceivingRealData) {
+            return;
+        }
+
+        console.log('🎲 Avvio simulazione sensori');
+        
         // Aggiorna immediatamente i display
         this.updateSensorDisplay();
 
         // Simula variazioni realistiche
-        setInterval(() => {
+        this.simulationInterval = setInterval(() => {
+            // Verifica se non stiamo ricevendo dati reali recenti
+            if (this.isReceivingRealData && Date.now() - this.lastDataUpdate < 30000) {
+                return; // Non simulare se abbiamo dati recenti
+            }
+
+            // Se i dati reali sono vecchi, riprendi la simulazione
+            if (this.isReceivingRealData && Date.now() - this.lastDataUpdate >= 30000) {
+                console.log('📡 Dati ESP non recenti, riprendo simulazione');
+                this.isReceivingRealData = false;
+            }
+
+            // Simula variazioni graduali
             this.sensorValues = {
                 temperature: 20.5 + Math.sin(Date.now() * 0.001) * 10,
                 humidity: 65 + Math.cos(Date.now() * 0.0015) * 20,
                 light: 1250 + Math.sin(Date.now() * 0.002) * 1000,
                 audio: 850 + Math.random() * 400
             };
+
+            this.updateSensorDisplay();
         }, 2000);
     }
 
@@ -834,7 +911,9 @@ class QuadroViewer {
                 // Evidenzia sensori con trigger attivi
                 const sensorElement = element.closest('.sensor-value');
                 const hasActiveTrigger = this.isSensorActive(sensor, value);
-                sensorElement.setAttribute('data-active', hasActiveTrigger);
+                if (sensorElement) {
+                    sensorElement.setAttribute('data-active', hasActiveTrigger);
+                }
             }
         });
     }
@@ -873,17 +952,17 @@ class QuadroViewer {
         switch (this.connectionState) {
             case 'connected':
                 indicator.classList.add('connected');
-                text.textContent = 'Connesso';
+                text.textContent = 'HTTP Polling Attivo';
                 break;
             case 'connecting':
                 indicator.classList.add('connecting');
-                text.textContent = 'Connessione...';
+                text.textContent = 'Inizializzazione...';
                 break;
             case 'disconnected':
-                text.textContent = 'Disconnesso';
+                text.textContent = 'Offline - Simulazione';
                 break;
             case 'error':
-                text.textContent = 'Errore Connessione';
+                text.textContent = 'Modalità Offline';
                 break;
         }
     }
@@ -922,26 +1001,11 @@ class QuadroViewer {
     }
 
     handleFullscreenChange() {
-        const fullscreenBtn = document.getElementById('fullscreen-btn');
-        if (fullscreenBtn) {
-            fullscreenBtn.textContent = document.fullscreenElement ? '⛶' : '⛶';
-        }
-
-        // Ridimensiona canvas dopo cambio fullscreen
         setTimeout(() => this.handleResize(), 100);
-
     }
 
     handleResize() {
         this.resizeCanvas();
-    }
-
-    pauseRendering() {
-        this.isPlaying = false;
-    }
-
-    resumeRendering() {
-        this.isPlaying = true;
     }
 
     goBack() {
@@ -981,13 +1045,18 @@ class QuadroViewer {
     // ============================================================================
 
     destroy() {
-
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
         }
 
-        if (this.socket) {
-            this.socket.disconnect();
+        // Ferma il polling HTTP
+        if (this.pollingInterval) {
+            clearInterval(this.pollingInterval);
+        }
+
+        // Ferma la simulazione
+        if (this.simulationInterval) {
+            clearInterval(this.simulationInterval);
         }
 
         // Pulisce le URL degli oggetti
@@ -1031,49 +1100,17 @@ window.addEventListener('beforeunload', () => {
     }
 });
 
-// Debug functions (solo in development)
+// Debug functions
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '192.168.4.1') {
     window.debugQuadro = function () {
         if (window.quadroViewer) {
-
-            // Analisi trigger attivi
-            const activeTriggers = Object.entries(window.quadroViewer.triggers).map(([sensor, triggers]) => {
-                const sensorValue = window.quadroViewer.sensorValues[sensor];
-                const activeTriggersList = triggers.filter(trigger =>
-                    window.quadroViewer.isTriggerActive(trigger, sensorValue)
-                );
-                return {
-                    sensor,
-                    value: sensorValue,
-                    totalTriggers: triggers.length,
-                    activeTriggers: activeTriggersList.length,
-                    details: activeTriggersList.map((trigger, index) => ({
-                        index,
-                        condition: trigger.condition,
-                        params: trigger.params,
-                        actions: trigger.actions.length
-                    }))
-                };
-            });
-
-            // Verifica azioni add-objects
-            const objectActions = [];
-            Object.entries(window.quadroViewer.triggers).forEach(([sensor, triggers]) => {
-                triggers.forEach((trigger, triggerIndex) => {
-                    trigger.actions.forEach((action, actionIndex) => {
-                        if (action.type === 'add-objects' || action.type === 'add-svg') {
-                            objectActions.push({
-                                sensor,
-                                triggerIndex,
-                                actionIndex,
-                                objectFile: action.objectFile || action.svgObject,
-                                quantity: action.quantity,
-                                size: action.size,
-                                isActive: window.quadroViewer.isTriggerActive(trigger, window.quadroViewer.sensorValues[sensor])
-                            });
-                        }
-                    });
-                });
+            console.log('🔍 DEBUG QUADRO (HTTP Mode):', {
+                triggers: window.quadroViewer.triggers,
+                sensorValues: window.quadroViewer.sensorValues,
+                isReceivingRealData: window.quadroViewer.isReceivingRealData,
+                connectionState: window.quadroViewer.connectionState,
+                deviceId: window.quadroViewer.quadroData?.device_id,
+                pollingActive: !!window.quadroViewer.pollingInterval
             });
         }
     };
@@ -1081,7 +1118,6 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
     window.forceActivateAllTriggers = function () {
         if (!window.quadroViewer) return;
 
-        // Trova i range di tutti i trigger e imposta valori che li attivano
         Object.entries(window.quadroViewer.triggers).forEach(([sensor, triggers]) => {
             triggers.forEach(trigger => {
                 let targetValue;
@@ -1104,67 +1140,30 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
                 window.quadroViewer.sensorValues[sensor] = targetValue;
             });
         });
+
+        console.log('🎯 Tutti i trigger forzati attivi:', window.quadroViewer.sensorValues);
     };
 
-    window.testRenderObject = function (objectFile = 'star.svg', size = 50) {
-        if (!window.quadroViewer) return;
-
-        const ctx = window.quadroViewer.ctx;
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-
-        // Pulisce e disegna solo l'oggetto di test
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, width, height);
-
-        ctx.save();
-        ctx.translate(width / 2, height / 2);
-
-        const rendered = window.quadroViewer.drawRealObject(ctx, objectFile, size);
-
-        ctx.restore();
-    };
-
-    window.testScenarios = function () {
-        if (!window.quadroViewer) return;
-
-        const scenarios = [
-            { temp: 35, hum: 80, light: 3000, audio: 2000, name: "Caldo e luminoso" },
-            { temp: 5, hum: 30, light: 100, audio: 200, name: "Freddo e buio" },
-            { temp: 22, hum: 55, light: 1500, audio: 1000, name: "Normale" }
-        ];
-
-        let index = 0;
-        const interval = setInterval(() => {
-            if (index < scenarios.length) {
-                const scenario = scenarios[index];
-                window.quadroViewer.sensorValues = {
-                    temperature: scenario.temp,
-                    humidity: scenario.hum,
-                    light: scenario.light,
-                    audio: scenario.audio
-                };
-                index++;
-            } else {
-                clearInterval(interval);
-            }
-        }, 3000);
+    window.resetDebugLogs = function() {
+        if (window.quadroViewer) {
+            window.quadroViewer.debugLogCount = 0;
+            window.quadroViewer.lastLogTime = 0;
+            console.log('🔄 Debug logs reset');
+        }
     };
 }
 
 // Inizializzazione principale
 document.addEventListener('DOMContentLoaded', function () {
-    // Legge la configurazione dal server o dall'URL
     let quadroId = null;
 
     if (window.QUADRO_CONFIG && window.QUADRO_CONFIG.quadro_id) {
         quadroId = window.QUADRO_CONFIG.quadro_id;
     } else {
-        // Fallback: estrae dall'URL
         const path = window.location.pathname;
         quadroId = path.split('/').pop();
     }
 
-    // Inizializza il viewer
+    console.log('🚀 Inizializzazione QuadroViewer (HTTP Mode) per ID:', quadroId);
     window.quadroViewer = new QuadroViewer(quadroId);
 });

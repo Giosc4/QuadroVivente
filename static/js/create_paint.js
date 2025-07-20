@@ -5,7 +5,6 @@
 
 class QuadroCreator {
     constructor() {
-        this.socket = null;
         this.devices = {};
         this.selectedDevice = null;
         this.previewCanvas = null;
@@ -81,7 +80,6 @@ class QuadroCreator {
     }
 
     async init() {
-        this.setupSocket();
         this.setupEventListeners();
         this.setupCanvas();
         this.setupDragAndDrop();
@@ -98,6 +96,7 @@ class QuadroCreator {
     // ============================================================================
     // SISTEMA DI CARICAMENTO OGGETTI DEFAULT
     // ============================================================================
+
 
     async loadObject(objectPath) {
         if (this.objectCache.has(objectPath)) {

@@ -5,7 +5,6 @@
 
 class QuadriManager {
     constructor() {
-        this.socket = null;
         this.quadri = [];
         this.devices = {};
         this.filteredQuadri = [];
@@ -15,45 +14,9 @@ class QuadriManager {
     }
 
     init() {
-        this.setupSocket();
         this.setupEventListeners();
         this.loadData();
         this.setupPeriodicRefresh();
-    }
-
-    setupSocket() {
-        console.log('Inizializzazione WebSocket...');
-
-        if (typeof io === 'undefined') {
-            console.error('Socket.IO non è caricato correttamente');
-            this.showError('Errore di connessione: Socket.IO non disponibile');
-            return;
-        }
-
-        try {
-            this.socket = io();
-
-            this.socket.on('connect', () => {
-                console.log('Connesso al server WebSocket');
-            });
-
-            this.socket.on('device_data_update', (data) => {
-                this.handleDeviceUpdate(data);
-            });
-
-            this.socket.on('disconnect', () => {
-                console.log('Disconnesso dal server WebSocket');
-            });
-
-            this.socket.on('connect_error', (error) => {
-                console.error('Errore di connessione WebSocket:', error);
-                this.showError('Errore di connessione al server');
-            });
-
-        } catch (error) {
-            console.error('Errore nell\'inizializzazione WebSocket:', error);
-            this.showError('Errore nell\'inizializzazione della connessione');
-        }
     }
 
     setupEventListeners() {
@@ -497,7 +460,6 @@ window.debugHome = function() {
         console.log('Quadri caricati:', quadriManager.quadri.length);
         console.log('Dispositivi:', Object.keys(quadriManager.devices).length);
         console.log('Preferiti:', quadriManager.favorites);
-        console.log('Socket connesso:', quadriManager.socket?.connected || false);
     }
 };
 
