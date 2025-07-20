@@ -1,0 +1,80 @@
+{
+  "Esp_Giovanni": {
+    "name": "Esp_Giovanni",
+    "location": "Posizione_Esp_Giovanni",
+    "created_at": "2025-07-20T02:20:25.200586",
+    "data_history": [
+      {
+        "timestamp": "2025-07-20T02:20:46.589601",
+        "temperature": 33.0,
+        "humidity": 43.0,
+        "light": 1152,
+        "audio": 1247
+      },
+      {
+        "timestamp": "2025-07-20T02:20:47.615655",
+        "temperature": 32.9,
+        "humidity": 42.0,
+        "light": 1191,
+        "audio": 1179
+      },
+      {
+        "timestamp": "2025-07-20T02:20:48.594070",
+        "temperature": 32.9,
+        "humidity": 42.0,
+        "light": 1189,
+        "audio": 1152
+      },
+      {
+        "timestamp": "2025-07-20T02:20:49.621631",
+        "temperature": 33.1,
+        "humidity": 43.0,
+        "light": 1203,
+        "audio": 1814
+      },
+      {
+        "timestamp": "2025-07-20T02:20:50.603482",
+        "temperature": 33.1,
+        "humidity": 43.0,
+        "light": 1229,
+        "audio": 1627
+      },
+      {
+        "timestamp": "2025-07-20T02:20:51.625765",
+        "temperature": 32.9,
+        "humidity": 42.0,
+        "light": 1149,
+        "audio": 1457
+      },
+      {
+        "timestamp": "2025-07-20T02:20:52.608248",
+        "temperature": 32.9,
+        "humidity": 42.0,
+        "light": 1145,
+        "audio": 1843
+      },
+      {
+        "timestamp": "2025-07-20T02:20:53.634616",
+        "temperature": 32.9,
+        "humidity": 42.0,
+        "light": 1223,
+        "audio": 1341
+      },
+      {
+        "timestamp": "2025-07-20T02:20:54.633586",
+        "temperature": 32.9,
+        "humidity": 42.0,
+        "light": 1202,
+        "audio": 1426
+      },
+      {
+        "timestamp": "2025-07-20T02:20:55.652313",
+        "temperature": 32.9,
+        "humidity": 42.0,
+        "light": 1148,
+        "audio": 914
+      }
+    ],
+    "last_update": "2025-07-20T02:20:55.652313"
+  }
+}

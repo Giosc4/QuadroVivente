@@ -972,6 +972,39 @@ class QuadroCreator {
                 selectedAnimItem.classList.add('selected');
             }
         }
+
+        if (this.currentAction.boxX !== undefined) {
+            this.tempBoxCoords = {
+                x: this.currentAction.boxX || 20,
+                y: this.currentAction.boxY || 20,
+                width: this.currentAction.boxWidth || 60,
+                height: this.currentAction.boxHeight || 60
+            };
+            setTimeout(() => {
+                const boxX = document.getElementById('box-x');
+                const boxY = document.getElementById('box-y');
+                const boxWidth = document.getElementById('box-width');
+                const boxHeight = document.getElementById('box-height');
+
+                if (boxX) boxX.value = this.tempBoxCoords.x;
+                if (boxY) boxY.value = this.tempBoxCoords.y;
+                if (boxWidth) boxWidth.value = this.tempBoxCoords.width;
+                if (boxHeight) boxHeight.value = this.tempBoxCoords.height;
+
+                // Aggiorna anche i display dei valori
+                document.querySelectorAll('.range-value').forEach(display => {
+                    if (display.parentElement.querySelector('#box-x')) {
+                        display.textContent = this.tempBoxCoords.x + '%';
+                    } else if (display.parentElement.querySelector('#box-y')) {
+                        display.textContent = this.tempBoxCoords.y + '%';
+                    } else if (display.parentElement.querySelector('#box-width')) {
+                        display.textContent = this.tempBoxCoords.width + '%';
+                    } else if (display.parentElement.querySelector('#box-height')) {
+                        display.textContent = this.tempBoxCoords.height + '%';
+                    }
+                });
+            }, 100);
+        }
     }
 
     renderLoadImageParams() {

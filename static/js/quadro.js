@@ -1,6 +1,7 @@
 // ============================================================================
 // QUADRO VIEWER - VISUALIZZAZIONE FULLSCREEN QUADRI VIVENTI 
 // JavaScript per la visualizzazione immersiva dei quadri salvati
+// ALLINEATO CON create_paint.js per rendering identico
 // ============================================================================
 
 class QuadroViewer {
@@ -54,7 +55,7 @@ class QuadroViewer {
     async init() {
         try {
             this.setupCanvas();
-            this.setupHTTPPolling(); 
+            this.setupHTTPPolling();
             await this.loadQuadro();
             await this.preloadObjects();
             this.startRendering();
@@ -96,12 +97,12 @@ class QuadroViewer {
 
     setupHTTPPolling() {
         console.log('🔄 Inizializzazione HTTP Polling');
-        
+
         // Simula connessione immediata
         setTimeout(() => {
             this.connectionState = 'connected';
             this.updateConnectionStatus();
-            
+
             // Avvia polling se c'è un dispositivo
             if (this.quadroData && this.quadroData.device_id) {
                 this.startHTTPPolling(this.quadroData.device_id);
@@ -115,7 +116,7 @@ class QuadroViewer {
         }
 
         console.log(`📡 Avvio HTTP polling per dispositivo: ${deviceId}`);
-        
+
         this.pollingInterval = setInterval(() => {
             this.pollDeviceData(deviceId);
         }, this.pollingRate);
@@ -136,13 +137,13 @@ class QuadroViewer {
 
             if (response.ok) {
                 const deviceData = await response.json();
-                
+
                 // Controlla se i dati sono nuovi
                 const dataTimestamp = deviceData.timestamp || Date.now();
-                
+
                 if (dataTimestamp > this.lastDataUpdate) {
                     this.lastDataUpdate = dataTimestamp;
-                    
+
                     // Simula evento device_data_update
                     this.handleDeviceUpdate({
                         device_id: deviceId,
@@ -434,12 +435,12 @@ class QuadroViewer {
     // NUOVO: Metodo per limitare i log di debug
     debugLog(message) {
         const now = Date.now();
-        
+
         // Limita log uguali troppo frequenti
         if (now - this.lastLogTime < 1000) {
             return; // Skip log se è passato meno di 1 secondo
         }
-        
+
         if (this.debugLogCount < this.maxDebugLogs) {
             console.warn(message);
             this.debugLogCount++;
@@ -451,7 +452,7 @@ class QuadroViewer {
     }
 
     // ============================================================================
-    // RENDERING (IDENTICO A CREATE_PAINT)
+    // RENDERING (IDENTICO A CREATE_PAINT.JS)
     // ============================================================================
 
     startRendering() {
@@ -467,44 +468,161 @@ class QuadroViewer {
     renderFrame() {
         if (!this.ctx || !this.canvas) return;
 
-        // USA le dimensioni logiche invece di window.inner*
+        const canvas = this.canvas;
+        const ctx = this.ctx;
         const width = this.logicalWidth || window.innerWidth;
         const height = this.logicalHeight || window.innerHeight;
 
-        // Reset del filtro all'inizio di ogni frame
-        this.ctx.filter = 'none';
+        // CAMBIATO: Reset del filtro all'inizio di ogni frame (come in create_paint.js)
+        ctx.filter = 'none';
 
-        // Pulisce il canvas con sfondo nero
-        this.ctx.fillStyle = '#000000';
-        this.ctx.fillRect(0, 0, width, height);
+        // CAMBIATO: Pulisce il canvas con sfondo BIANCO (come in create_paint.js)
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
 
-        // Applica i trigger attivi
-        this.applyActiveTriggers(width, height);
+        // CAMBIATO: Applica i trigger attivi passando il context (come in create_paint.js)
+        this.applyActiveTriggers(ctx, width, height);
 
-        // Reset del filtro alla fine per evitare interferenze
-        this.ctx.filter = 'none';
+        // CAMBIATO: Reset del filtro alla fine per evitare interferenze (come in create_paint.js)
+        ctx.filter = 'none';
     }
 
-    applyActiveTriggers(width, height) {
-        if (!this.triggers) return 0;
+    // CAMBIATO: Ora passa il context come primo parametro (come in create_paint.js)
+    applyActiveTriggers(ctx, width, height) {
+        // Raccogli tutte le azioni attive organize per tipo
+        const activeActions = {
+            backgrounds: [],
+            objects: [],
+            filters: [],
+            images: []
+        };
 
-        let activeTriggersCount = 0;
-
+        // Verifica ogni trigger per ogni sensore
         Object.entries(this.triggers).forEach(([sensor, triggers]) => {
             const sensorValue = this.sensorValues[sensor];
 
-            triggers.forEach((trigger, triggerIndex) => {
+            triggers.forEach(trigger => {
                 if (this.isTriggerActive(trigger, sensorValue)) {
-                    activeTriggersCount++;
+                    trigger.actions.forEach(action => {
+                        const actionWithContext = {
+                            action,
+                            sensorValue,
+                            trigger,
+                            sensor
+                        };
 
-                    trigger.actions.forEach((action, actionIndex) => {
-                        this.executeAction(action, width, height, sensorValue, trigger);
+                        // Organizza per tipo
+                        switch (action.type) {
+                            case 'change-background':
+                                activeActions.backgrounds.push(actionWithContext);
+                                break;
+                            case 'add-objects':
+                            case 'add-svg':
+                                activeActions.objects.push(actionWithContext);
+                                break;
+                            case 'add-filter':
+                                activeActions.filters.push(actionWithContext);
+                                break;
+                            case 'load-image':
+                                activeActions.images.push(actionWithContext);
+                                break;
+                        }
                     });
                 }
             });
         });
 
-        return activeTriggersCount;
+        // Applica le azioni nell'ordine corretto:
+        // 1. Sfondi (solo il primo o combinati)
+        this.applyBackgroundActions(ctx, activeActions.backgrounds, width, height);
+
+        // 2. Immagini caricate
+        activeActions.images.forEach(({ action, sensorValue, trigger }) => {
+            this.executeAction(ctx, action, width, height, sensorValue, trigger);
+        });
+
+        // 3. Oggetti (tutti quelli attivi)
+        activeActions.objects.forEach(({ action, sensorValue, trigger }) => {
+            this.executeAction(ctx, action, width, height, sensorValue, trigger);
+        });
+
+        // 4. Filtri (combinati)
+        this.applyFilterActions(ctx, activeActions.filters, width, height);
+
+        return activeActions.backgrounds.length + activeActions.objects.length +
+            activeActions.filters.length + activeActions.images.length;
+    }
+    
+    applyFilterActions(ctx, filterActions, width, height) {
+        if (filterActions.length === 0) return;
+
+        // Combina tutti i filtri in una singola stringa
+        const filterStrings = [];
+
+        filterActions.forEach(({ action }) => {
+            const intensity = (action.intensity || 100) / 100;
+
+            switch (action.filter) {
+                case 'blur':
+                    filterStrings.push(`blur(${intensity * 5}px)`);
+                    break;
+                case 'brightness':
+                    filterStrings.push(`brightness(${intensity})`);
+                    break;
+                case 'contrast':
+                    filterStrings.push(`contrast(${intensity})`);
+                    break;
+                case 'saturation':
+                    filterStrings.push(`saturate(${intensity})`);
+                    break;
+                case 'hue-rotate':
+                    filterStrings.push(`hue-rotate(${intensity * 360}deg)`);
+                    break;
+                case 'sepia':
+                    filterStrings.push(`sepia(${intensity})`);
+                    break;
+                case 'grayscale':
+                    filterStrings.push(`grayscale(${intensity})`);
+                    break;
+                case 'invert':
+                    filterStrings.push(`invert(${intensity})`);
+                    break;
+            }
+        });
+
+        // Applica tutti i filtri combinati
+        if (filterStrings.length > 0) {
+            ctx.filter = filterStrings.join(' ');
+        }
+    }
+
+    applyBackgroundActions(ctx, backgroundActions, width, height) {
+        if (backgroundActions.length === 0) return;
+
+        if (backgroundActions.length === 1) {
+            // Un solo background - applica normalmente
+            const { action } = backgroundActions[0];
+            this.renderChangeBackgroundAction(ctx, action, width, height);
+        } else {
+            // Più background - combinali
+            backgroundActions.forEach(({ action }, index) => {
+                if (index === 0) {
+                    // Primo background - applica normalmente
+                    this.renderChangeBackgroundAction(ctx, action, width, height);
+                } else {
+                    // Background successivi - applica con overlay
+                    const modifiedAction = { ...action };
+                    const originalType = modifiedAction.backgroundType;
+
+                    // Forza overlay per i background successivi
+                    if (originalType === 'solid') {
+                        modifiedAction.backgroundType = 'overlay';
+                    }
+
+                    this.renderChangeBackgroundAction(ctx, modifiedAction, width, height);
+                }
+            });
+        }
     }
 
     isTriggerActive(trigger, value) {
@@ -522,97 +640,98 @@ class QuadroViewer {
         }
     }
 
-    executeAction(action, width, height, sensorValue, trigger = null) {
+    // CAMBIATO: Ora prende il context come primo parametro (come in create_paint.js)
+    executeAction(ctx, action, width, height, sensorValue, trigger = null) {
         switch (action.type) {
             case 'load-image':
-                this.renderLoadImageAction(action, width, height);
+                this.renderLoadImageAction(ctx, action, width, height);
                 break;
             case 'change-background':
-                this.renderChangeBackgroundAction(action, width, height);
+                this.renderChangeBackgroundAction(ctx, action, width, height);
                 break;
             case 'add-objects':
-            case 'add-svg': // Supporta entrambi i nomi per compatibilità
-                this.renderAddObjectsAction(action, width, height, sensorValue, trigger);
+            case 'add-svg':
+                this.renderAddObjectsAction(ctx, action, width, height, sensorValue, trigger);
                 break;
             case 'add-filter':
-                this.renderAddFilterAction(action, width, height);
+                this.renderAddFilterAction(ctx, action, width, height);
                 break;
         }
     }
 
-    // METODI DI RENDERING IDENTICI A CREATE_PAINT
+    // METODI DI RENDERING IDENTICI A CREATE_PAINT.JS
 
-    renderLoadImageAction(action, width, height) {
+    renderLoadImageAction(ctx, action, width, height) {
         const quantity = action.quantity || 1;
         const size = (action.size || 100) / 100 * Math.min(width, height) * 0.2;
         const opacity = (action.opacity || 100) / 100;
 
-        this.ctx.globalAlpha = opacity;
+        ctx.globalAlpha = opacity;
 
         for (let i = 0; i < quantity; i++) {
             const x = (action.x || 50) / 100 * width + (i * 30) % width;
             const y = (action.y || 50) / 100 * height + Math.sin(Date.now() * 0.001 + i) * 20;
 
-            this.ctx.save();
-            this.ctx.translate(x, y);
-            this.ctx.rotate((action.rotation || 0) * Math.PI / 180);
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate((action.rotation || 0) * Math.PI / 180);
 
-            this.ctx.fillStyle = '#4ecdc4';
-            this.ctx.fillRect(-size / 2, -size / 2, size, size);
+            ctx.fillStyle = '#4ecdc4';
+            ctx.fillRect(-size / 2, -size / 2, size, size);
 
-            this.ctx.restore();
+            ctx.restore();
         }
 
-        this.ctx.globalAlpha = 1;
+        ctx.globalAlpha = 1;
     }
 
-    renderChangeBackgroundAction(action, width, height) {
+    renderChangeBackgroundAction(ctx, action, width, height) {
         const type = action.backgroundType || 'solid';
 
         switch (type) {
             case 'solid':
-                this.ctx.fillStyle = action.color || '#ffffff';
-                this.ctx.fillRect(0, 0, width, height);
+                ctx.fillStyle = action.color || '#ffffff';
+                ctx.fillRect(0, 0, width, height);
                 break;
 
             case 'gradient':
-                const gradient = this.createGradient(action, width, height);
-                this.ctx.fillStyle = gradient;
-                this.ctx.fillRect(0, 0, width, height);
+                const gradient = this.createGradient(ctx, action, width, height);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, width, height);
                 break;
 
             case 'overlay':
-                this.ctx.fillStyle = action.color || '#ffffff';
-                this.ctx.globalAlpha = 0.5;
-                this.ctx.fillRect(0, 0, width, height);
-                this.ctx.globalAlpha = 1;
+                ctx.fillStyle = action.color || '#ffffff';
+                ctx.globalAlpha = 0.5;
+                ctx.fillRect(0, 0, width, height);
+                ctx.globalAlpha = 1;
                 break;
 
             case 'blend':
-                this.ctx.globalCompositeOperation = action.blendMode || 'multiply';
-                this.ctx.fillStyle = action.color || '#ffffff';
-                this.ctx.fillRect(0, 0, width, height);
-                this.ctx.globalCompositeOperation = 'source-over';
+                ctx.globalCompositeOperation = action.blendMode || 'multiply';
+                ctx.fillStyle = action.color || '#ffffff';
+                ctx.fillRect(0, 0, width, height);
+                ctx.globalCompositeOperation = 'source-over';
                 break;
         }
     }
 
-    createGradient(action, width, height) {
+    createGradient(ctx, action, width, height) {
         const direction = action.direction || 'vertical';
         let gradient;
 
         switch (direction) {
             case 'horizontal':
-                gradient = this.ctx.createLinearGradient(0, 0, width, 0);
+                gradient = ctx.createLinearGradient(0, 0, width, 0);
                 break;
             case 'diagonal':
-                gradient = this.ctx.createLinearGradient(0, 0, width, height);
+                gradient = ctx.createLinearGradient(0, 0, width, height);
                 break;
             case 'radial':
-                gradient = this.ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height) / 2);
+                gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height) / 2);
                 break;
             default:
-                gradient = this.ctx.createLinearGradient(0, 0, 0, height);
+                gradient = ctx.createLinearGradient(0, 0, 0, height);
         }
 
         gradient.addColorStop(0, action.color1 || '#667eea');
@@ -621,7 +740,7 @@ class QuadroViewer {
         return gradient;
     }
 
-    renderAddObjectsAction(action, width, height, sensorValue, trigger = null) {
+    renderAddObjectsAction(ctx, action, width, height, sensorValue, trigger = null) {
         const quantity = action.quantity || 5;
         const baseSize = (action.size || 100) / 100 * 30;
         const opacity = (action.opacity || 100) / 100;
@@ -631,10 +750,10 @@ class QuadroViewer {
         const dynamicSpeed = this.calculateDynamicSpeed(trigger, sensorValue, baseSpeed);
         const time = Date.now() * 0.001 * dynamicSpeed;
 
-        // Gestione coordinate del box migliorata
+        // Gestione coordinate del box (IDENTICO a create_paint.js)
         let boxX, boxY, boxWidth, boxHeight;
 
-        if (action.boxX !== undefined && action.boxY !== undefined && 
+        if (action.boxX !== undefined && action.boxY !== undefined &&
             action.boxWidth !== undefined && action.boxHeight !== undefined) {
             // Usa le coordinate salvate nell'azione con validazione
             boxX = Math.max(0, Math.min(100, action.boxX)) / 100 * width;
@@ -659,7 +778,7 @@ class QuadroViewer {
 
         const baseRotation = (action.rotation || 0) * Math.PI / 180;
 
-        this.ctx.globalAlpha = opacity;
+        ctx.globalAlpha = opacity;
 
         const actionSeed = this.getActionSeed(action);
 
@@ -677,7 +796,7 @@ class QuadroViewer {
             const intensity = Math.max(0, Math.min(1, sensorValue / 100));
             size *= (0.5 + intensity * 0.5);
 
-            // Applica animazioni
+            // Applica animazioni (IDENTICO a create_paint.js)
             switch (action.objectAnimation || action.svgAnimation) {
                 case 'float':
                     y += Math.sin(time + i) * 30;
@@ -708,7 +827,7 @@ class QuadroViewer {
                     x = ((x - boxX + time * 50) % boxWidth) + boxX;
                     break;
                 case 'fade':
-                    this.ctx.globalAlpha = opacity * (0.3 + 0.7 * Math.sin(time + i));
+                    ctx.globalAlpha = opacity * (0.3 + 0.7 * Math.sin(time + i));
                     break;
                 case 'morph':
                     size *= (0.7 + 0.6 * Math.sin(time * 0.5 + i));
@@ -717,7 +836,7 @@ class QuadroViewer {
                 case 'sparkle':
                     if (Math.sin(time * 3 + i) > 0.5) {
                         size *= 1.5;
-                        this.ctx.globalAlpha = opacity * Math.random();
+                        ctx.globalAlpha = opacity * Math.random();
                     }
                     break;
             }
@@ -726,48 +845,48 @@ class QuadroViewer {
             x = Math.max(boxX + size, Math.min(boxX + boxWidth - size, x));
             y = Math.max(boxY + size, Math.min(boxY + boxHeight - size, y));
 
-            this.ctx.save();
-            this.ctx.translate(x, y);
-            this.ctx.rotate(rotation);
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(rotation);
 
-            this.drawRealObject(this.ctx, objectFile, size);
+            this.drawRealObject(ctx, objectFile, size);
 
-            this.ctx.restore();
+            ctx.restore();
         }
 
-        this.ctx.globalAlpha = 1;
+        ctx.globalAlpha = 1;
     }
 
-    renderAddFilterAction(action, width, height) {
+    renderAddFilterAction(ctx, action, width, height) {
         const intensity = (action.intensity || 100) / 100;
 
         switch (action.filter) {
             case 'blur':
-                this.ctx.filter = `blur(${intensity * 5}px)`;
+                ctx.filter = `blur(${intensity * 5}px)`;
                 break;
             case 'brightness':
-                this.ctx.filter = `brightness(${intensity})`;
+                ctx.filter = `brightness(${intensity})`;
                 break;
             case 'contrast':
-                this.ctx.filter = `contrast(${intensity})`;
+                ctx.filter = `contrast(${intensity})`;
                 break;
             case 'saturation':
-                this.ctx.filter = `saturate(${intensity})`;
+                ctx.filter = `saturate(${intensity})`;
                 break;
             case 'hue-rotate':
-                this.ctx.filter = `hue-rotate(${intensity * 360}deg)`;
+                ctx.filter = `hue-rotate(${intensity * 360}deg)`;
                 break;
             case 'sepia':
-                this.ctx.filter = `sepia(${intensity})`;
+                ctx.filter = `sepia(${intensity})`;
                 break;
             case 'grayscale':
-                this.ctx.filter = `grayscale(${intensity})`;
+                ctx.filter = `grayscale(${intensity})`;
                 break;
             case 'invert':
-                this.ctx.filter = `invert(${intensity})`;
+                ctx.filter = `invert(${intensity})`;
                 break;
             default:
-                this.ctx.filter = 'none';
+                ctx.filter = 'none';
         }
     }
 
@@ -832,10 +951,10 @@ class QuadroViewer {
         }
 
         console.log('📡 Ricevuti dati ESP via HTTP:', data);
-        
+
         // Imposta flag per evitare interferenze con simulazione
         this.isReceivingRealData = true;
-        
+
         // Ferma la simulazione se attiva
         if (this.simulationInterval) {
             clearInterval(this.simulationInterval);
@@ -845,7 +964,7 @@ class QuadroViewer {
 
         // Aggiorna i valori sensori con i dati reali
         const oldValues = { ...this.sensorValues };
-        
+
         this.sensorValues = {
             temperature: parseFloat(data.data.temperature) || this.sensorValues.temperature,
             humidity: parseFloat(data.data.humidity) || this.sensorValues.humidity,
@@ -871,7 +990,7 @@ class QuadroViewer {
         }
 
         console.log('🎲 Avvio simulazione sensori');
-        
+
         // Aggiorna immediatamente i display
         this.updateSensorDisplay();
 
@@ -1144,7 +1263,7 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
         console.log('🎯 Tutti i trigger forzati attivi:', window.quadroViewer.sensorValues);
     };
 
-    window.resetDebugLogs = function() {
+    window.resetDebugLogs = function () {
         if (window.quadroViewer) {
             window.quadroViewer.debugLogCount = 0;
             window.quadroViewer.lastLogTime = 0;
@@ -1164,6 +1283,6 @@ document.addEventListener('DOMContentLoaded', function () {
         quadroId = path.split('/').pop();
     }
 
-    console.log('🚀 Inizializzazione QuadroViewer (HTTP Mode) per ID:', quadroId);
+    console.log('🚀 Inizializzazione QuadroViewer (ALLINEATO) per ID:', quadroId);
     window.quadroViewer = new QuadroViewer(quadroId);
 });
